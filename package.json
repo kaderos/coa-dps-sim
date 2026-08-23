@@ -1,0 +1,20 @@
+{
+  "name": "coa-dps-sim",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Browser DPS simulator for Conquest of Azeroth Felsworn Infernal, inspired by wowsims/classic.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "parse-logs": "node scripts/parse-logs.mjs",
+    "ingest": "node scripts/ingest-bisbeard.mjs",
+    "fit-spells": "node scripts/fit-spells.mjs",
+    "clone-wowsims": "git clone --depth 1 https://github.com/wowsims/classic.git vendor/wowsims-classic"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^6.0.7"
+  }
+}

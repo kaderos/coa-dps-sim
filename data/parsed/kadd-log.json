@@ -1,0 +1,1156 @@
+{
+  "player": "Kadd",
+  "fireballSpellId": 501288,
+  "files": [
+    {
+      "file": "2026-08-15-11.49.24 WoWCombatLog.txt",
+      "events": 2114155,
+      "damageEvents": 0,
+      "totalDamage": 0
+    },
+    {
+      "file": "2026-08-15-18.10.42 WoWCombatLog.txt",
+      "events": 1328645,
+      "damageEvents": 0,
+      "totalDamage": 0
+    },
+    {
+      "file": "2026-08-16-09.53.39 WoWCombatLog.txt",
+      "events": 1796055,
+      "damageEvents": 22011,
+      "totalDamage": 42723211
+    },
+    {
+      "file": "2026-08-18-17.26.49 WoWCombatLog.txt",
+      "events": 1484,
+      "damageEvents": 0,
+      "totalDamage": 0
+    },
+    {
+      "file": "2026-08-18-18.51.03 WoWCombatLog.txt",
+      "events": 665996,
+      "damageEvents": 11648,
+      "totalDamage": 21279372
+    },
+    {
+      "file": "2026-08-19-20.38.06 WoWCombatLog.txt",
+      "events": 1284,
+      "damageEvents": 0,
+      "totalDamage": 0
+    },
+    {
+      "file": "2026-08-20-18.26.27 WoWCombatLog.txt",
+      "events": 951243,
+      "damageEvents": 11822,
+      "totalDamage": 29973036
+    }
+  ],
+  "durationSec": 14545.13900001347,
+  "totalDamage": 93975619,
+  "dps": 6460.963968781114,
+  "spells": {
+    "0": {
+      "id": 0,
+      "name": "Melee",
+      "infernal": false,
+      "count": 29,
+      "total": 10252,
+      "hits": 13,
+      "crits": 16,
+      "ticks": 0,
+      "critRate": 0.5517241379310345,
+      "avgHit": 118.76923076923077,
+      "avgCrit": 544.25,
+      "avg": 353.51724137931035,
+      "min": 12,
+      "max": 869,
+      "critMultiplier": 4.582415803108808,
+      "share": 0.00010909212526708656
+    },
+    "20232": {
+      "id": 20232,
+      "name": "Stagger",
+      "infernal": false,
+      "count": 87,
+      "total": 113,
+      "hits": 87,
+      "crits": 0,
+      "ticks": 87,
+      "critRate": 0,
+      "avgHit": 1.2988505747126438,
+      "avgCrit": 0,
+      "avg": 1.2988505747126438,
+      "min": 1,
+      "max": 2,
+      "critMultiplier": 1.5,
+      "share": 0.000001202439539131953
+    },
+    "413305": {
+      "id": 413305,
+      "name": "Essence of the Firelord",
+      "infernal": false,
+      "count": 784,
+      "total": 1290487,
+      "hits": 337,
+      "crits": 447,
+      "ticks": 0,
+      "critRate": 0.5701530612244898,
+      "avgHit": 951.759643916914,
+      "avgCrit": 2169.44966442953,
+      "avg": 1646.029336734694,
+      "min": 4,
+      "max": 7870,
+      "critMultiplier": 2.2794091746749006,
+      "share": 0.01373214684544935
+    },
+    "501288": {
+      "id": 501288,
+      "name": "Fel Fireball",
+      "infernal": true,
+      "count": 3774,
+      "total": 11756695,
+      "hits": 1610,
+      "crits": 2164,
+      "ticks": 0,
+      "critRate": 0.5733969263381028,
+      "avgHit": 1743.7509316770186,
+      "avgCrit": 4135.515711645102,
+      "avg": 3115.181505034446,
+      "min": 7,
+      "max": 21256,
+      "critMultiplier": 2.3716206463430245,
+      "share": 0.12510367183641535
+    },
+    "501298": {
+      "id": 501298,
+      "name": "Ruin",
+      "infernal": true,
+      "count": 2226,
+      "total": 26136666,
+      "hits": 465,
+      "crits": 1761,
+      "ticks": 0,
+      "critRate": 0.7911051212938005,
+      "avgHit": 6222.94623655914,
+      "avgCrit": 13198.74843838728,
+      "avg": 11741.539083557951,
+      "min": 37,
+      "max": 61381,
+      "critMultiplier": 2.120980631464571,
+      "share": 0.2781217753936795
+    },
+    "501321": {
+      "id": 501321,
+      "name": "Sargeron Smite",
+      "infernal": true,
+      "count": 2973,
+      "total": 11279978,
+      "hits": 262,
+      "crits": 2711,
+      "ticks": 0,
+      "critRate": 0.9118735284224689,
+      "avgHit": 1592.1335877862596,
+      "avgCrit": 4006.9490962744376,
+      "avg": 3794.139926000673,
+      "min": 8,
+      "max": 21298,
+      "critMultiplier": 2.516716641752276,
+      "share": 0.1200308986525537
+    },
+    "520693": {
+      "id": 520693,
+      "name": "Felwrath",
+      "infernal": true,
+      "count": 2399,
+      "total": 6933871,
+      "hits": 1093,
+      "crits": 1306,
+      "ticks": 0,
+      "critRate": 0.5443934972905378,
+      "avgHit": 1804.0256175663312,
+      "avgCrit": 3799.4418070444103,
+      "avg": 2890.3172155064613,
+      "min": 12,
+      "max": 19066,
+      "critMultiplier": 2.106090828227782,
+      "share": 0.0737837225631895
+    },
+    "520832": {
+      "id": 520832,
+      "name": "Felwrath",
+      "infernal": false,
+      "count": 4841,
+      "total": 4095292,
+      "hits": 4841,
+      "crits": 0,
+      "ticks": 4841,
+      "critRate": 0,
+      "avgHit": 845.9599256351993,
+      "avgCrit": 0,
+      "avg": 845.9599256351993,
+      "min": 1,
+      "max": 5464,
+      "critMultiplier": 1.5,
+      "share": 0.043578239160095344
+    },
+    "524623": {
+      "id": 524623,
+      "name": "Lucifron's Rage",
+      "infernal": false,
+      "count": 1317,
+      "total": 1844857,
+      "hits": 372,
+      "crits": 945,
+      "ticks": 0,
+      "critRate": 0.7175398633257403,
+      "avgHit": 729.5430107526881,
+      "avgCrit": 1665.0444444444445,
+      "avg": 1400.802581624905,
+      "min": 3,
+      "max": 6443,
+      "critMultiplier": 2.282311556554528,
+      "share": 0.019631230095967764
+    },
+    "537252": {
+      "id": 537252,
+      "name": "Neptulon's Wrath",
+      "infernal": false,
+      "count": 155,
+      "total": 429842,
+      "hits": 65,
+      "crits": 90,
+      "ticks": 0,
+      "critRate": 0.5806451612903226,
+      "avgHit": 1503.5076923076922,
+      "avgCrit": 3690.1555555555556,
+      "avg": 2773.174193548387,
+      "min": 852,
+      "max": 11267,
+      "critMultiplier": 2.454364267263334,
+      "share": 0.004573973596279265
+    },
+    "556503": {
+      "id": 556503,
+      "name": "Sunder",
+      "infernal": false,
+      "count": 19,
+      "total": 4413,
+      "hits": 19,
+      "crits": 0,
+      "ticks": 19,
+      "critRate": 0,
+      "avgHit": 232.26315789473685,
+      "avgCrit": 0,
+      "avg": 232.26315789473685,
+      "min": 212,
+      "max": 297,
+      "critMultiplier": 1.5,
+      "share": 0.00004695898837335671
+    },
+    "560284": {
+      "id": 560284,
+      "name": "Infernal",
+      "infernal": true,
+      "count": 407,
+      "total": 759487,
+      "hits": 220,
+      "crits": 187,
+      "ticks": 0,
+      "critRate": 0.4594594594594595,
+      "avgHit": 1196.6545454545455,
+      "avgCrit": 2653.5989304812833,
+      "avg": 1866.061425061425,
+      "min": 8,
+      "max": 11293,
+      "critMultiplier": 2.2175146039940223,
+      "share": 0.008081745117316014
+    },
+    "573273": {
+      "id": 573273,
+      "name": "Purify Blood",
+      "infernal": false,
+      "count": 57,
+      "total": 31290,
+      "hits": 26,
+      "crits": 31,
+      "ticks": 0,
+      "critRate": 0.543859649122807,
+      "avgHit": 349.2692307692308,
+      "avgCrit": 716.4193548387096,
+      "avg": 548.9473684210526,
+      "min": 288,
+      "max": 853,
+      "critMultiplier": 2.0511951575604503,
+      "share": 0.0003329587007029983
+    },
+    "582764": {
+      "id": 582764,
+      "name": "Inferno Barrier",
+      "infernal": false,
+      "count": 8,
+      "total": 2245,
+      "hits": 8,
+      "crits": 0,
+      "ticks": 0,
+      "critRate": 0,
+      "avgHit": 280.625,
+      "avgCrit": 0,
+      "avg": 280.625,
+      "min": 165,
+      "max": 939,
+      "critMultiplier": 1.5,
+      "share": 0.000023889174914612692
+    },
+    "706420": {
+      "id": 706420,
+      "name": "Bane of Chaos",
+      "infernal": false,
+      "count": 16,
+      "total": 13636,
+      "hits": 10,
+      "crits": 6,
+      "ticks": 16,
+      "critRate": 0.375,
+      "avgHit": 602.9,
+      "avgCrit": 1267.8333333333333,
+      "avg": 852.25,
+      "min": 20,
+      "max": 1907,
+      "critMultiplier": 2.102891579587549,
+      "share": 0.0001451014650938346
+    },
+    "712399": {
+      "id": 712399,
+      "name": "Sunder",
+      "infernal": false,
+      "count": 64,
+      "total": 10967,
+      "hits": 45,
+      "crits": 19,
+      "ticks": 0,
+      "critRate": 0.296875,
+      "avgHit": 117.95555555555555,
+      "avgCrit": 297.8421052631579,
+      "avg": 171.359375,
+      "min": 89,
+      "max": 510,
+      "critMultiplier": 2.525036687423155,
+      "share": 0.00011670048164300998
+    },
+    "802676": {
+      "id": 802676,
+      "name": "Chaos",
+      "infernal": true,
+      "count": 2104,
+      "total": 5110862,
+      "hits": 731,
+      "crits": 1373,
+      "ticks": 0,
+      "critRate": 0.6525665399239544,
+      "avgHit": 1312.6949384404925,
+      "avgCrit": 3023.512017479971,
+      "avg": 2429.116920152091,
+      "min": 7,
+      "max": 18742,
+      "critMultiplier": 2.3032861093164287,
+      "share": 0.054384978299531074
+    },
+    "802678": {
+      "id": 802678,
+      "name": "Felstrike",
+      "infernal": true,
+      "count": 13830,
+      "total": 4359419,
+      "hits": 13830,
+      "crits": 0,
+      "ticks": 13830,
+      "critRate": 0,
+      "avgHit": 315.2146782357195,
+      "avgCrit": 0,
+      "avg": 315.2146782357195,
+      "min": 1,
+      "max": 1778,
+      "critMultiplier": 1.5,
+      "share": 0.04638882985170867
+    },
+    "803178": {
+      "id": 803178,
+      "name": "Envenomed Weapons",
+      "infernal": false,
+      "count": 973,
+      "total": 324096,
+      "hits": 526,
+      "crits": 447,
+      "ticks": 0,
+      "critRate": 0.45940390544707094,
+      "avgHit": 218.66349809885932,
+      "avgCrit": 467.73825503355704,
+      "avg": 333.0894141829394,
+      "min": 1,
+      "max": 2440,
+      "critMultiplier": 2.1390778941169653,
+      "share": 0.003448724290924862
+    },
+    "803287": {
+      "id": 803287,
+      "name": "Bloodthistle",
+      "infernal": false,
+      "count": 310,
+      "total": 41735,
+      "hits": 310,
+      "crits": 0,
+      "ticks": 0,
+      "critRate": 0,
+      "avgHit": 134.6290322580645,
+      "avgCrit": 0,
+      "avg": 134.6290322580645,
+      "min": 6,
+      "max": 1058,
+      "critMultiplier": 1.5,
+      "share": 0.00044410455013869075
+    },
+    "803467": {
+      "id": 803467,
+      "name": "Sargeron Smite (Inner Demon)",
+      "infernal": true,
+      "count": 2953,
+      "total": 12199294,
+      "hits": 2953,
+      "crits": 0,
+      "ticks": 0,
+      "critRate": 0,
+      "avgHit": 4131.152726041314,
+      "avgCrit": 0,
+      "avg": 4131.152726041314,
+      "min": 8,
+      "max": 21298,
+      "critMultiplier": 1.5,
+      "share": 0.1298133934079221
+    },
+    "804372": {
+      "id": 804372,
+      "name": "Self Damage",
+      "infernal": false,
+      "count": 594,
+      "total": 204481,
+      "hits": 594,
+      "crits": 0,
+      "ticks": 0,
+      "critRate": 0,
+      "avgHit": 344.24410774410774,
+      "avgCrit": 0,
+      "avg": 344.24410774410774,
+      "min": 7,
+      "max": 515,
+      "critMultiplier": 1.5,
+      "share": 0.002175894153993282
+    },
+    "804766": {
+      "id": 804766,
+      "name": "Betrayer's Blow",
+      "infernal": false,
+      "count": 20,
+      "total": 14116,
+      "hits": 13,
+      "crits": 7,
+      "ticks": 0,
+      "critRate": 0.35,
+      "avgHit": 387.9230769230769,
+      "avgCrit": 1296.142857142857,
+      "avg": 705.8,
+      "min": 281,
+      "max": 1438,
+      "critMultiplier": 3.3412367921588624,
+      "share": 0.0001502091728706783
+    },
+    "805748": {
+      "id": 805748,
+      "name": "Ruin",
+      "infernal": false,
+      "count": 5526,
+      "total": 7086262,
+      "hits": 5526,
+      "crits": 0,
+      "ticks": 5526,
+      "critRate": 0,
+      "avgHit": 1282.3492580528412,
+      "avgCrit": 0,
+      "avg": 1282.3492580528412,
+      "min": 4,
+      "max": 6138,
+      "critMultiplier": 1.5,
+      "share": 0.07540532401281656
+    },
+    "2118360": {
+      "id": 2118360,
+      "name": "Flare Flash",
+      "infernal": false,
+      "count": 8,
+      "total": 24966,
+      "hits": 4,
+      "crits": 4,
+      "ticks": 0,
+      "critRate": 0.5,
+      "avgHit": 1731.75,
+      "avgCrit": 4509.75,
+      "avg": 3120.75,
+      "min": 1576,
+      "max": 5253,
+      "critMultiplier": 2.604157644001732,
+      "share": 0.0002656646507430826
+    },
+    "2118624": {
+      "id": 2118624,
+      "name": "Poisoned Blood",
+      "infernal": false,
+      "count": 7,
+      "total": 10297,
+      "hits": 3,
+      "crits": 4,
+      "ticks": 0,
+      "critRate": 0.5714285714285714,
+      "avgHit": 881.6666666666666,
+      "avgCrit": 1913,
+      "avg": 1471,
+      "min": 822,
+      "max": 2009,
+      "critMultiplier": 2.1697542533081284,
+      "share": 0.00010957097287116566
+    }
+  },
+  "auras": {
+    "Demonfire Pact": {
+      "applications": 510,
+      "totalSec": 6135.073000002652
+    },
+    "Doomstride": {
+      "applications": 307,
+      "totalSec": 24579.46199997142
+    },
+    "Greater Man'ari Intuition": {
+      "applications": 213,
+      "totalSec": 4550.762999996543
+    },
+    "Hateforged Barrier": {
+      "applications": 176,
+      "totalSec": 590.5170000195503
+    },
+    "Felfury": {
+      "applications": 12065,
+      "totalSec": 4487.563999921083
+    },
+    "Felwracked": {
+      "applications": 2564,
+      "totalSec": 5747.409000039101
+    },
+    "Spellbound Demonic Rune": {
+      "applications": 310,
+      "totalSec": 3136.112000014633
+    },
+    "Essence of the Firelord": {
+      "applications": 1643,
+      "totalSec": 4928.218000032008
+    },
+    "Inner Demon": {
+      "applications": 5934,
+      "totalSec": 2430.8269999846816
+    },
+    "Fel Eruption": {
+      "applications": 283,
+      "totalSec": 7064.319999996573
+    },
+    "Felstrike": {
+      "applications": 7205,
+      "totalSec": 1616.7519999593496
+    },
+    "Felforged": {
+      "applications": 1687,
+      "totalSec": 6330.05099998042
+    },
+    "Chaotic": {
+      "applications": 3312,
+      "totalSec": 4679.19399997592
+    },
+    "Fragment of Malice": {
+      "applications": 5029,
+      "totalSec": 3389.3269999995828
+    },
+    "Felwrath": {
+      "applications": 1680,
+      "totalSec": 263.75099997222424
+    },
+    "Felshock": {
+      "applications": 3968,
+      "totalSec": 1834.004999998957
+    },
+    "Arcane Artillery": {
+      "applications": 645,
+      "totalSec": 9634.777999937534
+    },
+    "Born in Blood": {
+      "applications": 349,
+      "totalSec": 277.7669999971986
+    },
+    "Bane of Fire": {
+      "applications": 520,
+      "totalSec": 4125.165000021458
+    },
+    "Ruin": {
+      "applications": 2110,
+      "totalSec": 4681.052000042051
+    },
+    "Blood of Mannoroth": {
+      "applications": 39,
+      "totalSec": 788.7309999987483
+    },
+    "Reckoning": {
+      "applications": 271,
+      "totalSec": 124.70599999651313
+    },
+    "Annihilation": {
+      "applications": 164,
+      "totalSec": 750.818999979645
+    },
+    "Potion of Spell Power": {
+      "applications": 6,
+      "totalSec": 120.80000000074506
+    },
+    "Illidan's Guile": {
+      "applications": 45,
+      "totalSec": 120.07699999958277
+    },
+    "Infernal": {
+      "applications": 313,
+      "totalSec": 192.72799999639392
+    },
+    "Man'ari Intuition": {
+      "applications": 8,
+      "totalSec": 4983.519000001252
+    },
+    "Spellbreak": {
+      "applications": 20,
+      "totalSec": 103.3830000013113
+    },
+    "Blur": {
+      "applications": 9,
+      "totalSec": 56.25800000876188
+    },
+    "Chaos Rush": {
+      "applications": 106,
+      "totalSec": 48.296999990940094
+    },
+    "Vengeful Pact": {
+      "applications": 202,
+      "totalSec": 892.3879999965429
+    },
+    "Betrayer's Blow": {
+      "applications": 20,
+      "totalSec": 26.056000005453825
+    },
+    "Bane of Chaos": {
+      "applications": 5,
+      "totalSec": 84.17900000140071
+    },
+    "Flare Flash": {
+      "applications": 8,
+      "totalSec": 13.642000000923872
+    },
+    "Shadowmeld": {
+      "applications": 10,
+      "totalSec": 10.404999997466803
+    },
+    "Delusions of Jin'do": {
+      "applications": 14,
+      "totalSec": 589.9919999949634
+    },
+    "Cripple": {
+      "applications": 6,
+      "totalSec": 2.013000000268221
+    },
+    "Felbane": {
+      "applications": 2,
+      "totalSec": 7.044999998062849
+    },
+    "Manafeed": {
+      "applications": 2,
+      "totalSec": 3.49100000038743
+    },
+    "Keeper's Scroll: Gathering Speed": {
+      "applications": 6,
+      "totalSec": 166.05899999663234
+    },
+    "Keeper's Scroll: Eonar": {
+      "applications": 37,
+      "totalSec": 3408.9029999896884
+    },
+    "PvE Mode": {
+      "applications": 7,
+      "totalSec": 1062.3869999982417
+    },
+    "Keeper's Scroll: Norgannon": {
+      "applications": 38,
+      "totalSec": 1139.9709999896586
+    },
+    "Keeper's Scroll: Golganneth": {
+      "applications": 32,
+      "totalSec": 1104.0289999991655
+    },
+    "Keeper's Scroll: Aggramar": {
+      "applications": 29,
+      "totalSec": 2211.7010000012815
+    },
+    "Legionfel Pact": {
+      "applications": 1590,
+      "totalSec": 11694.852999959141
+    },
+    "Rest": {
+      "applications": 13,
+      "totalSec": 473.7369999922812
+    },
+    "Well Fed": {
+      "applications": 25,
+      "totalSec": 6241.679999988526
+    },
+    "Dilluted Flask of the Kirin Tor": {
+      "applications": 1,
+      "totalSec": 7205.247999999672
+    },
+    "Keeper's Scroll: Crafting Speed": {
+      "applications": 24,
+      "totalSec": 2163.4699999950826
+    },
+    "Keeper's Scroll: Khaz'goroth": {
+      "applications": 32,
+      "totalSec": 1178.282999996096
+    },
+    "Slayer's Pact": {
+      "applications": 8,
+      "totalSec": 15.451999999582767
+    },
+    "Greater Illidari Intuition": {
+      "applications": 238,
+      "totalSec": 2937.8079999908805
+    },
+    "Sleep": {
+      "applications": 1,
+      "totalSec": 3.3220000006258488
+    },
+    "Skull of Gul'dan": {
+      "applications": 35,
+      "totalSec": 351.0119999907911
+    },
+    "Sunder": {
+      "applications": 51,
+      "totalSec": 11.768999997526407
+    },
+    "Spirit": {
+      "applications": 5,
+      "totalSec": 2902.597000002861
+    },
+    "Distilled Flask of Manifesting Power": {
+      "applications": 1,
+      "totalSec": 7200.004999998957
+    },
+    "Whispers of the Pit": {
+      "applications": 1,
+      "totalSec": 1.2030000016093254
+    },
+    "Well Fed - Fused Wizard Wontons": {
+      "applications": 3,
+      "totalSec": 205.43600000068545
+    }
+  },
+  "casts": {
+    "7720": {
+      "id": 7720,
+      "name": "Ritual of Summoning",
+      "starts": 0,
+      "success": 10,
+      "castTimeHintSec": 0
+    },
+    "12177": {
+      "id": 12177,
+      "name": "Spirit",
+      "starts": 0,
+      "success": 5,
+      "castTimeHintSec": 0
+    },
+    "17524": {
+      "id": 17524,
+      "name": "Potion of Spell Power",
+      "starts": 0,
+      "success": 6,
+      "castTimeHintSec": 0
+    },
+    "17534": {
+      "id": 17534,
+      "name": "Healing Potion",
+      "starts": 0,
+      "success": 5,
+      "castTimeHintSec": 0
+    },
+    "25122": {
+      "id": 25122,
+      "name": "Brilliant Wizard Oil",
+      "starts": 5,
+      "success": 0,
+      "castTimeHintSec": 2
+    },
+    "58984": {
+      "id": 58984,
+      "name": "Shadowmeld",
+      "starts": 0,
+      "success": 10,
+      "castTimeHintSec": 0
+    },
+    "79558": {
+      "id": 79558,
+      "name": "Beastmaster's Whistle: Deviate Venomwing",
+      "starts": 0,
+      "success": 1,
+      "castTimeHintSec": 0
+    },
+    "117608": {
+      "id": 117608,
+      "name": "Portal Effect: Auberdine",
+      "starts": 0,
+      "success": 1,
+      "castTimeHintSec": 0
+    },
+    "500423": {
+      "id": 500423,
+      "name": "Chaos Rush",
+      "starts": 0,
+      "success": 106,
+      "castTimeHintSec": 0
+    },
+    "501288": {
+      "id": 501288,
+      "name": "Fel Fireball",
+      "starts": 3797,
+      "success": 159,
+      "castTimeHintSec": 2.277
+    },
+    "501298": {
+      "id": 501298,
+      "name": "Ruin",
+      "starts": 44,
+      "success": 2256,
+      "castTimeHintSec": 0
+    },
+    "501321": {
+      "id": 501321,
+      "name": "Sargeron Smite",
+      "starts": 0,
+      "success": 2982,
+      "castTimeHintSec": 0
+    },
+    "520693": {
+      "id": 520693,
+      "name": "Felwrath",
+      "starts": 445,
+      "success": 0,
+      "castTimeHintSec": 2
+    },
+    "523483": {
+      "id": 523483,
+      "name": "Man'ari Intuition",
+      "starts": 0,
+      "success": 8,
+      "castTimeHintSec": 0
+    },
+    "523495": {
+      "id": 523495,
+      "name": "Greater Man'ari Intuition",
+      "starts": 0,
+      "success": 22,
+      "castTimeHintSec": 0
+    },
+    "525001": {
+      "id": 525001,
+      "name": "Felbane",
+      "starts": 0,
+      "success": 5,
+      "castTimeHintSec": 0
+    },
+    "535595": {
+      "id": 535595,
+      "name": "Fel Rift: Stormwind",
+      "starts": 2,
+      "success": 0,
+      "castTimeHintSec": 2
+    },
+    "542245": {
+      "id": 542245,
+      "name": "Portal Effect: Felsworn Stormwind",
+      "starts": 0,
+      "success": 2,
+      "castTimeHintSec": 0
+    },
+    "552213": {
+      "id": 552213,
+      "name": "Manafeed",
+      "starts": 0,
+      "success": 1,
+      "castTimeHintSec": 0
+    },
+    "560284": {
+      "id": 560284,
+      "name": "Infernal",
+      "starts": 0,
+      "success": 76,
+      "castTimeHintSec": 0
+    },
+    "572414": {
+      "id": 572414,
+      "name": "Major Rejuvenating Mojo",
+      "starts": 0,
+      "success": 1,
+      "castTimeHintSec": 0
+    },
+    "578345": {
+      "id": 578345,
+      "name": "Blur",
+      "starts": 0,
+      "success": 9,
+      "castTimeHintSec": 0
+    },
+    "680308": {
+      "id": 680308,
+      "name": "Greater Illidari Intuition",
+      "starts": 0,
+      "success": 18,
+      "castTimeHintSec": 0
+    },
+    "704371": {
+      "id": 704371,
+      "name": "Cripple",
+      "starts": 0,
+      "success": 1,
+      "castTimeHintSec": 0
+    },
+    "705121": {
+      "id": 705121,
+      "name": "Sunder",
+      "starts": 0,
+      "success": 3,
+      "castTimeHintSec": 0
+    },
+    "706420": {
+      "id": 706420,
+      "name": "Bane of Chaos",
+      "starts": 0,
+      "success": 5,
+      "castTimeHintSec": 0
+    },
+    "707527": {
+      "id": 707527,
+      "name": "Hateforged Barrier",
+      "starts": 0,
+      "success": 73,
+      "castTimeHintSec": 0
+    },
+    "707901": {
+      "id": 707901,
+      "name": "Bane of Fire",
+      "starts": 0,
+      "success": 527,
+      "castTimeHintSec": 0
+    },
+    "777003": {
+      "id": 777003,
+      "name": "Stone of Retreat: Stormwind",
+      "starts": 4,
+      "success": 0,
+      "castTimeHintSec": 2
+    },
+    "800031": {
+      "id": 800031,
+      "name": "Demonfire Pact",
+      "starts": 0,
+      "success": 4,
+      "castTimeHintSec": 0
+    },
+    "800203": {
+      "id": 800203,
+      "name": "Felbreak",
+      "starts": 20,
+      "success": 0,
+      "castTimeHintSec": 2
+    },
+    "800225": {
+      "id": 800225,
+      "name": "Skull of Gul'dan",
+      "starts": 0,
+      "success": 35,
+      "castTimeHintSec": 0
+    },
+    "802058": {
+      "id": 802058,
+      "name": "Reckoning",
+      "starts": 0,
+      "success": 45,
+      "castTimeHintSec": 0
+    },
+    "802075": {
+      "id": 802075,
+      "name": "Blood of Mannoroth",
+      "starts": 0,
+      "success": 39,
+      "castTimeHintSec": 0
+    },
+    "803885": {
+      "id": 803885,
+      "name": "Vengeful Pact",
+      "starts": 0,
+      "success": 2,
+      "castTimeHintSec": 0
+    },
+    "803904": {
+      "id": 803904,
+      "name": "Annihilation",
+      "starts": 0,
+      "success": 164,
+      "castTimeHintSec": 0
+    },
+    "804052": {
+      "id": 804052,
+      "name": "Eye of Archimonde",
+      "starts": 0,
+      "success": 8,
+      "castTimeHintSec": 0
+    },
+    "804216": {
+      "id": 804216,
+      "name": "Inner Demon",
+      "starts": 0,
+      "success": 439,
+      "castTimeHintSec": 0
+    },
+    "804764": {
+      "id": 804764,
+      "name": "Legionfel Pact",
+      "starts": 0,
+      "success": 4,
+      "castTimeHintSec": 0
+    },
+    "805235": {
+      "id": 805235,
+      "name": "Whispers of the Pit",
+      "starts": 0,
+      "success": 2,
+      "castTimeHintSec": 0
+    },
+    "806109": {
+      "id": 806109,
+      "name": "Illidan's Guile",
+      "starts": 0,
+      "success": 15,
+      "castTimeHintSec": 0
+    },
+    "968436": {
+      "id": 968436,
+      "name": "Distilled Flask of Manifesting Power",
+      "starts": 0,
+      "success": 1,
+      "castTimeHintSec": 0
+    },
+    "968442": {
+      "id": 968442,
+      "name": "Dilluted Flask of the Kirin Tor",
+      "starts": 0,
+      "success": 1,
+      "castTimeHintSec": 0
+    }
+  },
+  "alc": {
+    "chunkCount": 27095,
+    "snapshotCount": 13211,
+    "decodedOk": 0,
+    "decodeErrors": [
+      {
+        "id": "F:c2_1786814786-2542n7eg6qhb_b8",
+        "error": "Error: incorrect header check"
+      },
+      {
+        "id": "F:c2_1786814786-2542n7eg6qhb_b9",
+        "error": "Error: incorrect header check"
+      },
+      {
+        "id": "F:c2_1786814786-2542n7eg6qhb_ba",
+        "error": "Error: incorrect header check"
+      },
+      {
+        "id": "F:c2_1786814786-2542n7eg6qhb_bb",
+        "error": "Error: incorrect header check"
+      },
+      {
+        "id": "F:c2_1786814786-2542n7eg6qhb_bc",
+        "error": "Error: incorrect header check"
+      },
+      {
+        "id": "F:c2_1786814786-2542n7eg6qhb_bd",
+        "error": "Error: incorrect header check"
+      },
+      {
+        "id": "F:c2_1786814786-2542n7eg6qhb_be",
+        "error": "Error: incorrect header check"
+      },
+      {
+        "id": "F:c2_1786814786-2542n7eg6qhb_bf",
+        "error": "Error: incorrect header check"
+      },
+      {
+        "id": "F:c2_1786814786-2542n7eg6qhb_bg",
+        "error": "Error: incorrect header check"
+      },
+      {
+        "id": "F:c2_1786814786-2542n7eg6qhb_bh",
+        "error": "Error: incorrect header check"
+      },
+      {
+        "id": "F:c2_1786814786-2542n7eg6qhb_bi",
+        "error": "Error: incorrect header check"
+      },
+      {
+        "id": "F:c2_1786814786-2542n7eg6qhb_bj",
+        "error": "Error: incorrect header check"
+      },
+      {
+        "id": "F:c2_1786814786-2542n7eg6qhb_bk",
+        "error": "Error: incorrect header check"
+      },
+      {
+        "id": "F:c2_1786814786-2542n7eg6qhb_bl",
+        "error": "Error: incorrect header check"
+      },
+      {
+        "id": "F:c2_1786814786-2542n7eg6qhb_bm",
+        "error": "Error: incorrect header check"
+      },
+      {
+        "id": "F:c2_1786814786-2542n7eg6qhb_bn",
+        "error": "Error: incorrect header check"
+      },
+      {
+        "id": "F:c2_1786814786-2542n7eg6qhb_bo",
+        "error": "Error: incorrect header check"
+      },
+      {
+        "id": "F:c2_1786814786-2542n7eg6qhb_bp",
+        "error": "Error: incorrect header check"
+      },
+      {
+        "id": "F:c2_1786814786-2542n7eg6qhb_bq",
+        "error": "Error: incorrect header check"
+      },
+      {
+        "id": "F:c2_1786814786-2542n7eg6qhb_br",
+        "error": "Error: incorrect header check"
+      }
+    ],
+    "extractedItemIds": [],
+    "samplePreviews": [],
+    "note": "ALC payloads are LibDeflate/AceSerializer; item IDs are extracted when inflate yields text. Gear catalog still comes from the Bisbeard dump."
+  }
+}

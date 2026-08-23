@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CoA Infernal DPS Sim</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div>
+        <h1>Felsworn Infernal</h1>
+        <p class="sub">Conquest of Azeroth DPS sim — inspired by wowsims/classic</p>
+        <p class="hint">Level 63 raid boss · Patchwerk (no movement, no cleave). Spell hit cap 17% vs +3.</p>
+      </div>
+      <div class="controls">
+        <label title="Each iteration varies this length by ±5% so cooldown breakpoints do not line up.">Duration (s) <input id="duration" type="number" value="120" min="20" max="600" /></label>
+        <label>Iterations <input id="iterations" type="number" value="300" min="10" max="5000" /></label>
+        <label title="6 if you walked in with Felfury from trash. 0 if the pull starts empty.">Felfury at pull <input id="pull-felfury" type="number" value="0" min="0" max="6" /></label>
+        <button id="simulate" type="button">Simulate</button>
+      </div>
+    </header>
+    <nav class="tabs" aria-label="Simulator sections">
+      <button class="tab is-active" type="button" data-tab="gear" aria-selected="true">Gear</button>
+      <button class="tab" type="button" data-tab="buffs" aria-selected="false">Buffs &amp; Consumes</button>
+      <button class="tab" type="button" data-tab="weights" aria-selected="false">Stat Weights</button>
+      <button class="tab" type="button" data-tab="results" aria-selected="false">Results</button>
+    </nav>
+    <main class="tab-content">
+      <section class="panel tab-panel is-active" data-tab-panel="gear">
+        <h2>Gear</h2>
+        <p class="hint" id="gear-hint">JavaScript is disabled or blocked for localhost. Allow JavaScript in Chrome, then reload.</p>
+        <div id="gear" class="gear-grid"></div>
+        <h3>Stats from gear</h3>
+        <p class="hint">Hover Spell Hit or Spell Crit for the rating → talent → buff breakdown.</p>
+        <dl id="stats" class="stats"></dl>
+      </section>
+      <section class="panel tab-panel" data-tab-panel="buffs" hidden>
+        <h2>Raid Buffs &amp; Consumes</h2>
+        <p class="hint">Raid buffs and consumes from Kadd’s logs. Hover a buff for extra notes.</p>
+        <div id="buffs-controls" class="buff-groups"></div>
+      </section>
+      <section class="panel tab-panel" data-tab-panel="weights" hidden>
+        <h2>Stat Weights (EP)</h2>
+        <p class="hint">Item EP is each stat × these weights. Spell Power is the 1.0 reference. Gear lists sort by EP.</p>
+        <div id="weights-controls" class="weights-grid"></div>
+        <div class="weights-actions">
+          <button id="weights-reset" type="button">Reset to defaults</button>
+          <span class="hint" id="weights-note">Saved in this browser.</span>
+        </div>
+      </section>
+      <section class="panel tab-panel" data-tab-panel="results" hidden>
+        <h2>Results</h2>
+        <div id="results" class="results">Run a simulation to compare against Kadd's combat log baseline.</div>
+      </section>
+    </main>
+    <div id="item-picker" class="item-picker" hidden>
+      <button class="item-picker__backdrop" type="button" aria-label="Close item picker"></button>
+      <section class="item-picker__dialog" role="dialog" aria-modal="true" aria-labelledby="item-picker-title">
+        <header class="item-picker__header">
+          <div>
+            <span class="eyebrow">Choose item</span>
+            <h2 id="item-picker-title">Head</h2>
+          </div>
+          <button id="item-picker-close" class="icon-button" type="button" aria-label="Close item picker">×</button>
+        </header>
+        <div class="item-picker__filters">
+          <label>
+            Search by name
+            <input id="item-search" type="search" placeholder="Search items…" autocomplete="off" />
+          </label>
+          <label>
+            Phase
+            <select id="phase-filter">
+              <option value="all">All phases</option>
+            </select>
+          </label>
+          <label id="slot-enchant-wrap" hidden>
+            Enchant
+            <select id="slot-enchant">
+              <option value="">No enchant</option>
+            </select>
+          </label>
+        </div>
+        <div class="item-picker__summary">
+          <span id="item-result-count">0 items</span>
+          <button id="item-clear" class="text-button" type="button">Unequip slot</button>
+        </div>
+        <div id="item-results" class="item-results" role="listbox"></div>
+      </section>
+    </div>
+    <div id="item-tooltip" class="item-tooltip" role="tooltip" hidden></div>
+    <div id="chance-tooltip" class="chance-tooltip" role="tooltip" hidden></div>
+    <footer>
+      Spell math is fitted from local combat logs. Item stats come from a Bisbeard dump. CoA Tavern is not used.
+      Original sim architecture: <a href="https://github.com/wowsims/classic">wowsims/classic</a> (MIT).
+    </footer>
+    <script>
+      (() => {
+        const hint = document.getElementById("gear-hint");
+        if (hint) hint.textContent = "Starting simulator module…";
+        window.setTimeout(() => {
+          if (!window.__coaModuleStarted && hint) {
+            hint.textContent =
+              "The simulator module failed to start. Open Chrome DevTools → Console and reload to see the module error.";
+          }
+        }, 3000);
+      })();
+    </script>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

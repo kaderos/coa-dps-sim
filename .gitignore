@@ -1,0 +1,10 @@
+node_modules/
+dist/
+vendor/
+data/bisbeard/bisbeard-*.json
+# Full uncompressed ingest output, for local analysis only.
+# The trimmed browser copy in public/data/items.json is committed.
+data/items.json
+.DS_Store
+*.local
+.vite/

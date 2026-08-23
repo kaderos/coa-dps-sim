@@ -1,0 +1,1157 @@
+{
+  "player": "Jinn",
+  "encounter": "Golemagg the Incinerator",
+  "reportId": 24376,
+  "encounterId": 546899,
+  "sourceId": 28943,
+  "url": "https://coa.ascensionlogs.gg/reports/24376/encounters/casts?source=28943&encounters=546899&view=events",
+  "durationSec": 187.166,
+  "counts": {
+    "Annihilation": 4,
+    "Bane of Fire": 9,
+    "Blood Fury": 2,
+    "Blood of Mannoroth": 1,
+    "Fel Fireball": 50,
+    "Inner Demon": 7,
+    "Potion of Spell Power": 1,
+    "Reckoning": 2,
+    "Ruin": 56,
+    "Sargeron Smite": 57
+  },
+  "events": [
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 0.866,
+      "target": null
+    },
+    {
+      "id": 804216,
+      "spell": "Inner Demon",
+      "t": 1.372,
+      "target": null
+    },
+    {
+      "id": 707901,
+      "spell": "Bane of Fire",
+      "t": 2.491,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 802058,
+      "spell": "Reckoning",
+      "t": 2.798,
+      "target": null
+    },
+    {
+      "id": 814285,
+      "spell": "Blood Fury",
+      "t": 2.798,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 3.543,
+      "target": null
+    },
+    {
+      "id": 804216,
+      "spell": "Inner Demon",
+      "t": 3.584,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 4.6,
+      "target": null
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 5.653,
+      "target": null
+    },
+    {
+      "id": 803904,
+      "spell": "Annihilation",
+      "t": 6.078,
+      "target": null
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 6.769,
+      "target": null
+    },
+    {
+      "id": 17524,
+      "spell": "Potion of Spell Power",
+      "t": 7.325,
+      "target": null
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 7.762,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 8.897,
+      "target": null
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 9.926,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 10.955,
+      "target": null
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 12.039,
+      "target": null
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 13.09,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 14.106,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 15.238,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 16.227,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 17.264,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 18.409,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 19.487,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 20.574,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 21.596,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 22.627,
+      "target": null
+    },
+    {
+      "id": 707901,
+      "spell": "Bane of Fire",
+      "t": 23.744,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 24.742,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 25.767,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 26.797,
+      "target": null
+    },
+    {
+      "id": 802075,
+      "spell": "Blood of Mannoroth",
+      "t": 27.301,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 27.837,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 28.96,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 30.036,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 31.159,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 32.169,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 33.208,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 34.351,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 35.562,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 36.621,
+      "target": null
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 37.711,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 38.776,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 39.88,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 41.057,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 42.63,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 43.715,
+      "target": null
+    },
+    {
+      "id": 707901,
+      "spell": "Bane of Fire",
+      "t": 44.722,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 45.746,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 46.746,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 47.777,
+      "target": null
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 48.809,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 49.817,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 50.871,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 51.858,
+      "target": null
+    },
+    {
+      "id": 803904,
+      "spell": "Annihilation",
+      "t": 52.21,
+      "target": null
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 52.926,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 53.926,
+      "target": null
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 55.131,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 56.362,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 57.503,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 58.531,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 59.525,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 61.225,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 804216,
+      "spell": "Inner Demon",
+      "t": 61.583,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 62.311,
+      "target": null
+    },
+    {
+      "id": 707901,
+      "spell": "Bane of Fire",
+      "t": 63.341,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 64.373,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 65.558,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 66.607,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 67.623,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 68.69,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 69.778,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 70.779,
+      "target": null
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 71.918,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 72.993,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 73.974,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 75.325,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 76.203,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 77.323,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 78.456,
+      "target": null
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 79.518,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 80.493,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 81.547,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 82.543,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 83.733,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 707901,
+      "spell": "Bane of Fire",
+      "t": 84.747,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 85.869,
+      "target": null
+    },
+    {
+      "id": 804216,
+      "spell": "Inner Demon",
+      "t": 86.392,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 86.965,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 88.024,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 89.103,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 90.234,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 91.256,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 92.3,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 93.285,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 94.453,
+      "target": null
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 95.576,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 96.634,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 97.764,
+      "target": null
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 98.822,
+      "target": null
+    },
+    {
+      "id": 803904,
+      "spell": "Annihilation",
+      "t": 99.273,
+      "target": null
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 99.875,
+      "target": null
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 100.919,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 101.998,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 103.124,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 104.194,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 105.233,
+      "target": null
+    },
+    {
+      "id": 707901,
+      "spell": "Bane of Fire",
+      "t": 106.272,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 107.295,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 108.324,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 109.396,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 110.437,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 111.449,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 112.543,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 113.711,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 114.801,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 115.81,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 116.856,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 117.953,
+      "target": null
+    },
+    {
+      "id": 804216,
+      "spell": "Inner Demon",
+      "t": 118.507,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 119.054,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 120.121,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 121.234,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 122.293,
+      "target": null
+    },
+    {
+      "id": 802058,
+      "spell": "Reckoning",
+      "t": 123.024,
+      "target": null
+    },
+    {
+      "id": 814285,
+      "spell": "Blood Fury",
+      "t": 123.024,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 123.31,
+      "target": null
+    },
+    {
+      "id": 804216,
+      "spell": "Inner Demon",
+      "t": 123.603,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 124.424,
+      "target": null
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 125.526,
+      "target": null
+    },
+    {
+      "id": 707901,
+      "spell": "Bane of Fire",
+      "t": 126.617,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 127.635,
+      "target": null
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 128.77,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 129.906,
+      "target": null
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 130.925,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 131.987,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 133.107,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 134.181,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 135.262,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 136.335,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 137.564,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 138.606,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 139.679,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 140.762,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 141.812,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 142.902,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 144.037,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 145.075,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 146.075,
+      "target": null
+    },
+    {
+      "id": 803904,
+      "spell": "Annihilation",
+      "t": 146.536,
+      "target": null
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 147.194,
+      "target": null
+    },
+    {
+      "id": 707901,
+      "spell": "Bane of Fire",
+      "t": 148.237,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 149.293,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 150.547,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 151.605,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 153.191,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 154.231,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 155.231,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 156.293,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 157.613,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 158.714,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 159.725,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 160.902,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 161.995,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 163.114,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 164.23,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 165.265,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 804216,
+      "spell": "Inner Demon",
+      "t": 166.021,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 166.288,
+      "target": null
+    },
+    {
+      "id": 707901,
+      "spell": "Bane of Fire",
+      "t": 167.515,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 168.59,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 169.637,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 170.684,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 172.277,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 173.294,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 174.325,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 175.357,
+      "target": null
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 176.392,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 177.44,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 178.481,
+      "target": null
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 179.539,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 180.587,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 181.711,
+      "target": null
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 182.752,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 183.88,
+      "target": null
+    },
+    {
+      "id": 501321,
+      "spell": "Sargeron Smite",
+      "t": 185.041,
+      "target": "Golemagg the Incinerator"
+    },
+    {
+      "id": 501298,
+      "spell": "Ruin",
+      "t": 186.052,
+      "target": null
+    },
+    {
+      "id": 501288,
+      "spell": "Fel Fireball",
+      "t": 187.166,
+      "target": null
+    }
+  ]
+}

@@ -1,0 +1,942 @@
+import type { BuffsConfig, Enchant, EnchantSet, GearSet, Item, LogBaseline, LogCastLog, Slot, SpellFit } from "./types";
+import { PAPER_DOLL_LEFT, PAPER_DOLL_RIGHT, PAPER_DOLL_WEAPONS, SLOTS } from "./types";
+import {
+  BOSS_LEVEL,
+  buildCharacter,
+  effectiveSpellPower,
+  enchantFitsSlot,
+  isTwoHand,
+  itemForSlot,
+  PLAYER_LEVEL,
+  ratingsFromGear,
+  statsFromGear,
+} from "./sim/stats";
+import { buildChanceBreakdown, critCardHtml, hitCardHtml } from "./sim/chances";
+import type { ChanceBreakdown } from "./sim/chances";
+import { runSim } from "./sim/engine";
+import { DEFAULT_BUFFS, percentBuffs, ratingConsumes, setupBuffs, statsFromBuffs } from "./buffs";
+import { renderResults } from "./results";
+import {
+  defaultStatWeights,
+  formatEp,
+  loadStatWeights,
+  saveStatWeights,
+  STAT_WEIGHT_ORDER,
+  statsEp,
+  type StatWeights,
+} from "./ep";
+import { applyTakenTalents } from "./talents/taken";
+import { loadSession, restoreEnchantSet, restoreGearSet, saveEnchantSet, saveGearSet, saveSession } from "./persist";
+
+(window as Window & { __coaModuleStarted?: boolean }).__coaModuleStarted = true;
+
+type ItemDb = {
+  source: string;
+  note: string;
+  itemCount?: number;
+  totalIngested?: number;
+  items?: Item[];
+  slots: Record<string, Item[]>;
+};
+
+const EMPTY_ITEM_STATS = {
+  intellect: 0,
+  spirit: 0,
+  stamina: 0,
+  spellPower: 0,
+  firePower: 0,
+  shadowPower: 0,
+  attackPower: 0,
+  spellCrit: 0,
+  spellHit: 0,
+  spellHaste: 0,
+  mp5: 0,
+};
+
+type SpellDb = {
+  logDps: number;
+  logDurationSec: number;
+  spells: Record<string, SpellFit>;
+};
+
+type EnchantDb = {
+  count?: number;
+  slots: Record<string, Enchant[]>;
+  enchants?: Enchant[];
+};
+
+const gear: GearSet = {};
+const enchants: EnchantSet = {};
+let items: ItemDb = { source: "empty", note: "", items: [], slots: {} };
+let enchantDb: EnchantDb = { slots: {} };
+let spells: SpellDb = { logDps: 0, logDurationSec: 0, spells: {} };
+let logBaseline: LogBaseline | null = null;
+let activeSlot: Slot | null = null;
+let selectedPhase = "all";
+let buffsConfig: BuffsConfig = { ...DEFAULT_BUFFS };
+let statWeights: StatWeights = defaultStatWeights();
+const PICKER_RENDER_LIMIT = 300;
+/** Badge trinket: hit + proc, 0 EP with default hit weight, tagged phase 1. */
+const PINNED_TRINKETS = new Set([1414516]);
+const itemCache = new Map<Slot, Item[]>();
+const itemsById = new Map<number, Item>();
+const enchantsById = new Map<number, Enchant>();
+
+const SLOT_LABELS: Record<Slot, string> = {
+  head: "Head",
+  neck: "Neck",
+  shoulder: "Shoulders",
+  back: "Back",
+  chest: "Chest",
+  shirt: "Shirt",
+  tabard: "Tabard",
+  wrist: "Wrists",
+  hands: "Hands",
+  waist: "Waist",
+  legs: "Legs",
+  feet: "Feet",
+  finger1: "Finger 1",
+  finger2: "Finger 2",
+  trinket1: "Trinket 1",
+  trinket2: "Trinket 2",
+  mainhand: "Main Hand",
+  offhand: "Off Hand",
+  ranged: "Ranged",
+};
+
+const STAT_LABELS: Array<[keyof Item["stats"], string]> = [
+  ["stamina", "Stamina"],
+  ["intellect", "Intellect"],
+  ["spirit", "Spirit"],
+  ["spellPower", "Spell Power"],
+  ["firePower", "Fire Spell Power"],
+  ["shadowPower", "Shadow Spell Power"],
+  ["attackPower", "Attack Power"],
+  ["spellCrit", "Spell Crit Rating"],
+  ["spellHit", "Spell Hit Rating"],
+  ["spellHaste", "Spell Haste Rating"],
+  ["mp5", "Mana per 5 sec"],
+];
+
+async function load() {
+  const hint = document.getElementById("gear-hint");
+  const setHint = (text: string) => {
+    if (hint) hint.textContent = text;
+    console.info(`[coa-sim] ${text}`);
+  };
+  setHint("Fetching /data/items.json…");
+
+  const [itemDb, spellDb, nextEnchantDb, nextBaseline, castLog] = await Promise.all([
+    fetchJson<ItemDb>("/data/items.json"),
+    fetchJson<SpellDb>("/data/spells.json"),
+    fetchJson<EnchantDb>("/data/enchants.json").catch(() => ({ slots: {} })),
+    fetchJson<LogBaseline>("/data/baseline.json").catch(() => null),
+    fetchJson<LogCastLog>("/data/baseline-casts.json").catch(() => null),
+  ]);
+  items = itemDb;
+  spells = spellDb;
+  enchantDb = nextEnchantDb;
+  logBaseline = nextBaseline;
+  if (logBaseline && castLog) logBaseline.casts = castLog;
+  setHint(`Parsed item database (${items.itemCount ?? 0} items). Building UI…`);
+  pruneBloodforged(items);
+  hydrateItems(items);
+  hydrateEnchants(enchantDb);
+  const session = loadSession();
+  restoreGearSet(gear, session.gear, (id) => itemsById.get(id));
+  restoreEnchantSet(enchants, session.enchants, (id) => enchantsById.get(id));
+  if (session.selectedPhase) selectedPhase = session.selectedPhase;
+  const pullInput = document.getElementById("pull-felfury") as HTMLInputElement | null;
+  if (pullInput && session.pullFelfury != null) pullInput.value = String(session.pullFelfury);
+
+  setupItemPicker();
+  setupTabs();
+  statWeights = loadStatWeights();
+  setupStatWeights();
+  buffsConfig = setupBuffs(() => {
+    saveSession({ buffs: buffsConfig });
+    renderStats();
+  }, session.buffs);
+  renderGear();
+  renderStats();
+  document.getElementById("duration")?.addEventListener("change", renderStats);
+  document.getElementById("pull-felfury")?.addEventListener("change", () => {
+    saveSession({ pullFelfury: readPullFelfury() });
+  });
+  document.getElementById("simulate")?.addEventListener("click", simulate);
+
+  if (hint) {
+    hint.textContent = items.itemCount
+      ? `${items.note} Spell math is fitted from combat logs.`
+      : "No items found in /data/items.json. Run `npm run ingest` to rebuild it from the Bisbeard dump.";
+  }
+}
+
+// The bundled payload omits zeroed stats to keep the download small, so fill the
+// gaps back in before anything does arithmetic on them.
+function hydrateEnchants(db: EnchantDb) {
+  enchantsById.clear();
+  for (const list of Object.values(db.slots || {})) {
+    for (const enchant of list) {
+      enchant.stats = { ...EMPTY_ITEM_STATS, ...(enchant.stats || {}) };
+      enchantsById.set(enchant.id, enchant);
+    }
+  }
+  for (const enchant of db.enchants || []) {
+    if (enchantsById.has(enchant.id)) continue;
+    enchant.stats = { ...EMPTY_ITEM_STATS, ...(enchant.stats || {}) };
+    enchantsById.set(enchant.id, enchant);
+  }
+}
+
+function isBloodforgedItem(item: Item): boolean {
+  return /bloodforged/i.test(`${item.subtitle ?? ""} ${item.name ?? ""}`);
+}
+
+function pruneBloodforged(db: ItemDb) {
+  let kept = 0;
+  if (db.slots) {
+    for (const slot of Object.keys(db.slots)) {
+      db.slots[slot] = db.slots[slot].filter((item) => !isBloodforgedItem(item));
+      kept += db.slots[slot].length;
+    }
+  }
+  if (db.items) db.items = db.items.filter((item) => !isBloodforgedItem(item));
+  db.itemCount = kept || db.items?.length || 0;
+  if (db.totalIngested) {
+    db.note = `Bisbeard item data is bundled with the sim (${db.itemCount} caster items from ${db.totalIngested} ingested).`;
+  }
+}
+
+function hydrateItems(db: ItemDb) {
+  itemCache.clear();
+  itemsById.clear();
+  for (const list of Object.values(db.slots || {})) {
+    for (const item of list) {
+      item.stats = { ...EMPTY_ITEM_STATS, ...(item.stats || {}) };
+      itemsById.set(item.id, item);
+    }
+  }
+  for (const item of db.items || []) {
+    if (itemsById.has(item.id)) continue;
+    item.stats = { ...EMPTY_ITEM_STATS, ...(item.stats || {}) };
+    itemsById.set(item.id, item);
+  }
+}
+
+async function fetchJson<T>(url: string, timeoutMs = 15000): Promise<T> {
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: abort.signal, cache: "no-store" });
+    if (!res.ok) throw new Error(`${url} returned HTTP ${res.status}`);
+    return (await res.json()) as T;
+  } catch (err) {
+    if (abort.signal.aborted) throw new Error(`${url} timed out after ${timeoutMs / 1000}s`);
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function itemsFor(slot: Slot): Item[] {
+  const cached = itemCache.get(slot);
+  if (cached) return cached;
+  const cat = slot.startsWith("finger") ? "finger" : slot.startsWith("trinket") ? "trinket" : slot;
+  let list = (items.slots[cat] || (items.items || []).filter((item) => itemForSlot(item, slot))).slice();
+  if (slot === "offhand") {
+    const seen = new Set(list.map((item) => item.id));
+    for (const item of items.slots.mainhand || []) {
+      if (seen.has(item.id) || !itemForSlot(item, "offhand")) continue;
+      seen.add(item.id);
+      list.push(item);
+    }
+  }
+  const caster = list.filter(isCasterItem);
+  const pool = caster.length ? caster : list;
+  const weights = liveStatWeights();
+  const ep = new Map(pool.map((item) => [item, pieceEp(item, slot, weights)]));
+  const ranked = pool.sort((a, b) => (ep.get(b) || 0) - (ep.get(a) || 0));
+  itemCache.set(slot, ranked);
+  return ranked;
+}
+
+function isCasterItem(item: Item): boolean {
+  const armor = (item.armorType || "").toLowerCase();
+  if (["leather", "cloth", "miscellaneous", "wands", "staves", "daggers", "swords"].includes(armor)) return true;
+  const s = item.stats;
+  return s.spellPower > 0 || s.intellect > 0 || s.spirit > 0 || s.spellCrit > 0 || s.spellHit > 0;
+}
+
+function isPinnedItem(item: Item, slot: Slot): boolean {
+  return slot.startsWith("trinket") && PINNED_TRINKETS.has(item.id);
+}
+
+function isHitOrProcItem(item: Item): boolean {
+  if ((item.stats?.spellHit || 0) > 0) return true;
+  return (item.effects || []).some((line) => /spell (power|damage)|damaging spells/i.test(line));
+}
+
+function renderGear() {
+  const root = document.getElementById("gear");
+  if (!root) return;
+  root.innerHTML = "";
+  root.className = "paperdoll";
+
+  const left = document.createElement("div");
+  left.className = "paperdoll__col paperdoll__col--left";
+  for (const slot of PAPER_DOLL_LEFT) left.appendChild(renderGearSlot(slot));
+
+  const center = document.createElement("div");
+  center.className = "paperdoll__center";
+  center.innerHTML = `<div class="paperdoll__bust"><span>Felsworn</span><small>Infernal</small></div>`;
+
+  const right = document.createElement("div");
+  right.className = "paperdoll__col paperdoll__col--right";
+  for (const slot of PAPER_DOLL_RIGHT) right.appendChild(renderGearSlot(slot));
+
+  const weapons = document.createElement("div");
+  weapons.className = "paperdoll__weapons";
+  for (const slot of PAPER_DOLL_WEAPONS) weapons.appendChild(renderGearSlot(slot));
+
+  root.append(left, center, right, weapons);
+}
+
+function renderGearSlot(slot: Slot) {
+  const row = document.createElement("div");
+  row.className = "gear-slot";
+  if (slot === "offhand" && isTwoHand(gear.mainhand)) row.classList.add("is-disabled");
+
+  const slotName = document.createElement("span");
+  slotName.className = "gear-slot__name";
+  slotName.textContent = SLOT_LABELS[slot];
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "gear-slot__item";
+  button.dataset.slot = slot;
+  button.addEventListener("click", () => openItemPicker(slot));
+
+  const selected = gear[slot];
+  const enchant = enchants[slot];
+  if (slot === "offhand" && isTwoHand(gear.mainhand)) {
+    button.disabled = true;
+    button.classList.add("is-empty");
+    const name = document.createElement("strong");
+    name.textContent = "Two-hand equipped";
+    const details = document.createElement("small");
+    details.textContent = "Off-hand is empty while a two-hander is in Main Hand";
+    button.append(name, details);
+  } else if (selected) {
+    button.classList.add(`quality-${qualityClass(selected.quality)}`);
+    const name = document.createElement("strong");
+    name.textContent = selected.name;
+    const details = document.createElement("small");
+    details.textContent = enchant
+      ? `${enchant.name} · ${formatEp(pieceEp(selected, slot))}`
+      : `${itemMeta(selected)} · ${formatEp(pieceEp(selected, slot))}`;
+    button.append(name, details);
+    bindTooltip(button, selected);
+  } else {
+    button.classList.add("is-empty");
+    const name = document.createElement("strong");
+    name.textContent = "Select an item";
+    const details = document.createElement("small");
+    details.textContent = `${itemsFor(slot).length} available`;
+    button.append(name, details);
+  }
+
+  const chevron = document.createElement("span");
+  chevron.className = "gear-slot__chevron";
+  chevron.textContent = "›";
+  chevron.setAttribute("aria-hidden", "true");
+  button.appendChild(chevron);
+
+  row.append(slotName, button);
+  return row;
+}
+
+function setupItemPicker() {
+  document.getElementById("item-picker-close")?.addEventListener("click", closeItemPicker);
+  document.querySelector<HTMLButtonElement>(".item-picker__backdrop")?.addEventListener("click", closeItemPicker);
+  document.getElementById("item-search")?.addEventListener("input", renderPickerResults);
+  document.getElementById("phase-filter")?.addEventListener("change", (event) => {
+    const select = event.currentTarget as HTMLSelectElement;
+    selectedPhase = select.value || "all";
+    saveSession({ selectedPhase });
+    renderPickerResults();
+  });
+  document.getElementById("item-clear")?.addEventListener("click", () => {
+    if (!activeSlot) return;
+    gear[activeSlot] = null;
+    enchants[activeSlot] = null;
+    saveGearSet(gear);
+    saveEnchantSet(enchants);
+    renderGear();
+    renderStats();
+    closeItemPicker();
+  });
+  document.getElementById("slot-enchant")?.addEventListener("change", (event) => {
+    if (!activeSlot) return;
+    const id = Number((event.currentTarget as HTMLSelectElement).value);
+    enchants[activeSlot] = Number.isFinite(id) && id > 0 ? enchantsById.get(id) ?? null : null;
+    saveEnchantSet(enchants);
+    itemCache.clear();
+    renderGear();
+    renderStats();
+    renderPickerResults();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && activeSlot) closeItemPicker();
+  });
+}
+
+function setupTabs() {
+  document.querySelectorAll<HTMLButtonElement>("[data-tab]").forEach((button) => {
+    button.addEventListener("click", () => activateTab(button.dataset.tab || "gear"));
+  });
+}
+
+function setupStatWeights() {
+  const root = document.getElementById("weights-controls");
+  if (!root) return;
+  root.innerHTML = "";
+  for (const [stat, label] of STAT_WEIGHT_ORDER) {
+    const field = document.createElement("label");
+    field.className = "weight-field";
+    const caption = document.createElement("span");
+    caption.textContent = label;
+    const input = document.createElement("input");
+    input.type = "number";
+    input.step = "0.001";
+    input.dataset.weight = stat;
+    input.value = String(statWeights[stat]);
+    const commitWeight = () => {
+      const value = Number(input.value);
+      statWeights[stat] = Number.isFinite(value) ? value : 0;
+      applyStatWeights();
+    };
+    input.addEventListener("input", commitWeight);
+    input.addEventListener("change", commitWeight);
+    field.append(caption, input);
+    root.appendChild(field);
+  }
+  document.getElementById("weights-reset")?.addEventListener("click", () => {
+    statWeights = defaultStatWeights();
+    syncStatWeightInputs();
+    applyStatWeights();
+  });
+}
+
+function syncStatWeightInputs() {
+  document.querySelectorAll<HTMLInputElement>("[data-weight]").forEach((input) => {
+    const stat = input.dataset.weight as keyof StatWeights;
+    input.value = String(statWeights[stat]);
+  });
+}
+
+// Ranking is cached per slot, so a weight change has to drop the cache before
+// anything re-reads the sorted lists.
+function liveStatWeights(): StatWeights {
+  document.querySelectorAll<HTMLInputElement>("[data-weight]").forEach((input) => {
+    const stat = input.dataset.weight as keyof StatWeights | undefined;
+    if (!stat) return;
+    const value = Number(input.value);
+    statWeights[stat] = Number.isFinite(value) ? value : 0;
+  });
+  return statWeights;
+}
+
+function pieceEp(item: Item, slot: Slot, weights = liveStatWeights()): number {
+  let total = statsEp(item.stats, weights);
+  const enchant = enchants[slot];
+  if (enchant && enchantFitsSlot(enchant, slot, item, gear.mainhand ?? null)) {
+    total += statsEp(enchant.stats, weights);
+  }
+  return total;
+}
+
+function enchantEp(enchant: Enchant, weights = liveStatWeights()): number {
+  return statsEp(enchant.stats, weights);
+}
+
+function applyStatWeights() {
+  liveStatWeights();
+  saveStatWeights(statWeights);
+  itemCache.clear();
+  renderGear();
+  if (activeSlot) {
+    populateEnchantSelect(activeSlot);
+    renderPickerResults();
+  }
+}
+
+function activateTab(tab: string) {
+  document.querySelectorAll<HTMLButtonElement>("[data-tab]").forEach((button) => {
+    const active = button.dataset.tab === tab;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
+  document.querySelectorAll<HTMLElement>("[data-tab-panel]").forEach((panel) => {
+    const active = panel.dataset.tabPanel === tab;
+    panel.hidden = !active;
+    panel.classList.toggle("is-active", active);
+  });
+}
+
+function openItemPicker(slot: Slot) {
+  activeSlot = slot;
+  const picker = document.getElementById("item-picker");
+  const title = document.getElementById("item-picker-title");
+  const search = document.getElementById("item-search") as HTMLInputElement | null;
+  const phase = document.getElementById("phase-filter") as HTMLSelectElement | null;
+  if (!picker || !search || !phase) return;
+
+  if (title) title.textContent = SLOT_LABELS[slot];
+  search.value = "";
+  populatePhaseFilter(phase);
+  populateEnchantSelect(slot);
+  picker.hidden = false;
+  document.body.classList.add("modal-open");
+  renderPickerResults();
+  requestAnimationFrame(() => search.focus());
+}
+
+function closeItemPicker() {
+  const picker = document.getElementById("item-picker");
+  if (picker) picker.hidden = true;
+  document.body.classList.remove("modal-open");
+  hideTooltip();
+  activeSlot = null;
+}
+
+function itemPhaseTags(item: Item): number[] {
+  const display = item.displayPhase ?? item.phase;
+  const tags = item.extraPhases ? [...item.extraPhases] : [];
+  if (display != null && !tags.includes(display)) tags.unshift(display);
+  return tags;
+}
+
+function itemMatchesPhase(item: Item, phase: string): boolean {
+  if (phase === "all") return true;
+  const tags = itemPhaseTags(item);
+  if (phase === "unknown") return tags.length === 0;
+  const want = Number(phase);
+  if (!Number.isFinite(want)) return true;
+  if (!tags.length) return true;
+  return Math.min(...tags) <= want;
+}
+
+function enchantsFor(slot: Slot): Enchant[] {
+  const weights = liveStatWeights();
+  const list = (enchantDb.slots[slot] || []).filter((enchant) =>
+    enchantFitsSlot(enchant, slot, gear[slot] ?? null, gear.mainhand ?? null),
+  );
+  return list.slice().sort((a, b) => {
+    const epDelta = enchantEp(b, weights) - enchantEp(a, weights);
+    return epDelta || a.name.localeCompare(b.name);
+  });
+}
+
+function populateEnchantSelect(slot: Slot) {
+  const wrap = document.getElementById("slot-enchant-wrap");
+  const select = document.getElementById("slot-enchant") as HTMLSelectElement | null;
+  if (!wrap || !select) return;
+  const weights = liveStatWeights();
+  const options = enchantsFor(slot);
+  wrap.hidden = options.length === 0;
+  select.innerHTML = "";
+  select.add(new Option("No enchant", ""));
+  for (const enchant of options) {
+    const ep = formatEp(enchantEp(enchant, weights));
+    const detail = enchant.description ? `${enchant.name} — ${enchant.description}` : enchant.name;
+    select.add(new Option(`${ep} · ${detail}`, String(enchant.id)));
+  }
+  select.value = enchants[slot] ? String(enchants[slot]!.id) : "";
+}
+
+function populatePhaseFilter(select: HTMLSelectElement) {
+  const phases = new Set<number>();
+  let hasUnknown = false;
+  for (const list of Object.values(items.slots || {})) {
+    for (const item of list) {
+      const tags = itemPhaseTags(item);
+      if (!tags.length) hasUnknown = true;
+      else for (const phase of tags) phases.add(phase);
+    }
+  }
+  const sorted = [...phases].sort((a, b) => a - b);
+  select.innerHTML = "";
+  select.add(new Option("All phases", "all"));
+  for (const phase of sorted) select.add(new Option(`Phase ${phase}`, String(phase)));
+  if (hasUnknown) select.add(new Option("Phase unknown", "unknown"));
+  select.value = [...select.options].some((option) => option.value === selectedPhase) ? selectedPhase : "all";
+  selectedPhase = select.value;
+}
+
+function renderPickerResults() {
+  if (!activeSlot) return;
+  const root = document.getElementById("item-results");
+  const count = document.getElementById("item-result-count");
+  const search = (document.getElementById("item-search") as HTMLInputElement | null)?.value.trim().toLowerCase() || "";
+  const phase = selectedPhase || (document.getElementById("phase-filter") as HTMLSelectElement | null)?.value || "all";
+  if (!root) return;
+
+  const matches = itemsFor(activeSlot).filter((item) => {
+    const matchesName = !search || item.name.toLowerCase().includes(search) || String(item.id).includes(search);
+    const matchesPhase = itemMatchesPhase(item, phase);
+    return matchesName && matchesPhase;
+  });
+  const pinned = matches.filter((item) => isPinnedItem(item, activeSlot));
+  const unpinned = matches.filter((item) => !isPinnedItem(item, activeSlot));
+
+  const ranked = unpinned.slice(0, PICKER_RENDER_LIMIT);
+  const shown = new Set(ranked);
+  const buriedHit = unpinned
+    .filter((item) => !shown.has(item) && isHitOrProcItem(item))
+    .sort(
+      (a, b) =>
+        (b.stats.spellHit || 0) - (a.stats.spellHit || 0) || (b.casterScore || 0) - (a.casterScore || 0),
+    );
+
+  if (count) {
+    const visible = ranked.length + buriedHit.length + pinned.length;
+    count.textContent =
+      matches.length > visible
+        ? `${matches.length} items · showing ${visible} (search to narrow)`
+        : `${matches.length} item${matches.length === 1 ? "" : "s"}`;
+  }
+  root.innerHTML = "";
+
+  if (!matches.length) {
+    const empty = document.createElement("div");
+    empty.className = "item-results__empty";
+    empty.textContent = "No items match those filters.";
+    root.appendChild(empty);
+    return;
+  }
+
+  if (pinned.length) {
+    appendPickerHeading(root, "Badge / always available");
+    for (const item of pinned) appendPickerItem(root, item);
+  }
+  if (buriedHit.length) {
+    appendPickerHeading(root, "Hit and proc items (0 EP with current hit weight)");
+    for (const item of buriedHit) appendPickerItem(root, item);
+  }
+  if (ranked.length && (pinned.length || buriedHit.length)) {
+    appendPickerHeading(root, "Highest EP");
+  }
+  for (const item of ranked) appendPickerItem(root, item);
+}
+
+function appendPickerHeading(root: HTMLElement, label: string) {
+  const heading = document.createElement("div");
+  heading.className = "item-results__heading";
+  heading.textContent = label;
+  root.appendChild(heading);
+}
+
+function appendPickerItem(root: HTMLElement, item: Item) {
+  if (!activeSlot) return;
+  const slot = activeSlot;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `item-result quality-${qualityClass(item.quality)}`;
+  button.setAttribute("role", "option");
+  button.setAttribute("aria-selected", String(gear[slot]?.id === item.id));
+
+  const copy = document.createElement("span");
+  const name = document.createElement("strong");
+  name.textContent = item.name;
+  const details = document.createElement("small");
+  details.textContent = itemMeta(item);
+  copy.append(name, details);
+
+  const score = document.createElement("span");
+  score.className = "item-result__score";
+  const ep = pieceEp(item, slot);
+  const hit = item.stats.spellHit || 0;
+  score.textContent = hit && ep === 0 ? `${formatEp(ep)} · ${hit} hit` : formatEp(ep);
+
+  button.append(copy, score);
+  button.addEventListener("click", () => {
+    if (!activeSlot) return;
+    gear[activeSlot] = item;
+    if (activeSlot === "mainhand" && isTwoHand(item)) {
+      gear.offhand = null;
+      enchants.offhand = null;
+    }
+    if (enchants[activeSlot] && !enchantFitsSlot(enchants[activeSlot]!, activeSlot, item, gear.mainhand ?? null)) {
+      enchants[activeSlot] = null;
+    }
+    saveGearSet(gear);
+    saveEnchantSet(enchants);
+    renderGear();
+    renderStats();
+    closeItemPicker();
+  });
+  bindTooltip(button, item);
+  root.appendChild(button);
+}
+
+function itemMeta(item: Item): string {
+  const parts = [];
+  if (item.itemLevel) parts.push(`ilvl ${item.itemLevel}`);
+  const shownPhase = item.displayPhase ?? item.phase;
+  if (shownPhase) parts.push(`Phase ${shownPhase}`);
+  if (item.armorType) parts.push(item.armorType);
+  return parts.join(" · ") || `Item ${item.id}`;
+}
+
+function itemSlotLabel(item: Item): string {
+  if (item.slot === "finger") return "Finger";
+  if (item.slot === "trinket") return "Trinket";
+  const matchingSlot = SLOTS.find((slot) => slot === item.slot);
+  return matchingSlot ? SLOT_LABELS[matchingSlot] : item.slot.replace(/(^|[-_ ])\w/g, (part) => part.toUpperCase());
+}
+
+function qualityClass(quality: Item["quality"]): string {
+  return String(quality || "common").toLowerCase().replace(/[^a-z]/g, "");
+}
+
+function formatStat(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+function bindTooltip(element: HTMLElement, item: Item) {
+  element.addEventListener("mouseenter", () => showTooltip(element, item));
+  element.addEventListener("mouseleave", hideTooltip);
+  element.addEventListener("focus", () => showTooltip(element, item));
+  element.addEventListener("blur", hideTooltip);
+}
+
+function showTooltip(anchor: HTMLElement, item: Item) {
+  const tooltip = document.getElementById("item-tooltip");
+  if (!tooltip) return;
+  tooltip.innerHTML = "";
+  tooltip.className = `item-tooltip quality-${qualityClass(item.quality)}`;
+
+  const name = document.createElement("strong");
+  name.className = "item-tooltip__name";
+  name.textContent = item.name;
+  tooltip.appendChild(name);
+
+  if (item.subtitle) appendTooltipLine(tooltip, item.subtitle, "item-tooltip__subtitle");
+  if (item.bind) appendTooltipLine(tooltip, item.bind);
+  if (item.unique) appendTooltipLine(tooltip, item.unique);
+
+  const slotLabel = item.equipSlot || itemSlotLabel(item);
+  const subtype = weaponSubtype(item);
+  if (slotLabel || item.armorType) {
+    const row = document.createElement("div");
+    row.className = "item-tooltip__row";
+    const left = document.createElement("span");
+    left.textContent = slotLabel;
+    row.appendChild(left);
+    if (item.armorType) {
+      const right = document.createElement("span");
+      if (subtype) right.className = "item-tooltip__subtype";
+      right.textContent = subtype || item.armorType;
+      row.appendChild(right);
+    }
+    tooltip.appendChild(row);
+  }
+
+  if (item.damage) {
+    const speed = item.damage.speed;
+    const row = document.createElement("div");
+    row.className = "item-tooltip__row";
+    const dmg = document.createElement("span");
+    dmg.textContent = `${formatDamage(item.damage.min)} - ${formatDamage(item.damage.max)} Damage`;
+    const spd = document.createElement("span");
+    spd.textContent = `Speed ${speed.toFixed(2)}`;
+    row.append(dmg, spd);
+    tooltip.appendChild(row);
+    const dps = (item.damage.min + item.damage.max) / 2 / speed;
+    appendTooltipLine(tooltip, `(${dps.toFixed(1)} damage per second)`);
+  }
+
+  if (item.armor) appendTooltipLine(tooltip, `${item.armor} Armor`);
+
+  const baseStats = item.baseStats?.length
+    ? item.baseStats
+    : STAT_LABELS.filter(([key]) => item.stats[key] !== 0).map(
+        ([key, label]) => `+${formatStat(item.stats[key])} ${label}`,
+      );
+  for (const line of baseStats) appendTooltipLine(tooltip, line);
+
+  if (item.reqLevel) appendTooltipLine(tooltip, `Requires Level ${item.reqLevel}`);
+  if (item.itemLevel) appendTooltipLine(tooltip, `Item Level ${item.itemLevel}`);
+
+  for (const line of item.effects || []) appendTooltipLine(tooltip, line, "item-tooltip__effect");
+
+  if (item.setName) {
+    appendTooltipLine(tooltip, item.setName, "item-tooltip__set");
+    if (item.setBonus3) {
+      const bonus = item.setBonus3.replace(/^\(\d+\) Set:\s*/i, "");
+      appendTooltipLine(tooltip, `(3) Set: ${bonus}`, "item-tooltip__effect");
+    }
+  }
+
+  appendTooltipLine(
+    tooltip,
+    [item.displayPhase ?? item.phase ? `Phase ${item.displayPhase ?? item.phase}` : null, `ID ${item.id}`]
+      .filter(Boolean)
+      .join(" · "),
+    "item-tooltip__footer",
+  );
+  tooltip.hidden = false;
+  positionTooltip(tooltip, anchor);
+}
+
+function weaponSubtype(item: Item): string | null {
+  const type = item.armorType || "";
+  const map: Record<string, string> = {
+    Axes: "Axe",
+    "One-Handed Axes": "Axe",
+    "Two-Handed Axes": "Axe",
+    Swords: "Sword",
+    "One-Handed Swords": "Sword",
+    "Two-Handed Swords": "Sword",
+    Maces: "Mace",
+    "One-Handed Maces": "Mace",
+    "Two-Handed Maces": "Mace",
+    Daggers: "Dagger",
+    Staves: "Staff",
+    Polearms: "Polearm",
+    "Fist Weapons": "Fist Weapon",
+    Bows: "Bow",
+    Guns: "Gun",
+    Crossbows: "Crossbow",
+    Wands: "Wand",
+    Wand: "Wand",
+    Thrown: "Thrown",
+  };
+  return map[type] || null;
+}
+
+function formatDamage(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+function appendTooltipLine(root: HTMLElement, text: string, className?: string) {
+  const line = document.createElement("div");
+  if (className) line.className = className;
+  line.textContent = text;
+  root.appendChild(line);
+}
+
+function positionTooltip(tooltip: HTMLElement, anchor: HTMLElement) {
+  const anchorRect = anchor.getBoundingClientRect();
+  const tooltipRect = tooltip.getBoundingClientRect();
+  const gap = 12;
+  let left = anchorRect.right + gap;
+  if (left + tooltipRect.width > window.innerWidth - gap) left = anchorRect.left - tooltipRect.width - gap;
+  let top = anchorRect.top;
+  top = Math.max(gap, Math.min(top, window.innerHeight - tooltipRect.height - gap));
+  tooltip.style.left = `${Math.max(gap, left)}px`;
+  tooltip.style.top = `${top}px`;
+}
+
+function hideTooltip() {
+  const tooltip = document.getElementById("item-tooltip");
+  if (tooltip) tooltip.hidden = true;
+  hideChanceTooltip();
+}
+
+function hideChanceTooltip() {
+  const tooltip = document.getElementById("chance-tooltip");
+  if (tooltip) tooltip.hidden = true;
+}
+
+function renderStats() {
+  const gearRatings = ratingsFromGear(gear, enchants);
+  const gearStats = statsFromGear(gear, enchants);
+  const duration = Number((document.getElementById("duration") as HTMLInputElement | null)?.value) || 120;
+  const bonusStats = statsFromBuffs(buffsConfig, gearStats, duration);
+  const stats = applyTakenTalents(buildCharacter(gear, 0, bonusStats, readPullFelfury(), enchants));
+  const chances = buildChanceBreakdown(gearRatings, ratingConsumes(buffsConfig), stats.spirit, percentBuffs(buffsConfig));
+  const sp = effectiveSpellPower(stats, stats.hiddenPower);
+  const root = document.getElementById("stats");
+  if (!root) return;
+  const rows: Array<[string, string]> = [
+    ["Spell Power", sp.toFixed(1)],
+    ["Intellect", stats.intellect.toFixed(1)],
+    ["Spirit", stats.spirit.toFixed(1)],
+    ["Spell Crit", `${chances.crit.total.toFixed(1)}%`],
+    ["Spell Hit", `${chances.hit.total.toFixed(1)}%`],
+    ["Spell Haste", stats.spellHaste.toFixed(1)],
+  ];
+  root.innerHTML = rows
+    .map(([name, value]) => `<div><dt>${name}</dt><dd>${value}</dd></div>`)
+    .join("");
+  bindChanceHovers(root, chances);
+}
+
+function bindChanceHovers(root: HTMLElement | null, chances: ChanceBreakdown) {
+  if (!root) return;
+  for (const row of root.querySelectorAll("div")) {
+    const label = row.querySelector("dt")?.textContent;
+    const html = label === "Spell Hit" ? hitCardHtml(chances.hit) : label === "Spell Crit" ? critCardHtml(chances.crit) : null;
+    if (!html) continue;
+    row.classList.add("stats__hover");
+    row.tabIndex = 0;
+    const show = () => showChanceTooltip(row, html);
+    row.addEventListener("mouseenter", show);
+    row.addEventListener("focus", show);
+    row.addEventListener("mouseleave", hideChanceTooltip);
+    row.addEventListener("blur", hideChanceTooltip);
+  }
+}
+
+function showChanceTooltip(anchor: HTMLElement, html: string) {
+  const tooltip = document.getElementById("chance-tooltip");
+  const itemTip = document.getElementById("item-tooltip");
+  if (!tooltip) return;
+  if (itemTip) itemTip.hidden = true;
+  tooltip.innerHTML = html;
+  tooltip.hidden = false;
+  positionTooltip(tooltip, anchor);
+}
+
+function readPullFelfury() {
+  const raw = Number((document.getElementById("pull-felfury") as HTMLInputElement | null)?.value);
+  if (!Number.isFinite(raw)) return 0;
+  return Math.max(0, Math.min(6, Math.floor(raw)));
+}
+
+function simulate() {
+  const duration = Number((document.getElementById("duration") as HTMLInputElement).value) || 120;
+  const iterations = Number((document.getElementById("iterations") as HTMLInputElement).value) || 300;
+  const gearStats = statsFromGear(gear, enchants);
+  const stats = buildCharacter(gear, 0, statsFromBuffs(buffsConfig, gearStats, duration), readPullFelfury(), enchants);
+  const result = runSim(spells.spells, stats, {
+    durationSec: duration,
+    iterations,
+    seed: 1,
+    fightStyle: "patchwerk",
+    playerLevel: PLAYER_LEVEL,
+    bossLevel: BOSS_LEVEL,
+    allowCleave: false,
+    movement: false,
+    potionSpellPower: buffsConfig.potion === "spell-power" ? 75 : 0,
+    potionDuration: 20,
+    potionMode:
+      buffsConfig.potion === "none"
+        ? "none"
+        : buffsConfig.potionMode === "prepot"
+          ? "prepot"
+          : "with-cooldowns",
+  }, logBaseline?.dps || spells.logDps || null, logBaseline);
+  renderResults(result);
+  activateTab("results");
+}
+
+load().catch((err) => {
+  console.error("[coa-sim] load failed", err);
+  const hint = document.getElementById("gear-hint");
+  if (hint) hint.textContent = `Could not load item data: ${err instanceof Error ? err.message : err}`;
+  const el = document.getElementById("results");
+  if (el) el.textContent = String(err);
+});

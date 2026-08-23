@@ -1,0 +1,376 @@
+{
+  "generatedAt": "2026-08-22T21:35:54.615Z",
+  "player": "Kadd",
+  "logDps": 6460.963968781114,
+  "logDurationSec": 14545.13900001347,
+  "logTotalDamage": 93975619,
+  "spellPowerFromItems": 0,
+  "spells": {
+    "501288": {
+      "id": 501288,
+      "name": "Fel Fireball",
+      "role": "builder",
+      "resource": "energy",
+      "energy": 35,
+      "felfuryGain": 1,
+      "gcd": 1,
+      "defaultCast": 2,
+      "source": "db.ascension.gg",
+      "observed": {
+        "count": 3774,
+        "total": 11756695,
+        "avgHit": 1743.7509316770186,
+        "avgCrit": 4135.515711645102,
+        "critRate": 0.5733969263381028,
+        "critMultiplier": 2.3716206463430245,
+        "share": 0.12510367183641535
+      },
+      "castTime": 2,
+      "formula": {
+        "source": "db.ascension.gg",
+        "min": 499,
+        "max": 532,
+        "perLevel": 3.51667,
+        "coeff": 0.6203
+      },
+      "fit": {
+        "method": "min-max + perLevel * 60 + 0.6203 * SP",
+        "spellPowerUsed": 0,
+        "base": 515.5,
+        "coeff": 0.6203,
+        "note": "School damage from db.ascension.gg. Crit rate still from Kadd logs."
+      }
+    },
+    "501298": {
+      "id": 501298,
+      "name": "Ruin",
+      "role": "spender",
+      "resource": "felfury",
+      "felfuryCost": 2,
+      "gcd": 1,
+      "defaultCast": 2.5,
+      "source": "db.ascension.gg",
+      "observed": {
+        "count": 2226,
+        "total": 26136666,
+        "avgHit": 6222.94623655914,
+        "avgCrit": 13198.74843838728,
+        "critRate": 0.7911051212938005,
+        "critMultiplier": 2.120980631464571,
+        "share": 0.2781217753936795
+      },
+      "castTime": 2.5,
+      "formula": {
+        "source": "db.ascension.gg",
+        "min": 2163,
+        "max": 2317,
+        "perLevel": 12.45,
+        "coeff": 1.32,
+        "energy": 30,
+        "castTime": 2.5,
+        "gcd": 1
+      },
+      "fit": {
+        "method": "min-max + perLevel * 60 + 1.32 * SP",
+        "spellPowerUsed": 0,
+        "base": 2240,
+        "coeff": 1.32,
+        "note": "School damage from db.ascension.gg. Rotation still spends 2 Felfury; 3-crit Ruin stays instant. Tooltip lists 30 Energy."
+      }
+    },
+    "501321": {
+      "id": 501321,
+      "name": "Sargeron Smite",
+      "role": "spender",
+      "resource": "felfury",
+      "felfuryCost": 2,
+      "gcd": 1,
+      "defaultCast": 0,
+      "source": "db.ascension.gg",
+      "observed": {
+        "count": 2973,
+        "total": 11279978,
+        "avgHit": 1592.1335877862596,
+        "avgCrit": 4006.9490962744376,
+        "critRate": 0.9118735284224689,
+        "critMultiplier": 2.516716641752276,
+        "share": 0.1200308986525537
+      },
+      "castTime": 0,
+      "formula": {
+        "source": "db.ascension.gg",
+        "min": 419,
+        "max": 455,
+        "perLevel": 11.25,
+        "coeff": 0.587,
+        "apCoeff": 0.1939,
+        "energy": 0,
+        "castTime": 0,
+        "gcd": 1
+      },
+      "fit": {
+        "method": "min-max + perLevel * 60 + 0.587 * SP + 0.1939 * AP",
+        "spellPowerUsed": 0,
+        "base": 437,
+        "coeff": 0.587,
+        "note": "School damage from db.ascension.gg. Tooltip cost is none; rotation still spends 2 Felfury from logs. Instant, 1s GCD. Inner Demon rider still copies this hit."
+      }
+    },
+    "520693": {
+      "id": 520693,
+      "name": "Felwrath",
+      "role": "aoe",
+      "resource": "felfury",
+      "felfuryCost": 3,
+      "gcd": 1,
+      "defaultCast": 0,
+      "source": "combat-log",
+      "observed": {
+        "count": 2399,
+        "total": 6933871,
+        "avgHit": 1804.0256175663312,
+        "avgCrit": 3799.4418070444103,
+        "critRate": 0.5443934972905378,
+        "critMultiplier": 2.106090828227782,
+        "share": 0.0737837225631895
+      },
+      "castTime": 2,
+      "fit": {
+        "method": "observed-average (no item SP yet)",
+        "spellPowerUsed": 0,
+        "base": 1804.0256175663312,
+        "coeff": 0,
+        "note": "Fitted from Kadd combat logs. Not CoA Tavern."
+      }
+    },
+    "560284": {
+      "id": 560284,
+      "name": "Infernal",
+      "role": "cooldown",
+      "gcd": 1,
+      "defaultCast": 0,
+      "source": "combat-log",
+      "observed": {
+        "count": 407,
+        "total": 759487,
+        "avgHit": 1196.6545454545455,
+        "avgCrit": 2653.5989304812833,
+        "critRate": 0.4594594594594595,
+        "critMultiplier": 2.2175146039940223,
+        "share": 0.008081745117316014
+      },
+      "castTime": 0,
+      "fit": {
+        "method": "observed-average (no item SP yet)",
+        "spellPowerUsed": 0,
+        "base": 1196.6545454545455,
+        "coeff": 0,
+        "note": "Fitted from Kadd combat logs. Not CoA Tavern."
+      }
+    },
+    "707901": {
+      "id": 707901,
+      "name": "Bane of Fire",
+      "role": "debuff",
+      "resource": "energy",
+      "energy": 40,
+      "gcd": 1,
+      "defaultCast": 0,
+      "duration": 21,
+      "canCrit": false,
+      "source": "db.ascension.gg",
+      "observed": null,
+      "castTime": 0,
+      "debuff": {
+        "damageTakenFromCasterPct": 20,
+        "fireCritFromCasterPct": 20
+      },
+      "fit": {
+        "method": "debuff: +20% magic taken from caster, +20% fire crit from caster",
+        "spellPowerUsed": 0,
+        "base": 0,
+        "coeff": 0,
+        "note": "No periodic damage. 40 Energy, instant, 1s GCD, 21s duration from logs."
+      }
+    },
+    "802676": {
+      "id": 802676,
+      "name": "Chaos",
+      "role": "proc",
+      "gcd": 0,
+      "defaultCast": 0,
+      "source": "db.ascension.gg",
+      "observed": {
+        "count": 2104,
+        "total": 5110862,
+        "avgHit": 1312.6949384404925,
+        "avgCrit": 3023.512017479971,
+        "critRate": 0.6525665399239544,
+        "critMultiplier": 2.3032861093164287,
+        "share": 0.054384978299531074
+      },
+      "castTime": 0,
+      "formula": {
+        "source": "db.ascension.gg",
+        "min": 220,
+        "max": 221,
+        "perLevel": 0,
+        "coeff": 0.3,
+        "energy": 0,
+        "castTime": 0,
+        "gcd": 1
+      },
+      "fit": {
+        "method": "uniform(220, 221) + 0.30 * SP",
+        "spellPowerUsed": 0,
+        "base": 220.5,
+        "coeff": 0.3,
+        "note": "School damage from db.ascension.gg. Tooltip GCD is 1s; as a Ruin/Smite proc it does not take the player's GCD. Proc chance still 35% from logs (Chaos was patched; log hits are stale)."
+      }
+    },
+    "802678": {
+      "id": 802678,
+      "name": "Felstrike",
+      "role": "dot",
+      "gcd": 0,
+      "defaultCast": 0,
+      "duration": 6,
+      "maxStacks": 3,
+      "canCrit": false,
+      "source": "db.ascension.gg",
+      "observed": {
+        "count": 13830,
+        "total": 4359419,
+        "avgHit": 315.2146782357195,
+        "avgCrit": 472.8220173535792,
+        "critRate": 0,
+        "critMultiplier": 1.5,
+        "share": 0.04638882985170867
+      },
+      "castTime": 0,
+      "formula": {
+        "source": "db.ascension.gg",
+        "min": 9,
+        "max": 9,
+        "perLevel": 0.5,
+        "coeff": 0.05,
+        "energy": 0,
+        "castTime": 0,
+        "gcd": 0,
+        "interval": 1
+      },
+      "fit": {
+        "method": "9 + 0.5 * 60 + 0.05 * SP per tick, times stacks",
+        "spellPowerUsed": 0,
+        "base": 9,
+        "coeff": 0.05,
+        "note": "Periodic Damage - Flat, 1s interval, 6s duration, max 3 stacks. Does not crit. Applied by Fel Fireball while Inner Demon is up."
+      }
+    },
+    "803467": {
+      "id": 803467,
+      "name": "Sargeron Smite (Inner Demon)",
+      "role": "rider",
+      "gcd": 0,
+      "defaultCast": 0,
+      "canCrit": false,
+      "source": "db.ascension.gg",
+      "observed": {
+        "count": 2953,
+        "total": 12199294,
+        "avgHit": 4131.152726041314,
+        "avgCrit": 6196.7290890619715,
+        "critRate": 0,
+        "critMultiplier": 1.5,
+        "share": 0.1298133934079221
+      },
+      "castTime": 0,
+      "formula": {
+        "source": "db.ascension.gg",
+        "min": 419,
+        "max": 455,
+        "perLevel": 11.25,
+        "coeff": 0.587,
+        "apCoeff": 0.1939,
+        "energy": 0,
+        "castTime": 0,
+        "gcd": 0
+      },
+      "fit": {
+        "method": "same as Sargeron Smite; copies the triggering hit, no extra crit",
+        "spellPowerUsed": 0,
+        "base": 437,
+        "coeff": 0.587,
+        "note": "Same school formula as 501321. Combat log copies the Smite damage as a second non-crit event rather than rolling again."
+      }
+    },
+    "804216": {
+      "id": 804216,
+      "name": "Inner Demon",
+      "role": "buff",
+      "gcd": 0,
+      "defaultCast": 0,
+      "duration": 30,
+      "source": "db.ascension.gg",
+      "observed": null,
+      "castTime": 0,
+      "buff": {
+        "damageDonePct": 10
+      },
+      "fit": {
+        "method": "buff: +10% damage done (all schools)",
+        "spellPowerUsed": 0,
+        "base": 0,
+        "coeff": 0,
+        "note": "Shapeshift. No cost, instant, no GCD. Consumes current Felfury: 5s duration per point (5–30s). Enables Felstrike and Inner Demon Smite."
+      }
+    },
+    "805748": {
+      "id": 805748,
+      "name": "Ruin",
+      "role": "dot",
+      "gcd": 0,
+      "defaultCast": 0,
+      "duration": 3,
+      "canCrit": false,
+      "source": "db.ascension.gg",
+      "observed": {
+        "count": 5526,
+        "total": 7086262,
+        "avgHit": 1282.3492580528412,
+        "avgCrit": 1923.5238870792618,
+        "critRate": 0,
+        "critMultiplier": 1.5,
+        "share": 0.07540532401281656
+      },
+      "castTime": 0,
+      "formula": {
+        "source": "db.ascension.gg",
+        "min": 0,
+        "max": 0,
+        "perLevel": 0,
+        "coeff": 0.3,
+        "energy": 0,
+        "castTime": 0,
+        "gcd": 0,
+        "interval": 1
+      },
+      "fit": {
+        "method": "0.30 * SP per tick (no Value on tooltip)",
+        "spellPowerUsed": 0,
+        "base": 0,
+        "coeff": 0.3,
+        "note": "Periodic Damage - Flat, 1s interval, 3s duration. Tooltip had no base range; ticks are coeff * SP only until a Value line is added. Does not crit."
+      }
+    }
+  },
+  "rotationNotes": {
+    "builder": "Fel Fireball generates Felfury and can proc Felstrike while Inner Demon is up.",
+    "spenders": "Every third direct Infernal critical strike enables an instant Ruin. Felfury aura transitions show both Ruin and Sargeron Smite consume 2 Felfury.",
+    "resources": "Felfury regenerates during combat and caps at 6 in Kadd's logs.",
+    "maintain": [
+      "Inner Demon",
+      "Bane of Fire"
+    ]
+  }
+}
