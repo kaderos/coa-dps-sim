@@ -151,7 +151,7 @@ export type SimConfig = {
   durationSec: number;
   iterations: number;
   seed: number;
-  fightStyle: "patchwerk";
+  fightStyle: "stationary";
   playerLevel: number;
   bossLevel: number;
   allowCleave: false;
@@ -234,7 +234,7 @@ export type SimResult = {
   durationSec: number;
   playerLevel: number;
   bossLevel: number;
-  fightStyle: "patchwerk";
+  fightStyle: "stationary";
   breakdown: SpellBreakdown[];
   dpsSamples: number[];
   p50Dps: number;

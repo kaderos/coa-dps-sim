@@ -99,7 +99,7 @@ export function renderResults(result: SimResult) {
         ${metric("Std. deviation", result.stdev)}
         ${metric("Iterations", result.iterations, 0)}
       </div>
-      <div class="compare">Level ${result.bossLevel} raid boss · Patchwerk (no movement, no cleave) · ${result.durationSec}s ±5%. ${delta}</div>
+      <div class="compare">Level ${result.bossLevel} raid boss · stationary fight (no movement, no cleave) · ${result.durationSec}s ±5%. ${delta}</div>
     </div>
     <section class="result-section">
       <h3>DPS distribution</h3>

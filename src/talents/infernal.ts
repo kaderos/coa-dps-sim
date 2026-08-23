@@ -111,7 +111,7 @@ export type InfernalAuras = {
   reckoningStacks: number;
   guaranteedCrit: boolean;
   potionSpellPower: number;
-  /** Patchwerk dummy does not lose health. */
+  /** Training dummy does not lose health. */
   targetHealth: number;
   setDamageAbove75?: number;
 };

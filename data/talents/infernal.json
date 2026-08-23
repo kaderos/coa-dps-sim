@@ -1,7 +1,7 @@
 {
   "spec": "Infernal",
   "choice": "Doomsayer",
-  "note": "Taken Infernal spec talents from the Vol'jin builder. Inner Demon lasts 5s per Felfury consumed (5–30s). Patchwerk dummy is treated as always above 75% health. Rating conversions: 14 crit / 8 hit / 10 haste per 1%.",
+  "note": "Taken Infernal spec talents from the Vol'jin builder. Inner Demon lasts 5s per Felfury consumed (5–30s). The training dummy is always treated as above 75% health. Rating conversions: 14 crit / 8 hit / 10 haste per 1%.",
   "talents": [
     {
       "name": "Ruin",
@@ -55,7 +55,7 @@
       "name": "Felwrath",
       "rank": "1/1",
       "combat": false,
-      "effect": "AoE Felfury spender. Omitted on Patchwerk."
+      "effect": "AoE Felfury spender. Omitted in stationary fights."
     },
     {
       "name": "Hidden Power",
@@ -79,19 +79,19 @@
       "name": "Infernal",
       "rank": "1/1",
       "combat": false,
-      "effect": "Pet cooldown. Omitted on Patchwerk (Doomsayer chosen)."
+      "effect": "Pet cooldown. Omitted in stationary fights (Doomsayer chosen)."
     },
     {
       "name": "Felbreak",
       "rank": "1/1",
       "combat": false,
-      "effect": "Interrupt. Unused on Patchwerk."
+      "effect": "Interrupt. Unused in stationary fights."
     },
     {
       "name": "Shadow Magi",
       "rank": "1/1",
       "combat": false,
-      "effect": "Annihilation/Sunder cooldown reductions. Unused on Patchwerk."
+      "effect": "Annihilation/Sunder cooldown reductions. Unused in stationary fights."
     },
     {
       "name": "Sculptor of Doom",
@@ -109,7 +109,7 @@
       "name": "The True Blessing",
       "rank": "1/1",
       "combat": false,
-      "effect": "Annihilation grants Sculptor of Doom. Unused on Patchwerk."
+      "effect": "Annihilation grants Sculptor of Doom. Unused in stationary fights."
     },
     {
       "name": "Doomsayer",

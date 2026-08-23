@@ -8,7 +8,7 @@ Browser DPS simulator for **Felsworn Infernal** on Project Ascension Conquest of
 - `scripts/parse-logs.mjs` — parses local `WoWCombatLog.txt` for Kadd and ALC combatant packets.
 - `scripts/ingest-bisbeard.mjs` — turns a Bisbeard dump into a slot-indexed item DB.
 - `scripts/fit-spells.mjs` — fits Infernal spell averages from combat logs (not CoA Tavern).
-- `src/` — Patchwerk event sim + gear picker UI.
+- `src/` — stationary single-target event sim + gear picker UI.
 - `vendor/wowsims-classic/` — local shallow clone of wowsims for reference (gitignored).
 
 ## Violentmonkey dump

@@ -1033,7 +1033,7 @@ function simulate() {
     durationSec: duration,
     iterations,
     seed: 1,
-    fightStyle: "patchwerk",
+    fightStyle: "stationary",
     playerLevel: PLAYER_LEVEL,
     bossLevel: BOSS_LEVEL,
     allowCleave: false,
