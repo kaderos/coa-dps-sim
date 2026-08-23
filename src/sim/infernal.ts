@@ -1,4 +1,4 @@
-import type { CharacterStats, PotionMode, SimCastEvent, SpellFit } from "../types";
+import type { CharacterStats, PotionMode, SimActiveAura, SimCastEvent, SpellFit } from "../types";
 import { Rng } from "./rng";
 import { hasteMultiplier, rollSpellDamage } from "./spells";
 import {
@@ -93,6 +93,8 @@ export type Aura = {
   remain: number;
   stacks: number;
   tick?: number;
+  nextTickAt?: number;
+  tickPeriod?: number;
 };
 
 export type FightState = {
@@ -139,7 +141,14 @@ export type FightState = {
 };
 
 const FELFURY_MAX = 6;
-const EVENT_LOG_LIMIT = 500;
+const EVENT_LOG_LIMIT = 3000;
+export const CAST_EVENT_LOG_LIMIT = EVENT_LOG_LIMIT;
+
+/** Median timing from Kadd `WoWCombatLog.txt` — see `scripts/analyze-dot-timing.mjs`. */
+const DOT_TIMING = {
+  felstrike: { firstTickDelay: 0.5, tickPeriod: 1.0 },
+  ruinDot: { firstTickDelay: 0.9, tickPeriod: 1.0 },
+} as const;
 
 function addEnergy(state: FightState, amount: number) {
   state.energy = Math.min(state.energyMax, state.energy + amount);
@@ -160,6 +169,8 @@ export function runOnce(
   bySpell: Map<string, { casts: number; damage: number; hits: number; crits: number; misses: number; events: number }>;
   auraSeconds: Map<string, number>;
   castEvents: SimCastEvent[];
+  fightSec: number;
+  castLogTruncated: boolean;
 } {
   const specStats = applyTakenTalents(stats);
   const fireball = spells["501288"];
@@ -244,6 +255,8 @@ export function runOnce(
     bySpell: state.bySpell,
     auraSeconds: state.auraSeconds,
     castEvents: state.castEvents,
+    fightSec: duration,
+    castLogTruncated: state.castEvents.length >= EVENT_LOG_LIMIT,
   };
 }
 
@@ -330,24 +343,26 @@ function tickAuras(
   if (state.felstrike) {
     addAuraTime(state, "Felstrike", dt);
     const spell = spells["802678"];
-    const prev = state.felstrike.remain;
-    state.felstrike.remain -= dt;
-    if (spell && Math.floor(prev) !== Math.floor(state.felstrike.remain) && state.felstrike.remain > 0) {
+    state.felstrike = tickDotAura(state, state.felstrike, dt, () => {
+      if (!spell) return;
       const roll = rollSpellDamage(spell, stats, rng, false, combatContext(spell, stats, state));
-      deal(state, spell.name, roll.amount * state.felstrike.stacks, false, roll.isCrit, roll.isMiss, false, rng);
+      const amount = roll.amount * state.felstrike!.stacks;
+      const auras = snapshotTickAuras(state, spell, state.felstrike!.stacks);
+      deal(state, spell.name, amount, false, roll.isCrit, roll.isMiss, false, rng);
+      logTick(state, spell.name, amount, auras);
       onPeriodic(state, rng);
-    }
-    if (state.felstrike.remain <= 0) state.felstrike = null;
+    });
   }
   if (state.ruinDot) {
     addAuraTime(state, "Ruin (DoT)", dt);
-    const prev = state.ruinDot.remain;
-    state.ruinDot.remain -= dt;
-    if (Math.floor(prev) !== Math.floor(state.ruinDot.remain) && state.ruinDot.remain > 0) {
-      deal(state, "Ruin (DoT)", state.ruinDot.tick ?? 0, false, false, false, false, rng);
+    const ruin = spells["501298"];
+    state.ruinDot = tickDotAura(state, state.ruinDot, dt, () => {
+      const tickDamage = state.ruinDot!.tick ?? 0;
+      const auras = ruin ? snapshotDamageAuras(state, ruin) : [];
+      deal(state, "Ruin (DoT)", tickDamage, false, false, false, false, rng);
+      logTick(state, "Ruin (DoT)", tickDamage, auras);
       onPeriodic(state, rng);
-    }
-    if (state.ruinDot.remain <= 0) state.ruinDot = null;
+    });
   }
 }
 
@@ -425,9 +440,52 @@ function combatContext(spell: SpellFit, stats: CharacterStats, state: FightState
   });
 }
 
+/** Buffs/procs that were active when infernalContext calculated this spell's damage. */
+function snapshotDamageAuras(state: FightState, spell: SpellFit, sculptorProc = false): SimActiveAura[] {
+  const auras: SimActiveAura[] = [];
+  const push = (name: string, stacks = 1) => {
+    if (stacks > 0) auras.push({ name, stacks });
+  };
+
+  if (state.innerDemon) push("Inner Demon", state.innerDemon.stacks);
+  if (state.baneOfFire && (spell.school ?? "fire") === "fire") push("Bane of Fire");
+  if (state.maliceCritRemain > 0) push("Fragment of Malice");
+  if (state.felshockHitRemain > 0) push("Felshock");
+  if (state.chaotic?.stacks) push("Chaotic", state.chaotic.stacks);
+  if (state.reckoningPower?.stacks) push("Reckoning", state.reckoningPower.stacks);
+  if (state.annihilation?.stacks) push("Annihilation", state.annihilation.stacks);
+  if (state.potion) push("Potion of Spell Power");
+  if (state.setDamageAbove75 > 0) push("Felheart 6pc");
+  if (isRuin(spell) && (state.ruinProc || sculptorProc)) push("Sculptor of Doom");
+
+  return auras;
+}
+
+function snapshotTickAuras(state: FightState, spell: SpellFit, felstrikeStacks: number): SimActiveAura[] {
+  const auras = snapshotDamageAuras(state, spell).filter((aura) => aura.name !== "Felstrike");
+  if (felstrikeStacks > 0) auras.push({ name: "Felstrike", stacks: felstrikeStacks });
+  return auras;
+}
+
 function applyFelstrike(state: FightState, spell: SpellFit) {
   const stacks = Math.min(spell.maxStacks ?? 3, (state.felstrike?.stacks ?? 0) + 1);
-  state.felstrike = { remain: spell.duration ?? 6, stacks };
+  state.felstrike = {
+    remain: spell.duration ?? 6,
+    stacks,
+    nextTickAt: state.time + DOT_TIMING.felstrike.firstTickDelay,
+    tickPeriod: DOT_TIMING.felstrike.tickPeriod,
+  };
+}
+
+function tickDotAura(state: FightState, aura: Aura, dt: number, onTick: () => void): Aura | null {
+  aura.remain -= dt;
+  if (aura.nextTickAt != null) {
+    while (aura.remain > 0 && state.time >= aura.nextTickAt) {
+      onTick();
+      aura.nextTickAt += aura.tickPeriod ?? 1;
+    }
+  }
+  return aura.remain > 0 ? aura : null;
 }
 
 function onPeriodic(state: FightState, rng: Rng) {
@@ -493,6 +551,9 @@ function cast(
 ) {
   const haste = currentHaste(stats, state);
   const isProcRuin = isRuin(spell) && state.ruinProc;
+  const logEnergy = state.energy;
+  const logFelfury = state.felfury;
+  const logResources = { energy: logEnergy, felfury: logFelfury };
   const usingFelforged = isFireball(spell) && Boolean(state.felforged);
   const reckoningFireball = isFireball(spell) && Boolean(state.reckoning);
   const castTime = isProcRuin || reckoningFireball
@@ -533,14 +594,14 @@ function cast(
     state.felfury = Math.max(0, state.felfury - consumed);
     state.innerDemon = { remain: innerDemonDuration(consumed), stacks: Math.max(1, consumed) };
     deal(state, spell.name, 0, true, false, false);
-    logCast(state, spell.name, "applied", 0);
+    logCast(state, spell.name, "applied", 0, undefined, logResources);
     return;
   }
   if (spell.id === POTION.id) {
     state.potion = { remain: state.potionDuration, stacks: 1 };
     state.potionDrinks += 1;
     deal(state, spell.name, 0, true, false, false);
-    logCast(state, spell.name, "applied", 0);
+    logCast(state, spell.name, "applied", 0, undefined, logResources);
     return;
   }
   if (spell.id === BLOOD.id) {
@@ -548,13 +609,13 @@ function cast(
     state.bloodRegen = { remain: FELSWORN.bloodOfMannorothRegenDuration, stacks: 1 };
     state.bloodReadyAt = state.time + FELSWORN.bloodOfMannorothCd;
     deal(state, spell.name, 0, true, false, false);
-    logCast(state, spell.name, "applied", 0);
+    logCast(state, spell.name, "applied", 0, undefined, logResources);
     return;
   }
   if (spell.id === 707901) {
     state.baneOfFire = { remain: baneDuration(spell.duration ?? 21), stacks: 1 };
     deal(state, spell.name, 0, true, false, false);
-    logCast(state, spell.name, "applied", 0);
+    logCast(state, spell.name, "applied", 0, undefined, logResources);
     return;
   }
   if (spell.id === SKULL.id) {
@@ -564,7 +625,7 @@ function cast(
     state.skull = { remain: FELSWORN.skullDuration, stacks: 1 };
     state.skullReadyAt = state.time + skullCooldown();
     deal(state, spell.name, 0, true, false, false);
-    logCast(state, spell.name, "applied", 0);
+    logCast(state, spell.name, "applied", 0, undefined, logResources);
     return;
   }
   if (spell.id === ANNIHILATION.id) {
@@ -574,21 +635,22 @@ function cast(
     state.ruinProcRemain = INFERNAL.sculptorWindow;
     state.critsTowardRuin = 0;
     deal(state, spell.name, 0, true, false, false);
-    logCast(state, spell.name, "applied", 0);
+    logCast(state, spell.name, "applied", 0, undefined, logResources);
     return;
   }
   if (spell.id === RECKONING.id) {
     state.reckoning = { remain: FELSWORN.reckoningDuration, stacks: 1 };
     state.reckoningReadyAt = state.time + FELSWORN.reckoningCd;
     deal(state, spell.name, 0, true, false, false);
-    logCast(state, spell.name, "applied", 0);
+    logCast(state, spell.name, "applied", 0, undefined, logResources);
     return;
   }
 
   const ctx = combatContext(spell, stats, state);
+  const activeAuras = snapshotDamageAuras(state, spell, isProcRuin);
   const roll = rollSpellDamage(spell, stats, rng, true, ctx);
   deal(state, spell.name, roll.amount, true, roll.isCrit, roll.isMiss, true, rng);
-  logCast(state, spell.name, roll.isMiss ? "miss" : roll.isCrit ? "crit" : "hit", roll.amount);
+  logCast(state, spell.name, roll.isMiss ? "miss" : roll.isCrit ? "crit" : "hit", roll.amount, activeAuras, logResources);
   if (!roll.isMiss && state.annihilation) {
     state.annihilation.stacks -= 1;
     if (state.annihilation.stacks <= 0) state.annihilation = null;
@@ -603,6 +665,8 @@ function cast(
       remain: INFERNAL.ruinDotDuration,
       stacks: 1,
       tick: (roll.amount * INFERNAL.ruinDotFraction) / INFERNAL.ruinDotDuration,
+      nextTickAt: state.time + DOT_TIMING.ruinDot.firstTickDelay,
+      tickPeriod: DOT_TIMING.ruinDot.tickPeriod,
     };
   }
   if (isRuin(spell) && state.innerDemon && !roll.isMiss) {
@@ -613,8 +677,17 @@ function cast(
     applyFelstrike(state, extras.felstrike);
   }
   if ((isRuin(spell) || isSmite(spell)) && extras.chaos && rng.chance(0.35)) {
-    const chaosRoll = rollSpellDamage(extras.chaos, stats, rng, true, combatContext(extras.chaos, stats, state));
-    deal(state, extras.chaos.name, chaosRoll.amount, true, chaosRoll.isCrit, chaosRoll.isMiss, true, rng);
+    const chaosSpell = extras.chaos;
+    const chaosAuras = snapshotDamageAuras(state, chaosSpell);
+    const chaosRoll = rollSpellDamage(chaosSpell, stats, rng, true, combatContext(chaosSpell, stats, state));
+    deal(state, chaosSpell.name, chaosRoll.amount, true, chaosRoll.isCrit, chaosRoll.isMiss, true, rng);
+    logCast(
+      state,
+      chaosSpell.name,
+      chaosRoll.isMiss ? "miss" : chaosRoll.isCrit ? "crit" : "hit",
+      chaosRoll.amount,
+      chaosAuras,
+    );
     if (!chaosRoll.isMiss && state.annihilation) {
       state.annihilation.stacks -= 1;
       if (state.annihilation.stacks <= 0) state.annihilation = null;
@@ -622,7 +695,9 @@ function cast(
     if (chaosRoll.isCrit) onDirectCrit(state, extras.chaos, extras, rng);
   }
   if (isSmite(spell) && state.innerDemon && extras.smiteInner && !roll.isMiss) {
+    const riderAuras = snapshotDamageAuras(state, extras.smiteInner);
     deal(state, extras.smiteInner.name, roll.amount, true, false, false, false, rng);
+    logCast(state, extras.smiteInner.name, "hit", roll.amount, riderAuras);
   }
   if (roll.isCrit) onDirectCrit(state, spell, extras, rng);
 }
@@ -632,16 +707,41 @@ function logCast(
   spell: string,
   result: SimCastEvent["result"],
   damage: number,
+  activeAuras?: SimActiveAura[],
+  resources?: { energy: number; felfury: number },
 ) {
   if (state.castEvents.length >= EVENT_LOG_LIMIT) return;
-  state.castEvents.push({
+  const event: SimCastEvent = {
     timestamp: Number(state.time.toFixed(3)),
     spell,
+    kind: "cast",
     result,
+    damage,
+    energy: Number((resources?.energy ?? state.energy).toFixed(2)),
+    felfury: Number((resources?.felfury ?? state.felfury).toFixed(2)),
+  };
+  if (activeAuras?.length) event.activeAuras = activeAuras;
+  state.castEvents.push(event);
+}
+
+function logTick(
+  state: FightState,
+  spell: string,
+  damage: number,
+  activeAuras?: SimActiveAura[],
+) {
+  if (state.castEvents.length >= EVENT_LOG_LIMIT) return;
+  const event: SimCastEvent = {
+    timestamp: Number(state.time.toFixed(3)),
+    spell,
+    kind: "tick",
+    result: "tick",
     damage,
     energy: Number(state.energy.toFixed(2)),
     felfury: Number(state.felfury.toFixed(2)),
-  });
+  };
+  if (activeAuras?.length) event.activeAuras = activeAuras;
+  state.castEvents.push(event);
 }
 
 function tryChaotic(state: FightState, rng: Rng) {

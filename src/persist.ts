@@ -1,4 +1,5 @@
 import type { BuffsConfig, Enchant, EnchantSet, GearSet, Item, Slot } from "./types";
+import type { TalentSelection } from "./talents/types";
 import { SLOTS } from "./types";
 
 const STORAGE_KEY = "coa-sim.session.v1";
@@ -9,6 +10,7 @@ export type SessionPersist = {
   buffs?: Partial<BuffsConfig>;
   pullFelfury?: number;
   enchants?: Partial<Record<Slot, number | null>>;
+  talents?: Partial<TalentSelection>;
 };
 
 export function loadSession(): SessionPersist {
@@ -22,6 +24,7 @@ export function loadSession(): SessionPersist {
       buffs: saved.buffs && typeof saved.buffs === "object" ? saved.buffs : undefined,
       pullFelfury: sanitizePullFelfury(saved.pullFelfury),
       enchants: sanitizeGear(saved.enchants),
+      talents: saved.talents && typeof saved.talents === "object" ? saved.talents : undefined,
     };
   } catch {
     // Corrupt or unavailable storage just falls back to empty gear.
@@ -38,6 +41,7 @@ export function saveSession(patch: Partial<SessionPersist>) {
       buffs: patch.buffs !== undefined ? patch.buffs : current.buffs,
       pullFelfury: patch.pullFelfury !== undefined ? patch.pullFelfury : current.pullFelfury,
       enchants: patch.enchants !== undefined ? patch.enchants : current.enchants,
+      talents: patch.talents !== undefined ? patch.talents : current.talents,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   } catch {

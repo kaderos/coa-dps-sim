@@ -221,6 +221,7 @@ function main() {
   const enchants = collectEnchants(files);
   writeJson(path.join(path.dirname(OUT_PUBLIC), "enchants.json"), enchants, { pretty: false });
   writeJson(path.join(ROOT, "data", "enchants.json"), enchants);
+  syncTalentPayloads();
 
   const slotCounts = SLOTS.map((s) => `${s}:${(bySlot[s] || []).length}`).join(", ");
   console.log(`Ingested ${unique.length} items from ${files.length} dump files (${payload.source}).`);
@@ -730,6 +731,17 @@ function collectSets(items) {
     count: Object.keys(sets).length,
     sets,
   };
+}
+
+function syncTalentPayloads() {
+  const sourceDir = path.join(ROOT, "data", "talents");
+  const targetDir = path.join(ROOT, "public", "data", "talents");
+  fs.mkdirSync(targetDir, { recursive: true });
+  for (const file of ["felsworn.json", "infernal.json"]) {
+    const source = path.join(sourceDir, file);
+    if (!fs.existsSync(source)) continue;
+    fs.copyFileSync(source, path.join(targetDir, file));
+  }
 }
 
 function writeJson(file, data, { pretty = true } = {}) {

@@ -1,0 +1,770 @@
+{
+  "felstrike": {
+    "spellId": 802678,
+    "name": "Felstrike",
+    "applications": 5503,
+    "samples": {
+      "firstTickDelaySec": {
+        "count": 4723,
+        "min": 0,
+        "p10": 0.134,
+        "median": 0.516,
+        "p90": 0.963,
+        "max": 3.025,
+        "mean": 0.544
+      },
+      "retickIntervalSec": {
+        "count": 5102,
+        "min": 0,
+        "p10": 0.292,
+        "median": 0.979,
+        "p90": 1.06,
+        "max": 4.976,
+        "mean": 0.853
+      },
+      "ticksPerApplication": {
+        "count": 4723,
+        "min": 1,
+        "p10": 1,
+        "median": 2,
+        "p90": 4,
+        "max": 28,
+        "mean": 2.08
+      },
+      "auraDurationSec": {
+        "count": 439,
+        "min": 0,
+        "p10": 0.4,
+        "median": 1.682,
+        "p90": 5.944,
+        "max": 6.1,
+        "mean": 2.485
+      }
+    },
+    "histogram": {
+      "firstTickDelaySec": [
+        {
+          "sec": 0,
+          "count": 45
+        },
+        {
+          "sec": 0.05,
+          "count": 34
+        },
+        {
+          "sec": 0.1,
+          "count": 326
+        },
+        {
+          "sec": 0.15,
+          "count": 220
+        },
+        {
+          "sec": 0.2,
+          "count": 313
+        },
+        {
+          "sec": 0.25,
+          "count": 203
+        },
+        {
+          "sec": 0.3,
+          "count": 314
+        },
+        {
+          "sec": 0.35,
+          "count": 205
+        },
+        {
+          "sec": 0.4,
+          "count": 290
+        },
+        {
+          "sec": 0.45,
+          "count": 195
+        },
+        {
+          "sec": 0.5,
+          "count": 264
+        },
+        {
+          "sec": 0.55,
+          "count": 188
+        },
+        {
+          "sec": 0.6,
+          "count": 228
+        },
+        {
+          "sec": 0.65,
+          "count": 157
+        },
+        {
+          "sec": 0.7,
+          "count": 191
+        },
+        {
+          "sec": 0.75,
+          "count": 166
+        },
+        {
+          "sec": 0.8,
+          "count": 229
+        },
+        {
+          "sec": 0.85,
+          "count": 164
+        },
+        {
+          "sec": 0.9,
+          "count": 333
+        },
+        {
+          "sec": 0.95,
+          "count": 229
+        },
+        {
+          "sec": 1,
+          "count": 255
+        },
+        {
+          "sec": 1.05,
+          "count": 133
+        },
+        {
+          "sec": 1.1,
+          "count": 23
+        },
+        {
+          "sec": 1.15,
+          "count": 9
+        },
+        {
+          "sec": 1.2,
+          "count": 4
+        },
+        {
+          "sec": 1.25,
+          "count": 1
+        },
+        {
+          "sec": 1.95,
+          "count": 1
+        },
+        {
+          "sec": 2.25,
+          "count": 1
+        },
+        {
+          "sec": 2.85,
+          "count": 1
+        },
+        {
+          "sec": 3.05,
+          "count": 1
+        }
+      ],
+      "retickIntervalSec": [
+        {
+          "sec": 0,
+          "count": 178
+        },
+        {
+          "sec": 0.05,
+          "count": 39
+        },
+        {
+          "sec": 0.1,
+          "count": 95
+        },
+        {
+          "sec": 0.15,
+          "count": 57
+        },
+        {
+          "sec": 0.2,
+          "count": 61
+        },
+        {
+          "sec": 0.25,
+          "count": 51
+        },
+        {
+          "sec": 0.3,
+          "count": 95
+        },
+        {
+          "sec": 0.35,
+          "count": 55
+        },
+        {
+          "sec": 0.4,
+          "count": 75
+        },
+        {
+          "sec": 0.45,
+          "count": 47
+        },
+        {
+          "sec": 0.5,
+          "count": 66
+        },
+        {
+          "sec": 0.55,
+          "count": 50
+        },
+        {
+          "sec": 0.6,
+          "count": 57
+        },
+        {
+          "sec": 0.65,
+          "count": 46
+        },
+        {
+          "sec": 0.7,
+          "count": 41
+        },
+        {
+          "sec": 0.75,
+          "count": 44
+        },
+        {
+          "sec": 0.8,
+          "count": 51
+        },
+        {
+          "sec": 0.85,
+          "count": 131
+        },
+        {
+          "sec": 0.9,
+          "count": 424
+        },
+        {
+          "sec": 0.95,
+          "count": 822
+        },
+        {
+          "sec": 1,
+          "count": 1401
+        },
+        {
+          "sec": 1.05,
+          "count": 839
+        },
+        {
+          "sec": 1.1,
+          "count": 282
+        },
+        {
+          "sec": 1.15,
+          "count": 76
+        },
+        {
+          "sec": 1.2,
+          "count": 12
+        },
+        {
+          "sec": 1.25,
+          "count": 3
+        },
+        {
+          "sec": 1.3,
+          "count": 1
+        },
+        {
+          "sec": 1.4,
+          "count": 1
+        },
+        {
+          "sec": 2.95,
+          "count": 1
+        },
+        {
+          "sec": 5,
+          "count": 1
+        }
+      ]
+    }
+  },
+  "ruinDot": {
+    "spellId": 805748,
+    "name": "Ruin (DoT)",
+    "applications": 1625,
+    "samples": {
+      "firstTickDelaySec": {
+        "count": 1587,
+        "min": 0,
+        "p10": 0.724,
+        "median": 0.914,
+        "p90": 0.995,
+        "max": 2.841,
+        "mean": 0.875
+      },
+      "retickIntervalSec": {
+        "count": 2666,
+        "min": 0.355,
+        "p10": 0.925,
+        "median": 1.01,
+        "p90": 1.072,
+        "max": 1.333,
+        "mean": 1.004
+      },
+      "ticksPerApplication": {
+        "count": 1587,
+        "min": 1,
+        "p10": 2,
+        "median": 3,
+        "p90": 3,
+        "max": 5,
+        "mean": 2.68
+      },
+      "auraDurationSec": {
+        "count": 1257,
+        "min": 0.105,
+        "p10": 2.843,
+        "median": 2.939,
+        "p90": 3.001,
+        "max": 3.193,
+        "mean": 2.88
+      }
+    },
+    "histogram": {
+      "firstTickDelaySec": [
+        {
+          "sec": 0,
+          "count": 2
+        },
+        {
+          "sec": 0.1,
+          "count": 15
+        },
+        {
+          "sec": 0.15,
+          "count": 9
+        },
+        {
+          "sec": 0.2,
+          "count": 5
+        },
+        {
+          "sec": 0.25,
+          "count": 7
+        },
+        {
+          "sec": 0.3,
+          "count": 8
+        },
+        {
+          "sec": 0.35,
+          "count": 10
+        },
+        {
+          "sec": 0.4,
+          "count": 8
+        },
+        {
+          "sec": 0.45,
+          "count": 6
+        },
+        {
+          "sec": 0.5,
+          "count": 8
+        },
+        {
+          "sec": 0.55,
+          "count": 14
+        },
+        {
+          "sec": 0.6,
+          "count": 18
+        },
+        {
+          "sec": 0.65,
+          "count": 18
+        },
+        {
+          "sec": 0.7,
+          "count": 32
+        },
+        {
+          "sec": 0.75,
+          "count": 40
+        },
+        {
+          "sec": 0.8,
+          "count": 67
+        },
+        {
+          "sec": 0.85,
+          "count": 132
+        },
+        {
+          "sec": 0.9,
+          "count": 528
+        },
+        {
+          "sec": 0.95,
+          "count": 424
+        },
+        {
+          "sec": 1,
+          "count": 172
+        },
+        {
+          "sec": 1.05,
+          "count": 51
+        },
+        {
+          "sec": 1.1,
+          "count": 8
+        },
+        {
+          "sec": 1.15,
+          "count": 4
+        },
+        {
+          "sec": 2.85,
+          "count": 1
+        }
+      ],
+      "retickIntervalSec": [
+        {
+          "sec": 0.35,
+          "count": 2
+        },
+        {
+          "sec": 0.65,
+          "count": 1
+        },
+        {
+          "sec": 0.7,
+          "count": 2
+        },
+        {
+          "sec": 0.75,
+          "count": 4
+        },
+        {
+          "sec": 0.8,
+          "count": 10
+        },
+        {
+          "sec": 0.85,
+          "count": 36
+        },
+        {
+          "sec": 0.9,
+          "count": 209
+        },
+        {
+          "sec": 0.95,
+          "count": 431
+        },
+        {
+          "sec": 1,
+          "count": 1028
+        },
+        {
+          "sec": 1.05,
+          "count": 696
+        },
+        {
+          "sec": 1.1,
+          "count": 187
+        },
+        {
+          "sec": 1.15,
+          "count": 40
+        },
+        {
+          "sec": 1.2,
+          "count": 15
+        },
+        {
+          "sec": 1.25,
+          "count": 3
+        },
+        {
+          "sec": 1.35,
+          "count": 2
+        }
+      ]
+    }
+  },
+  "ruinDirectToDot": {
+    "directHitToFirstTickSec": {
+      "count": 1530,
+      "min": 0,
+      "p10": 0.299,
+      "median": 1.49,
+      "p90": 2.14,
+      "max": 3.959,
+      "mean": 1.329
+    },
+    "directHitToAuraApplySec": {
+      "count": 1107,
+      "min": 0.044,
+      "p10": 0.442,
+      "median": 0.847,
+      "p90": 1.366,
+      "max": 3.028,
+      "mean": 0.88
+    },
+    "auraApplyToFirstTickSec": {
+      "count": 1006,
+      "min": 0.014,
+      "p10": 0.859,
+      "median": 0.921,
+      "p90": 0.998,
+      "max": 2.841,
+      "mean": 0.908
+    },
+    "histogram": {
+      "directHitToFirstTickSec": [
+        {
+          "sec": 0,
+          "count": 2
+        },
+        {
+          "sec": 0.05,
+          "count": 21
+        },
+        {
+          "sec": 0.1,
+          "count": 30
+        },
+        {
+          "sec": 0.15,
+          "count": 33
+        },
+        {
+          "sec": 0.2,
+          "count": 33
+        },
+        {
+          "sec": 0.25,
+          "count": 22
+        },
+        {
+          "sec": 0.3,
+          "count": 35
+        },
+        {
+          "sec": 0.35,
+          "count": 36
+        },
+        {
+          "sec": 0.4,
+          "count": 30
+        },
+        {
+          "sec": 0.45,
+          "count": 29
+        },
+        {
+          "sec": 0.5,
+          "count": 25
+        },
+        {
+          "sec": 0.55,
+          "count": 30
+        },
+        {
+          "sec": 0.6,
+          "count": 32
+        },
+        {
+          "sec": 0.65,
+          "count": 33
+        },
+        {
+          "sec": 0.7,
+          "count": 13
+        },
+        {
+          "sec": 0.75,
+          "count": 20
+        },
+        {
+          "sec": 0.8,
+          "count": 42
+        },
+        {
+          "sec": 0.85,
+          "count": 28
+        },
+        {
+          "sec": 0.9,
+          "count": 24
+        },
+        {
+          "sec": 0.95,
+          "count": 20
+        },
+        {
+          "sec": 1,
+          "count": 9
+        },
+        {
+          "sec": 1.05,
+          "count": 8
+        },
+        {
+          "sec": 1.1,
+          "count": 4
+        },
+        {
+          "sec": 1.15,
+          "count": 6
+        },
+        {
+          "sec": 1.2,
+          "count": 14
+        },
+        {
+          "sec": 1.25,
+          "count": 15
+        },
+        {
+          "sec": 1.3,
+          "count": 27
+        },
+        {
+          "sec": 1.35,
+          "count": 37
+        },
+        {
+          "sec": 1.4,
+          "count": 31
+        },
+        {
+          "sec": 1.45,
+          "count": 56
+        },
+        {
+          "sec": 1.5,
+          "count": 61
+        },
+        {
+          "sec": 1.55,
+          "count": 40
+        },
+        {
+          "sec": 1.6,
+          "count": 42
+        },
+        {
+          "sec": 1.65,
+          "count": 43
+        },
+        {
+          "sec": 1.7,
+          "count": 50
+        },
+        {
+          "sec": 1.75,
+          "count": 59
+        },
+        {
+          "sec": 1.8,
+          "count": 55
+        },
+        {
+          "sec": 1.85,
+          "count": 53
+        },
+        {
+          "sec": 1.9,
+          "count": 60
+        },
+        {
+          "sec": 1.95,
+          "count": 48
+        },
+        {
+          "sec": 2,
+          "count": 48
+        },
+        {
+          "sec": 2.05,
+          "count": 37
+        },
+        {
+          "sec": 2.1,
+          "count": 26
+        },
+        {
+          "sec": 2.15,
+          "count": 34
+        },
+        {
+          "sec": 2.2,
+          "count": 22
+        },
+        {
+          "sec": 2.25,
+          "count": 14
+        },
+        {
+          "sec": 2.3,
+          "count": 13
+        },
+        {
+          "sec": 2.35,
+          "count": 15
+        },
+        {
+          "sec": 2.4,
+          "count": 11
+        },
+        {
+          "sec": 2.45,
+          "count": 9
+        },
+        {
+          "sec": 2.5,
+          "count": 10
+        },
+        {
+          "sec": 2.55,
+          "count": 6
+        },
+        {
+          "sec": 2.6,
+          "count": 6
+        },
+        {
+          "sec": 2.65,
+          "count": 5
+        },
+        {
+          "sec": 2.7,
+          "count": 9
+        },
+        {
+          "sec": 2.75,
+          "count": 3
+        },
+        {
+          "sec": 2.85,
+          "count": 3
+        },
+        {
+          "sec": 3.1,
+          "count": 1
+        },
+        {
+          "sec": 3.5,
+          "count": 1
+        },
+        {
+          "sec": 3.95,
+          "count": 1
+        }
+      ],
+      "retickIntervalSec": null
+    }
+  }
+}

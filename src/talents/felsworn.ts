@@ -1,4 +1,6 @@
 import type { CharacterStats, ItemStats } from "../types";
+import { isTalentEnabled } from "./baseline";
+import type { TalentSelection } from "./types";
 
 export const FELSWORN = {
   crueltyCrit: 4,
@@ -39,11 +41,18 @@ export const FELSWORN = {
   bloodOfMannorothRegenDuration: 20,
 };
 
-export function applyFelswornPassives(stats: CharacterStats): CharacterStats {
-  const energyMax = stats.energyMax + FELSWORN.felCommunionEnergy;
+export function applyFelswornPassives(stats: CharacterStats, selection?: TalentSelection): CharacterStats {
+  let spellCrit = stats.spellCrit;
+  let energyMax = stats.energyMax;
+  if (!selection || isTalentEnabled(selection, "felsworn", "Cruelty")) {
+    spellCrit += FELSWORN.crueltyCrit;
+  }
+  if (!selection || isTalentEnabled(selection, "felsworn", "Fel Communion")) {
+    energyMax += FELSWORN.felCommunionEnergy;
+  }
   return {
     ...stats,
-    spellCrit: stats.spellCrit + FELSWORN.crueltyCrit,
+    spellCrit,
     energyMax,
     energy: energyMax,
   };

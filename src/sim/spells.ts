@@ -64,7 +64,7 @@ export function rollSpellDamage(
     spell.canCrit === false
       ? 0
       : Math.min(
-          0.95,
+          1,
           Math.max(0, logCrit + stats.spellCrit / 100 + fireCrit + (ctx.extraCrit ?? 0)),
         );
   const talentMult = ctx.critMultiplier;

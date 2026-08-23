@@ -1,0 +1,32 @@
+{
+  "class": "Felsworn",
+  "choice": "Gul'dan's Gift",
+  "note": "Taken class-tree talents from the Vol'jin builder. Cooldowns: Annihilation 45s, Reckoning 2m, Skull of Gul'dan 1.5m with Gul'dan's Gift, Blood of Mannoroth 3m. Base Energy regen 10/s.",
+  "talents": [
+    { "name": "Annihilation", "rank": "1/1", "combat": true, "effect": "No GCD. Next 5 direct hits are guaranteed crits (12s). No damage. Grants Sculptor of Doom via The True Blessing. Used when Sculptor is down, Felfury >= 2, Inner Demon and Bane are up." },
+    { "name": "Hateforged Barrier", "rank": "1/1", "combat": false, "effect": "Absorb shield. Unused in stationary fights." },
+    { "name": "Cruelty", "rank": "2/2", "combat": true, "effect": "+4% crit (+6% vs Demons; raid boss is not treated as a Demon)." },
+    { "name": "Demonborn", "rank": "2/2", "combat": true, "effect": "+30% Energy regeneration (10/s base → 13/s)." },
+    { "name": "Demonic Evasion", "rank": "1/1", "combat": false, "effect": "+5% dodge." },
+    { "name": "Focused Hatred", "rank": "1/1", "combat": true, "effect": "Direct magical crits generate 5 Energy." },
+    { "name": "Felwracked", "rank": "1/1", "combat": true, "effect": "Every 3rd Fel Fireball within 15s generates 1 extra Felfury." },
+    { "name": "Infernal Armor", "rank": "1/1", "combat": false, "effect": "Hateforged Barrier cooldown -10s." },
+    { "name": "Whispers of the Pit", "rank": "1/1", "combat": false, "effect": "Fear/slow. Unused in stationary fights." },
+    { "name": "Embracing Evil", "rank": "1/1", "combat": true, "effect": "Banes last 20% longer and cost 20% less Energy." },
+    { "name": "Skull of Gul'dan", "rank": "1/1", "combat": true, "effect": "No GCD. +37.5% max Energy for 10s with Gul'dan's Gift. Base 1 min CD, 1.5 min with Gift. Used with Annihilation for Archimonde's Wrath." },
+    { "name": "Felgorged", "rank": "1/1", "combat": false, "effect": "Cripple/Consume Magic cost. Unused." },
+    { "name": "Felheart", "rank": "1/1", "combat": true, "effect": "+1% haste per active Felfury." },
+    { "name": "Demonic Embrace", "rank": "1/1", "combat": true, "effect": "Inner Demon at 6+ Felfury restores 50 Energy." },
+    { "name": "Illidan's Guile", "rank": "1/1", "combat": false, "effect": "Immunity/self-root. Unused." },
+    { "name": "Dark Teachings", "rank": "1/1", "combat": true, "effect": "+20% Intuition effectiveness (Man'ari / Illidari)." },
+    { "name": "Felbane", "rank": "1/1", "combat": false, "effect": "Spell reflect. Unused." },
+    { "name": "Warden's End", "rank": "1/1", "combat": false, "effect": "Mana Burn / Illidan's Guile cooldown -20%." },
+    { "name": "Pact Hunter", "rank": "1/1", "combat": true, "effect": "+50% Pact effectiveness (Demonfire Pact crit)." },
+    { "name": "Gul'dan's Gift", "rank": "1/1", "combat": true, "effect": "Skull of Gul'dan +50% effect and +50% cooldown (1 min → 1.5 min)." },
+    { "name": "Elemental Bane", "rank": "1/1", "combat": true, "effect": "+10% crit damage. +15% crit vs Elementals not applied to the raid dummy." },
+    { "name": "Fel Communion", "rank": "1/1", "combat": true, "effect": "+30 maximum Energy." },
+    { "name": "Reckoning", "rank": "1/1", "combat": true, "effect": "No GCD. 10s free instant Fireballs and +4% damage / 15s per Fireball, max 4. 2 min CD. Used when Felforged is down and Felfury is below 3." },
+    { "name": "Blood of Mannoroth", "rank": "1/1", "combat": true, "effect": "No GCD. Gain 6 Felfury and +100% Energy regen for 20s. 3 min CD. Used after Inner Demon is up." },
+    { "name": "Chaotic", "rank": "1/1", "combat": true, "effect": "8% on dealing damage: +3% damage for 8s, stacks 3." }
+  ]
+}

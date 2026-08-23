@@ -216,13 +216,22 @@ export type SpellBreakdown = {
   missRate: number | null;
 };
 
+export type SimActiveAura = {
+  name: string;
+  stacks: number;
+};
+
 export type SimCastEvent = {
   timestamp: number;
   spell: string;
-  result: "hit" | "crit" | "miss" | "applied";
+  /** Casted ability vs periodic DoT tick (no GCD, no cast count). */
+  kind?: "cast" | "tick";
+  result: "hit" | "crit" | "miss" | "applied" | "tick";
   damage: number;
   energy: number;
   felfury: number;
+  /** Temporary buffs/procs active when this damage was calculated. */
+  activeAuras?: SimActiveAura[];
 };
 
 export type SimResult = {
@@ -241,6 +250,9 @@ export type SimResult = {
   p95Dps: number;
   auraUptimes: Array<{ name: string; uptime: number }>;
   castEvents: SimCastEvent[];
+  /** Salted fight length for iteration 0 (the cast log seed). */
+  castLogFightSec: number;
+  castLogTruncated: boolean;
   logDps: number | null;
   logDeltaPct: number | null;
   logBaseline: LogBaseline | null;

@@ -290,6 +290,7 @@ function renderControls(config: BuffsConfig): string {
       "Consumes",
       "buff-consumes",
       `<div class="consume-grid">${[
+        `<label class="consume-field" title="6 if you walked in with Felfury from trash. 0 if the pull starts empty.">Felfury at pull<input id="pull-felfury" type="number" value="0" min="0" max="6" /></label>`,
         select("Flask", "flask", FLASKS, config.flask),
         select("Food", "food", FOODS, config.food),
         select("Main-hand oil", "weaponOil", WEAPON_OILS, config.weaponOil),

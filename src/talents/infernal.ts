@@ -1,7 +1,9 @@
 import type { CharacterStats, SpellFit } from "../types";
 import type { DamageContext } from "../sim/spells";
 import { SPELL_CRIT_RATING_PER_PERCENT } from "../sim/stats";
+import { isTalentEnabled } from "./baseline";
 import { FELSWORN } from "./felsworn";
+import type { TalentSelection } from "./types";
 
 export { SPELL_CRIT_RATING_PER_PERCENT };
 
@@ -19,6 +21,8 @@ export const INFERNAL = {
   blackMagicChaos: 0.2,
   adeptSmiteCrit: 0.2,
   felCannonCrit: 0.2,
+  /** Execute-phase uptime assumed for Fel Cannon crit on stationary fights. */
+  felCannonUptime: 0.75,
   doomsayerSmiteDamage: 0.25,
   doomsayerSmiteRefund: 1,
   illidariSmiterFelfury: 1,
@@ -87,17 +91,27 @@ export function critFromSpiritRating(spirit: number, fraction: number) {
   return (fraction * Math.max(0, spirit)) / SPELL_CRIT_RATING_PER_PERCENT;
 }
 
-export function applyInfernalPassives(stats: CharacterStats): CharacterStats {
-  const spellHit = stats.spellHit + INFERNAL.wrathSpellHit;
-  const spellCrit =
-    stats.spellCrit +
-    INFERNAL.felInfusionPersonalCrit +
-    critFromSpiritRating(stats.spirit, INFERNAL.netherSpiritToCritRating);
+export function applyInfernalPassives(stats: CharacterStats, selection?: TalentSelection): CharacterStats {
+  let spellHit = stats.spellHit;
+  let spellCrit = stats.spellCrit;
+  if (!selection || isTalentEnabled(selection, "infernal", "Wrath of Sargeras")) {
+    spellHit += INFERNAL.wrathSpellHit;
+  }
+  if (!selection || isTalentEnabled(selection, "infernal", "Fel Infusion")) {
+    spellCrit += INFERNAL.felInfusionPersonalCrit;
+  }
+  if (!selection || isTalentEnabled(selection, "infernal", "Nether Spirit")) {
+    spellCrit += critFromSpiritRating(stats.spirit, INFERNAL.netherSpiritToCritRating);
+  }
+  const hiddenPower =
+    !selection || isTalentEnabled(selection, "infernal", "Hidden Power")
+      ? INFERNAL.hiddenPowerFromPrimary
+      : 0;
   return {
     ...stats,
     spellHit,
     spellCrit,
-    hiddenPower: INFERNAL.hiddenPowerFromPrimary,
+    hiddenPower,
   };
 }
 
@@ -126,7 +140,9 @@ export function infernalContext(spell: SpellFit, stats: CharacterStats, auras: I
     if (fire) extraCrit += 0.2;
   }
   if (isSmite(spell)) extraCrit += INFERNAL.adeptSmiteCrit;
-  if (execute && (isFireball(spell) || isRuin(spell))) extraCrit += INFERNAL.felCannonCrit;
+  if (isFireball(spell) || isRuin(spell)) {
+    extraCrit += INFERNAL.felCannonCrit * INFERNAL.felCannonUptime;
+  }
   if (isFelfurySpender(spell)) {
     extraCrit += INFERNAL.archimondeCritPerTenEnergy * Math.floor(Math.max(0, auras.energy) / 10);
   }

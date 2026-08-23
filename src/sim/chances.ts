@@ -1,6 +1,8 @@
 import type { ItemStats } from "../types";
+import { isTalentEnabled } from "../talents/baseline";
 import { INFERNAL } from "../talents/infernal";
 import { FELSWORN } from "../talents/felsworn";
+import type { TalentSelection } from "../talents/types";
 import {
   SPELL_CRIT_RATING_PER_PERCENT,
   SPELL_HASTE_RATING_PER_PERCENT,
@@ -23,10 +25,16 @@ export type ChanceBreakdown = {
   haste: ChanceStat;
 };
 
-export function talentChancePercents(spirit: number): Pick<ItemStats, "spellHit" | "spellCrit" | "spellHaste"> {
+export function talentChancePercents(
+  _spirit: number,
+  selection?: TalentSelection,
+): Pick<ItemStats, "spellHit" | "spellCrit" | "spellHaste"> {
+  const has = (tree: "felsworn" | "infernal", name: string) => !selection || isTalentEnabled(selection, tree, name);
   return {
-    spellHit: INFERNAL.wrathSpellHit,
-    spellCrit: FELSWORN.crueltyCrit + INFERNAL.felInfusionPersonalCrit,
+    spellHit: has("infernal", "Wrath of Sargeras") ? INFERNAL.wrathSpellHit : 0,
+    spellCrit:
+      (has("felsworn", "Cruelty") ? FELSWORN.crueltyCrit : 0) +
+      (has("infernal", "Fel Infusion") ? INFERNAL.felInfusionPersonalCrit : 0),
     spellHaste: 0,
   };
 }
@@ -36,11 +44,13 @@ export function buildChanceBreakdown(
   consumeRatings: ItemStats,
   spirit: number,
   buffPercents: Pick<ItemStats, "spellHit" | "spellCrit" | "spellHaste">,
+  selection?: TalentSelection,
 ): ChanceBreakdown {
-  const talents = talentChancePercents(spirit);
+  const talents = talentChancePercents(spirit, selection);
   const spiritStat = Math.max(0, spirit);
-  const netherRating = INFERNAL.netherSpiritToCritRating * spiritStat;
-  const innerDemonRating = INFERNAL.hiddenPowerInnerSpirit * spiritStat;
+  const has = (tree: "felsworn" | "infernal", name: string) => !selection || isTalentEnabled(selection, tree, name);
+  const netherRating = has("infernal", "Nether Spirit") ? INFERNAL.netherSpiritToCritRating * spiritStat : 0;
+  const innerDemonRating = has("infernal", "Hidden Power") ? INFERNAL.hiddenPowerInnerSpirit * spiritStat : 0;
   const crit = layer(
     gearRatings.spellCrit + consumeRatings.spellCrit + netherRating + innerDemonRating,
     SPELL_CRIT_RATING_PER_PERCENT,
@@ -75,7 +85,10 @@ export function hitCardHtml(stat: ChanceStat): string {
 export function critCardHtml(stat: ChanceStat): string {
   return chanceCard("Spell Crit", stat, {
     ratingPerPercent: SPELL_CRIT_RATING_PER_PERCENT,
-    note: "Inner Demon (Hidden Power) is 20% of Spirit as crit rating and is included in this total.",
+    note:
+      stat.fromInnerDemon > 0
+        ? "Inner Demon (Hidden Power) is 20% of Spirit as crit rating and is included in this total."
+        : undefined,
   });
 }
 

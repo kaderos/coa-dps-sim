@@ -1,0 +1,163 @@
+{
+  "spec": "Infernal",
+  "choice": "Doomsayer",
+  "note": "Taken Infernal spec talents from the Vol'jin builder. Inner Demon lasts 5s per Felfury consumed (5–30s). The training dummy is always treated as above 75% health. Rating conversions: 14 crit / 8 hit / 10 haste per 1%.",
+  "talents": [
+    {
+      "name": "Ruin",
+      "rank": "1/1",
+      "combat": true,
+      "effect": "Spend 2 Felfury. Direct Shadowflame hit. While Inner Demon is up, extra 30% of that hit as a 3s DoT."
+    },
+    {
+      "name": "Dark Magician",
+      "rank": "1/1",
+      "combat": true,
+      "effect": "Ruin (and unused Sunder/Felwrath) refunds 20 Energy while Inner Demon is up."
+    },
+    {
+      "name": "Wrath of Sargeras",
+      "rank": "2/2",
+      "combat": true,
+      "effect": "+6% magic damage, +4% spell hit."
+    },
+    {
+      "name": "Fel Apprentice",
+      "rank": "passive",
+      "combat": true,
+      "effect": "Fel Fireball applies Felstrike while Inner Demon is up."
+    },
+    {
+      "name": "Felfire Adept",
+      "rank": "2/2",
+      "combat": true,
+      "effect": "+20% Sargeron Smite crit chance."
+    },
+    {
+      "name": "Gul'dan's Prodigy",
+      "rank": "1/1",
+      "combat": true,
+      "effect": "Fel Fireball energy and cast time -15%."
+    },
+    {
+      "name": "Felforged",
+      "rank": "1/1",
+      "combat": true,
+      "effect": "Periodic damage 15% chance: next 3 Fel Fireballs have 30% reduced cast time for 8s."
+    },
+    {
+      "name": "Fel Cannon",
+      "rank": "1/1",
+      "combat": true,
+      "effect": "+20% Fel Fireball and Ruin crit vs enemies above 75% health."
+    },
+    {
+      "name": "Felwrath",
+      "rank": "1/1",
+      "combat": false,
+      "effect": "AoE Felfury spender. Omitted in stationary fights."
+    },
+    {
+      "name": "Hidden Power",
+      "rank": "passive",
+      "combat": true,
+      "effect": "Spell damage +15% of Intellect and Spirit. Inner Demon: further +20% of Spirit to spell damage and crit rating."
+    },
+    {
+      "name": "Black Magic",
+      "rank": "2/2",
+      "combat": true,
+      "effect": "+20% Ruin and Bane of Chaos (Chaos) damage."
+    },
+    {
+      "name": "Illidari Magi",
+      "rank": "1/1",
+      "combat": true,
+      "effect": "Periodic damage 20% chance to generate 1 Felfury."
+    },
+    {
+      "name": "Infernal",
+      "rank": "1/1",
+      "combat": false,
+      "effect": "Pet cooldown. Omitted in stationary fights (Doomsayer chosen)."
+    },
+    {
+      "name": "Felbreak",
+      "rank": "1/1",
+      "combat": false,
+      "effect": "Interrupt. Unused in stationary fights."
+    },
+    {
+      "name": "Shadow Magi",
+      "rank": "1/1",
+      "combat": false,
+      "effect": "Annihilation/Sunder cooldown reductions. Unused in stationary fights."
+    },
+    {
+      "name": "Sculptor of Doom",
+      "rank": "1/1",
+      "combat": true,
+      "effect": "3 direct crits: next Ruin within 8s is instant (still costs 2 Felfury)."
+    },
+    {
+      "name": "Illidari Smiter",
+      "rank": "1/1",
+      "combat": true,
+      "effect": "Fel Fireball crits generate 1 Felfury."
+    },
+    {
+      "name": "The True Blessing",
+      "rank": "1/1",
+      "combat": false,
+      "effect": "Annihilation grants Sculptor of Doom. Unused in stationary fights."
+    },
+    {
+      "name": "Doomsayer",
+      "rank": "1/1",
+      "combat": true,
+      "effect": "Sargeron Smite crits refund 1 Felfury. Smite +25% damage vs enemies above 75% health."
+    },
+    {
+      "name": "Unphased",
+      "rank": "passive",
+      "combat": false,
+      "effect": "Spell penetration and Inner Demon pushback reduction. Unused at 0 boss resist / no pushback."
+    },
+    {
+      "name": "Felshock",
+      "rank": "1/1",
+      "combat": true,
+      "effect": "Direct Felfury-spender crits: Inner Demon +1s and target +3% chance to be hit for 12s."
+    },
+    {
+      "name": "Fel Infusion",
+      "rank": "1/1",
+      "combat": true,
+      "effect": "+3% raid crit and +3% personal crit (+6% on the player)."
+    },
+    {
+      "name": "Archimonde's Wrath",
+      "rank": "1/1",
+      "combat": true,
+      "effect": "Felfury spenders: +1% crit per 10 Energy at cast."
+    },
+    {
+      "name": "Man'ari Teachings",
+      "rank": "passive",
+      "combat": true,
+      "effect": "+100% critical damage (crits deal 250% instead of 150%)."
+    },
+    {
+      "name": "Nether Spirit",
+      "rank": "1/1",
+      "combat": true,
+      "effect": "Spell crit rating += 20% of Spirit. Converted at 14 rating per 1%."
+    },
+    {
+      "name": "Malice of Gul'dan",
+      "rank": "1/1",
+      "combat": true,
+      "effect": "Direct crits 60% chance: apply Felstrike and Fragment of Malice (5 Energy, +10% crit for 5s)."
+    }
+  ]
+}

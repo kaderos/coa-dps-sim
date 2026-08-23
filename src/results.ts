@@ -1,4 +1,5 @@
-import type { SimResult } from "./types";
+import type { SimActiveAura, SimCastEvent, SimResult } from "./types";
+import { CAST_EVENT_LOG_LIMIT } from "./sim/infernal";
 
 export type SimSnapshot = {
   meanDps: number;
@@ -25,7 +26,7 @@ export function toSnapshot(result: SimResult): SimSnapshot {
 export function renderGearSimCard(
   current: SimSnapshot | null,
   pinned: SimSnapshot | null,
-  actions: { onPin: () => void; onUnpin: () => void },
+  actions: { onSimulate: () => void; onPin: () => void; onUnpin: () => void },
 ) {
   const root = document.getElementById("gear-sim-summary");
   if (!root) return;
@@ -34,7 +35,9 @@ export function renderGearSimCard(
       <div class="gear-sim__head">
         <h3>Sim</h3>
       </div>
-      <p class="hint">Run a simulation to pin a result and compare the next run here.</p>`;
+      <button class="gear-sim__run" id="gear-sim-run" type="button">Simulate</button>
+      <p class="hint">Pin a result, change gear, then simulate again to compare.</p>`;
+    wireGearSimActions(actions);
     return;
   }
 
@@ -44,8 +47,9 @@ export function renderGearSimCard(
       <h3>${comparing ? "vs pinned" : pinned ? "Pinned" : "Latest"}</h3>
       ${pinned
         ? `<button class="text-button" id="gear-sim-unpin" type="button">Unpin</button>`
-        : `<button class="text-button" id="gear-sim-pin" type="button">Pin</button>`}
+        : `<button class="text-button" id="gear-sim-pin" type="button">📌 Pin</button>`}
     </div>
+    <button class="gear-sim__run" id="gear-sim-run" type="button">Simulate</button>
     <div class="gear-sim__dps">${current.meanDps.toFixed(0)} <small>DPS</small></div>
     ${comparing && pinned ? `<div class="gear-sim__delta ${deltaClass(current.meanDps - pinned.meanDps)}">${signed(current.meanDps - pinned.meanDps, 0)} (${signedPct(current.meanDps, pinned.meanDps)})</div>` : ""}
     <div class="gear-sim__metrics">
@@ -58,6 +62,11 @@ export function renderGearSimCard(
     </div>
     ${comparing ? `<p class="hint">Pinned ${pinned!.meanDps.toFixed(0)} DPS. Next run updates the comparison.</p>` : `<p class="hint">Pin this result, change gear, then simulate again.</p>`}
   `;
+  wireGearSimActions(actions);
+}
+
+function wireGearSimActions(actions: { onSimulate: () => void; onPin: () => void; onUnpin: () => void }) {
+  document.getElementById("gear-sim-run")?.addEventListener("click", actions.onSimulate);
   document.getElementById("gear-sim-pin")?.addEventListener("click", actions.onPin);
   document.getElementById("gear-sim-unpin")?.addEventListener("click", actions.onUnpin);
 }
@@ -78,15 +87,20 @@ function signedPct(current: number, pinned: number): string {
   return `${signed(((current - pinned) / pinned) * 100)}%`;
 }
 
+export function renderResultsEmpty(onSimulate: () => void) {
+  const root = document.getElementById("results");
+  if (!root) return;
+  root.innerHTML = `
+    <div class="results-empty">
+      <p class="hint">Run a simulation to see DPS, spell breakdown, and cast log.</p>
+      <button class="results-empty__run" id="results-sim-run" type="button">Simulate</button>
+    </div>`;
+  document.getElementById("results-sim-run")?.addEventListener("click", onSimulate);
+}
+
 export function renderResults(result: SimResult) {
   const root = document.getElementById("results");
   if (!root) return;
-  const baseline = result.logBaseline;
-  const delta = result.logDeltaPct == null
-    ? "No log baseline yet."
-    : baseline
-      ? `<a href="${escapeHtml(baseline.url)}" target="_blank" rel="noreferrer">${escapeHtml(baseline.player)} · ${escapeHtml(baseline.encounter)} ${escapeHtml(baseline.durationLabel)}</a> baseline ${result.logDps?.toFixed(0)} DPS (${signed(result.logDeltaPct)}%)${baseline.modeledDps ? ` · ${baseline.modeledDps.toFixed(0)} modeled` : ""}.`
-      : `Log baseline ${result.logDps?.toFixed(0)} DPS (${signed(result.logDeltaPct)}%).`;
 
   root.innerHTML = `
     <div class="result-summary">
@@ -99,17 +113,16 @@ export function renderResults(result: SimResult) {
         ${metric("Std. deviation", result.stdev)}
         ${metric("Iterations", result.iterations, 0)}
       </div>
-      <div class="compare">Level ${result.bossLevel} raid boss · stationary fight (no movement, no cleave) · ${result.durationSec}s ±5%. ${delta}</div>
+      <div class="compare">Level ${result.bossLevel} raid boss · stationary fight (no movement, no cleave) · ${result.durationSec}s ±5%.</div>
     </div>
     <section class="result-section">
       <h3>DPS distribution</h3>
-      <div class="histogram" aria-label="DPS sample histogram">${histogram(result.dpsSamples)}</div>
+      <div class="histogram" role="img" aria-label="DPS per iteration histogram">${histogram(result.dpsSamples, result.meanDps, result.iterations)}</div>
     </section>
     <section class="result-section">
       <h3>Spell breakdown</h3>
-      ${baseline?.abilities?.length ? `<div class="hint">Sim vs ${escapeHtml(baseline.player)} ${escapeHtml(baseline.durationLabel)}. Unmodeled log lines stay in the baseline total.</div>` : ""}
       <div class="table-scroll"><table>
-        <thead><tr><th>Spell</th><th>Casts</th><th>DPS</th>${baseline?.abilities?.length ? "<th>Log DPS</th><th>Δ DPS</th>" : ""}<th>Share</th>${baseline?.abilities?.length ? "<th>Log share</th>" : ""}<th>Normal</th><th>Critical</th><th>Misses</th></tr></thead>
+        <thead><tr><th>Spell</th><th>Casts</th><th>DPS</th><th>Share</th><th>Normal</th><th>Critical</th><th>Misses</th></tr></thead>
         <tbody>${spellRows(result).join("")}</tbody>
       </table></div>
     </section>
@@ -120,26 +133,23 @@ export function renderResults(result: SimResult) {
           <div><span>${escapeHtml(aura.name)}</span><div class="uptime-track"><i style="width:${Math.min(100, aura.uptime * 100)}%"></i></div><strong>${(aura.uptime * 100).toFixed(1)}%</strong></div>
         `).join("")}</div>
       </section>` : ""}
-    ${logPlayByPlay(baseline)}
     <section class="result-section">
       <div class="result-section__heading">
         <div>
           <h3>Sim cast log</h3>
-          <div class="hint">First seed only · ${result.castEvents.length} events</div>
+          <div class="hint">${castLogHint(result)}</div>
         </div>
-        <button class="text-button" id="download-cast-log" type="button">Download JSON</button>
+        <div class="cast-log-toolbar">
+          <label class="check-option cast-log-filter">
+            <input type="checkbox" id="cast-log-hide-ticks" checked />
+            <span>Hide DoT ticks</span>
+          </label>
+          <button class="text-button" id="download-cast-log" type="button">Download JSON</button>
+        </div>
       </div>
       <div class="table-scroll cast-log"><table>
-        <thead><tr><th>Time</th><th>Spell</th><th>Result</th><th>Damage</th><th>Energy</th><th>Felfury</th></tr></thead>
-        <tbody>${result.castEvents.map((event) => `
-          <tr>
-            <td>${event.timestamp.toFixed(2)}s</td>
-            <td>${escapeHtml(event.spell)}</td>
-            <td class="cast-result cast-result--${event.result}">${event.result}</td>
-            <td>${event.damage.toFixed(0)}</td>
-            <td>${event.energy.toFixed(1)}</td>
-            <td>${event.felfury.toFixed(1)}</td>
-          </tr>`).join("")}</tbody>
+        <thead><tr><th>Time</th><th>Spell</th><th>Result</th><th>Damage</th><th>Energy</th><th>Felfury</th><th class="cast-log-expand-col" aria-hidden="true"></th></tr></thead>
+        <tbody>${castLogRows(result.castEvents).join("")}</tbody>
       </table></div>
     </section>
   `;
@@ -152,118 +162,192 @@ export function renderResults(result: SimResult) {
     link.click();
     URL.revokeObjectURL(url);
   });
+  bindCastLogExpanders();
+  bindCastLogTickFilter();
 }
 
-function logPlayByPlay(baseline: SimResult["logBaseline"]): string {
-  const casts = baseline?.casts;
-  if (!casts?.events.length) return "";
-  const counts = Object.entries(casts.counts)
-    .sort((a, b) => b[1] - a[1])
-    .map(([name, count]) => `${count} ${escapeHtml(name)}`)
-    .join(" · ");
-  const href = baseline?.eventsUrl || casts.url;
-  return `
-    <section class="result-section">
-      <div class="result-section__heading">
-        <div>
-          <h3>Log play-by-play</h3>
-          <div class="hint"><a href="${escapeHtml(href)}" target="_blank" rel="noreferrer">${escapeHtml(casts.player)} · ${escapeHtml(casts.encounter)}</a> · ${casts.events.length} casts · ${counts}</div>
-        </div>
-      </div>
-      <div class="table-scroll cast-log"><table>
-        <thead><tr><th>Time</th><th>Spell</th><th>Target</th></tr></thead>
-        <tbody>${casts.events.map((event) => `
-          <tr>
-            <td>${event.t.toFixed(2)}s</td>
-            <td>${escapeHtml(event.spell)}</td>
-            <td>${event.target ? escapeHtml(event.target) : "—"}</td>
-          </tr>`).join("")}</tbody>
-      </table></div>
-    </section>`;
+function castLogHint(result: SimResult): string {
+  const lastTs = result.castEvents.at(-1)?.timestamp;
+  const fight = `${result.castLogFightSec.toFixed(1)}s fight`;
+  const events = `${result.castEvents.length} events logged`;
+  const tail =
+    result.castLogTruncated && lastTs != null
+      ? ` · log capped at ${CAST_EVENT_LOG_LIMIT} (stops at ${lastTs.toFixed(1)}s; DPS still uses full ${fight})`
+      : " · ticks are periodic damage (no GCD) · click a row to expand buffs";
+  return `First seed only · ${fight} · ${events}${tail}`;
+}
+
+function castLogRows(events: SimCastEvent[]): string[] {
+  return events.flatMap((event, index) => {
+    const auras = event.activeAuras ?? [];
+    const expandable = auras.length > 0;
+    const isTick = event.kind === "tick" || event.result === "tick";
+    const rowClass = [
+      "cast-log-row",
+      expandable ? "cast-log-row--expandable" : "",
+      isTick ? "cast-log-row--tick" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const tickAttr = isTick ? ' data-log-kind="tick"' : "";
+    const main = `<tr class="${rowClass}" data-cast-log-index="${index}"${tickAttr}${expandable ? ' title="Show active procs and buffs"' : ""}>
+      <td>${event.timestamp.toFixed(2)}s</td>
+      <td>${escapeHtml(event.spell)}</td>
+      <td class="cast-result cast-result--${event.result}">${event.result}</td>
+      <td>${event.damage.toFixed(0)}</td>
+      <td>${event.energy.toFixed(1)}</td>
+      <td>${event.felfury.toFixed(1)}</td>
+      <td class="cast-log-expand" aria-hidden="true">${expandable ? "▸" : ""}</td>
+    </tr>`;
+    if (!expandable) return [main];
+    return [
+      main,
+      `<tr class="cast-log-detail" data-cast-log-detail="${index}"${isTick ? ' data-log-kind="tick"' : ""} hidden>
+        <td colspan="7">
+          <ul class="cast-log-buffs">${auras.map((aura) => `<li>${escapeHtml(formatActiveAura(aura))}</li>`).join("")}</ul>
+        </td>
+      </tr>`,
+    ];
+  });
+}
+
+function formatActiveAura(aura: SimActiveAura): string {
+  const stacked = new Set(["Chaotic", "Reckoning", "Annihilation", "Inner Demon", "Felstrike"]);
+  if (stacked.has(aura.name) && aura.stacks > 1) return `${aura.name} x${aura.stacks}`;
+  return aura.name;
+}
+
+function bindCastLogTickFilter() {
+  const checkbox = document.getElementById("cast-log-hide-ticks") as HTMLInputElement | null;
+  if (!checkbox) return;
+  const apply = () => {
+    const hide = checkbox.checked;
+    document.querySelectorAll<HTMLElement>("[data-log-kind='tick']").forEach((row) => {
+      row.hidden = hide;
+    });
+  };
+  checkbox.addEventListener("change", apply);
+  apply();
+}
+
+function bindCastLogExpanders() {
+  document.querySelectorAll<HTMLTableRowElement>(".cast-log-row--expandable").forEach((row) => {
+    row.addEventListener("click", () => {
+      const detail = row.nextElementSibling as HTMLTableRowElement | null;
+      if (!detail?.classList.contains("cast-log-detail")) return;
+      const open = detail.hidden;
+      detail.hidden = !open;
+      row.classList.toggle("is-expanded", open);
+      const toggle = row.querySelector(".cast-log-expand");
+      if (toggle) toggle.textContent = open ? "▾" : "▸";
+    });
+  });
 }
 
 function spellRows(result: SimResult): string[] {
-  const abilities = result.logBaseline?.abilities || [];
-  const byLog = new Map(abilities.map((row) => [row.name, row]));
-  const seen = new Set<string>();
-  const rows: string[] = [];
-
-  for (const row of result.breakdown) {
-    const log = byLog.get(row.name);
-    if (log) seen.add(row.name);
-    rows.push(spellRow(row.name, {
-      casts: row.casts.toFixed(1),
-      dps: row.dps,
-      share: row.share,
-      log,
-      hits: combatCount(row.hits, row.hits + row.crits + row.misses),
-      crits: combatCount(row.crits, row.hits + row.crits + row.misses),
-      misses: combatCount(row.misses, row.hits + row.crits + row.misses),
-      compare: abilities.length > 0,
-    }));
-  }
-
-  for (const log of abilities) {
-    if (seen.has(log.name)) continue;
-    rows.push(spellRow(log.name, {
-      casts: log.casts ? String(log.casts) : "—",
-      dps: null,
-      share: null,
-      log,
-      hits: "—",
-      crits: log.hits ? `${log.critPct.toFixed(1)}% crit` : "—",
-      misses: "—",
-      compare: true,
-      unmodeled: !log.modeled,
-    }));
-  }
-
-  return rows;
+  return result.breakdown.map((row) => spellRow(row.name, {
+    casts: row.casts.toFixed(1),
+    dps: row.dps,
+    share: row.share,
+    hits: combatCount(row.hits, row.hits + row.crits + row.misses),
+    crits: combatCount(row.crits, row.hits + row.crits + row.misses),
+    misses: combatCount(row.misses, row.hits + row.crits + row.misses),
+  }));
 }
 
 function spellRow(name: string, row: {
   casts: string;
-  dps: number | null;
-  share: number | null;
-  log?: { dps: number; share: number } | null;
+  dps: number;
+  share: number;
   hits: string;
   crits: string;
   misses: string;
-  compare: boolean;
-  unmodeled?: boolean;
 }): string {
-  const delta = row.dps != null && row.log ? row.dps - row.log.dps : null;
-  const deltaClass = delta == null ? "" : delta >= 0 ? "delta-pos" : "delta-neg";
-  return `<tr${row.unmodeled ? ' class="unmodeled"' : ""}>
+  return `<tr>
     <td>${escapeHtml(name)}</td>
     <td>${row.casts}</td>
-    <td>${row.dps == null ? "—" : row.dps.toFixed(0)}</td>
-    ${row.compare ? `<td>${row.log ? row.log.dps.toFixed(0) : "—"}</td><td class="${deltaClass}">${delta == null ? "—" : signed(delta, 0)}</td>` : ""}
-    <td>${row.share == null ? "—" : `${(row.share * 100).toFixed(1)}%`}</td>
-    ${row.compare ? `<td>${row.log ? `${(row.log.share * 100).toFixed(1)}%` : "—"}</td>` : ""}
+    <td>${row.dps.toFixed(0)}</td>
+    <td>${(row.share * 100).toFixed(1)}%</td>
     <td>${row.hits}</td>
     <td>${row.crits}</td>
     <td>${row.misses}</td>
   </tr>`;
 }
 
-function histogram(samples: number[]): string {
+function histogram(samples: number[], meanDps: number, iterations: number): string {
   if (!samples.length) return "";
   const binCount = Math.min(20, Math.max(6, Math.round(Math.sqrt(samples.length))));
   const min = samples[0];
   const max = samples[samples.length - 1];
   const span = Math.max(1, max - min);
-  const bins = Array.from({ length: binCount }, () => 0);
-  for (const sample of samples) {
+  const bins = Array.from({ length: binCount }, (_, index) => ({
+    low: min + (span * index) / binCount,
+    high: min + (span * (index + 1)) / binCount,
+    count: 0,
+    sum: 0,
+    firstRank: -1,
+    lastRank: -1,
+  }));
+  for (let rank = 0; rank < samples.length; rank++) {
+    const sample = samples[rank];
     const index = Math.min(binCount - 1, Math.floor(((sample - min) / span) * binCount));
-    bins[index]++;
+    const bin = bins[index];
+    bin.count += 1;
+    bin.sum += sample;
+    if (bin.firstRank < 0) bin.firstRank = rank;
+    bin.lastRank = rank;
   }
-  const peak = Math.max(...bins, 1);
-  return bins.map((count, index) => {
-    const low = min + (span * index) / binCount;
-    const high = min + (span * (index + 1)) / binCount;
-    return `<i style="height:${Math.max(3, count / peak * 100)}%" title="${low.toFixed(0)}–${high.toFixed(0)} DPS: ${count} iterations"></i>`;
-  }).join("");
+  const peak = Math.max(...bins.map((bin) => bin.count), 1);
+
+  const bars = bins
+    .map((bin) => {
+      const avg = bin.count ? bin.sum / bin.count : (bin.low + bin.high) / 2;
+      const delta = avg - meanDps;
+      const height = Math.max(3, (bin.count / peak) * 100);
+      const pctLow = bin.count
+        ? dpsValuePercentile(samples[bin.firstRank], max)
+        : dpsValuePercentile(bin.low, max);
+      const pctHigh = bin.count
+        ? dpsValuePercentile(samples[bin.lastRank], max)
+        : dpsValuePercentile(bin.high, max);
+      const tip = [
+        `${bin.low.toFixed(0)}–${bin.high.toFixed(0)} DPS`,
+        formatPercentileRange(pctLow, pctHigh),
+        `${bin.count} of ${iterations} sims`,
+        `${signed(delta, 0)} DPS vs mean`,
+      ].join(" · ");
+      return `<div class="histogram__bar" data-tip="${escapeAttr(tip)}" tabindex="0" role="graphics-symbol" aria-label="${escapeAttr(tip)}">
+        <div class="histogram__fill-wrap"><i class="histogram__fill" style="height:${height}%"></i></div>
+        <span class="histogram__label">${formatDpsAxis(bin.low)}</span>
+      </div>`;
+    })
+    .join("");
+
+  return `<p class="hint histogram__intro">Each bar groups one iteration’s DPS outcome. This run: <strong>${iterations}</strong> sims, mean <strong>${meanDps.toFixed(0)}</strong> DPS. Hover a bar for range, percentile, count, and delta from mean.</p>
+    <div class="histogram__plot">${bars}</div>`;
+}
+
+function formatDpsAxis(value: number): string {
+  if (value >= 10_000) return `${(value / 1000).toFixed(1)}k`;
+  return value.toFixed(0);
+}
+
+function formatPercentileRange(low: number, high: number): string {
+  const lo = Math.max(0, Math.min(100, low));
+  const hi = Math.max(0, Math.min(100, high));
+  const loLabel = lo.toFixed(0);
+  const hiLabel = hi.toFixed(0);
+  return loLabel === hiLabel ? `${loLabel}%` : `${loLabel}–${hiLabel}%`;
+}
+
+/** 0 DPS = 0%, top DPS in the run = 100%. */
+function dpsValuePercentile(value: number, maxDps: number): number {
+  if (maxDps <= 0) return 0;
+  return Math.max(0, Math.min(100, (value / maxDps) * 100));
+}
+
+function escapeAttr(value: string): string {
+  return escapeHtml(value).replace(/"/g, "&quot;");
 }
 
 function metric(label: string, value: number, digits = 0): string {

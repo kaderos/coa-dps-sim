@@ -1,4 +1,4 @@
-import type { BuffsConfig, Enchant, EnchantSet, GearSet, Item, LogBaseline, LogCastLog, SetCatalog, Slot, SpellFit } from "./types";
+import type { BuffsConfig, Enchant, EnchantSet, GearSet, Item, SetCatalog, Slot, SpellFit } from "./types";
 import { absorbItemSetBonuses, equippedSets, loadSetCatalog, setBonusCombat, setProgressForItem } from "./sets";
 import { PAPER_DOLL_LEFT, PAPER_DOLL_RIGHT, PAPER_DOLL_WEAPONS, SLOTS } from "./types";
 import {
@@ -16,7 +16,7 @@ import { buildChanceBreakdown, critCardHtml, hasteCardHtml, hitCardHtml } from "
 import type { ChanceBreakdown } from "./sim/chances";
 import { runSim } from "./sim/engine";
 import { DEFAULT_BUFFS, percentBuffs, ratingConsumes, setupBuffs, statsFromBuffs, syncOffhandOilField } from "./buffs";
-import { renderGearSimCard, renderResults, toSnapshot, type SimSnapshot } from "./results";
+import { renderGearSimCard, renderResults, renderResultsEmpty, toSnapshot, type SimSnapshot } from "./results";
 import {
   defaultStatWeights,
   formatEp,
@@ -26,6 +26,9 @@ import {
   statsEp,
   type StatWeights,
 } from "./ep";
+import { mergeTalentSelection, type TalentSelection, type TalentTrees } from "./talents/baseline";
+import { setupTalents } from "./talents/ui";
+import type { FelswornTalentDoc, InfernalTalentDoc } from "./talents/types";
 import { applyTakenTalents } from "./talents/taken";
 import { loadSession, restoreEnchantSet, restoreGearSet, saveEnchantSet, saveGearSet, saveSession } from "./persist";
 
@@ -57,7 +60,6 @@ const EMPTY_ITEM_STATS = {
 };
 
 type SpellDb = {
-  logDps: number;
   logDurationSec: number;
   spells: Record<string, SpellFit>;
 };
@@ -72,11 +74,12 @@ const gear: GearSet = {};
 const enchants: EnchantSet = {};
 let items: ItemDb = { source: "empty", note: "", items: [], slots: {} };
 let enchantDb: EnchantDb = { slots: {} };
-let spells: SpellDb = { logDps: 0, logDurationSec: 0, spells: {} };
-let logBaseline: LogBaseline | null = null;
+let spells: SpellDb = { logDurationSec: 0, spells: {} };
 let activeSlot: Slot | null = null;
 let selectedPhase = "all";
 let buffsConfig: BuffsConfig = { ...DEFAULT_BUFFS };
+let talentTrees: TalentTrees | null = null;
+let talentSelection: TalentSelection = { felsworn: {}, infernal: {} };
 let statWeights: StatWeights = defaultStatWeights();
 const PICKER_RENDER_LIMIT = 300;
 /** Badge trinket: hit + proc, 0 EP with default hit weight, tagged phase 1. */
@@ -131,30 +134,28 @@ async function load() {
   };
   setHint("Fetching /data/items.json…");
 
-  const [itemDb, spellDb, nextEnchantDb, nextBaseline, castLog, setDb] = await Promise.all([
+  const [itemDb, spellDb, nextEnchantDb, setDb, felswornTalents, infernalTalents] = await Promise.all([
     fetchJson<ItemDb>("/data/items.json"),
     fetchJson<SpellDb>("/data/spells.json"),
     fetchJson<EnchantDb>("/data/enchants.json").catch(() => ({ slots: {} })),
-    fetchJson<LogBaseline>("/data/baseline.json").catch(() => null),
-    fetchJson<LogCastLog>("/data/baseline-casts.json").catch(() => null),
     fetchJson<SetCatalog>("/data/sets.json").catch(() => ({ sets: {} })),
+    fetchJson<FelswornTalentDoc>("/data/talents/felsworn.json"),
+    fetchJson<InfernalTalentDoc>("/data/talents/infernal.json"),
   ]);
   loadSetCatalog(setDb);
+  talentTrees = { felsworn: felswornTalents, infernal: infernalTalents };
   items = itemDb;
   spells = spellDb;
   enchantDb = nextEnchantDb;
-  logBaseline = nextBaseline;
-  if (logBaseline && castLog) logBaseline.casts = castLog;
   setHint(`Parsed item database (${items.itemCount ?? 0} items). Building UI…`);
   pruneBloodforged(items);
   hydrateItems(items);
   hydrateEnchants(enchantDb);
   const session = loadSession();
+  talentSelection = mergeTalentSelection(session.talents, talentTrees);
   restoreGearSet(gear, session.gear, (id) => itemsById.get(id));
   restoreEnchantSet(enchants, session.enchants, (id) => enchantsById.get(id));
   if (session.selectedPhase) selectedPhase = session.selectedPhase;
-  const pullInput = document.getElementById("pull-felfury") as HTMLInputElement | null;
-  if (pullInput && session.pullFelfury != null) pullInput.value = String(session.pullFelfury);
 
   setupItemPicker();
   setupTabs();
@@ -164,15 +165,22 @@ async function load() {
     saveSession({ buffs: buffsConfig });
     renderStats();
   }, session.buffs);
+  const pullInput = document.getElementById("pull-felfury") as HTMLInputElement | null;
+  if (pullInput && session.pullFelfury != null) pullInput.value = String(session.pullFelfury);
+  pullInput?.addEventListener("change", () => {
+    saveSession({ pullFelfury: readPullFelfury() });
+    renderStats();
+  });
+  setupTalents(talentTrees, talentSelection, (next) => {
+    talentSelection = next;
+    saveSession({ talents: talentSelection });
+    renderStats();
+  });
   renderGear();
   renderStats();
   refreshGearSim();
+  renderResultsEmpty(simulate);
   document.getElementById("duration")?.addEventListener("change", renderStats);
-  document.getElementById("pull-felfury")?.addEventListener("change", () => {
-    saveSession({ pullFelfury: readPullFelfury() });
-  });
-  document.getElementById("simulate")?.addEventListener("click", simulate);
-
   if (hint) {
     hint.textContent = items.itemCount
       ? `${items.note} Spell math is fitted from combat logs.`
@@ -930,8 +938,14 @@ function renderStats() {
   const gearStats = statsFromGear(gear, enchants);
   const duration = Number((document.getElementById("duration") as HTMLInputElement | null)?.value) || 180;
   const bonusStats = statsFromBuffs(buffsConfig, gearStats, duration, gear);
-  const stats = applyTakenTalents(buildCharacter(gear, 0, bonusStats, readPullFelfury(), enchants));
-  const chances = buildChanceBreakdown(gearRatings, ratingConsumes(buffsConfig, gear), stats.spirit, percentBuffs(buffsConfig));
+  const stats = applyTakenTalents(buildCharacter(gear, 0, bonusStats, readPullFelfury(), enchants), talentSelection);
+  const chances = buildChanceBreakdown(
+    gearRatings,
+    ratingConsumes(buffsConfig, gear),
+    stats.spirit,
+    percentBuffs(buffsConfig),
+    talentSelection,
+  );
   const sp = effectiveSpellPower(stats, stats.hiddenPower);
   const root = document.getElementById("stats");
   if (!root) return;
@@ -1042,15 +1056,16 @@ function simulate() {
     potionDuration: 20,
     potionMode: buffsConfig.potion === "none" ? "none" : buffsConfig.potionMode,
     setDamageAbove75: setBonusCombat(gear).damageAbove75,
-  }, logBaseline?.dps || spells.logDps || null, logBaseline);
+  }, null, null);
   lastSim = toSnapshot(result);
   renderResults(result);
   refreshGearSim();
-  activateTab("gear");
+  activateTab("results");
 }
 
 function refreshGearSim() {
   renderGearSimCard(lastSim, pinnedSim, {
+    onSimulate: simulate,
     onPin: () => {
       pinnedSim = lastSim;
       refreshGearSim();

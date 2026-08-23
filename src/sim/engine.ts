@@ -22,6 +22,8 @@ export function runSim(
   const merge = new Map<string, { casts: number; damage: number; dps: number; hits: number; crits: number; misses: number; events: number }>();
   const auraUptime = new Map<string, number>();
   let castEvents: SimResult["castEvents"] = [];
+  let castLogFightSec = config.durationSec;
+  let castLogTruncated = false;
 
   for (let i = 0; i < config.iterations; i++) {
     const rng = new Rng(config.seed + i * 9973);
@@ -33,7 +35,11 @@ export function runSim(
       potionMode: config.potionMode,
       setDamageAbove75: config.setDamageAbove75,
     });
-    if (i === 0) castEvents = once.castEvents;
+    if (i === 0) {
+      castEvents = once.castEvents;
+      castLogFightSec = fightSec;
+      castLogTruncated = once.castLogTruncated;
+    }
     dpsSamples.push(once.damage / fightSec);
     for (const [name, rec] of once.bySpell) {
       const cur = merge.get(name) || { casts: 0, damage: 0, dps: 0, hits: 0, crits: 0, misses: 0, events: 0 };
@@ -89,6 +95,8 @@ export function runSim(
       .map(([name, uptime]) => ({ name, uptime: uptime / n }))
       .sort((a, b) => b.uptime - a.uptime),
     castEvents,
+    castLogFightSec,
+    castLogTruncated,
     logDps,
     logDeltaPct: logDps ? ((mean - logDps) / logDps) * 100 : null,
     logBaseline,

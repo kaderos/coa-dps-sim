@@ -16,13 +16,12 @@
       <div class="controls">
         <label title="Each iteration varies this length by ±5% so cooldown breakpoints do not line up.">Duration (s) <input id="duration" type="number" value="180" min="20" max="600" /></label>
         <label>Iterations <input id="iterations" type="number" value="300" min="10" max="5000" /></label>
-        <label title="6 if you walked in with Felfury from trash. 0 if the pull starts empty.">Felfury at pull <input id="pull-felfury" type="number" value="0" min="0" max="6" /></label>
-        <button id="simulate" type="button">Simulate</button>
       </div>
     </header>
     <nav class="tabs" aria-label="Simulator sections">
       <button class="tab is-active" type="button" data-tab="gear" aria-selected="true">Gear</button>
       <button class="tab" type="button" data-tab="buffs" aria-selected="false">Buffs &amp; Consumes</button>
+      <button class="tab" type="button" data-tab="talents" aria-selected="false">Talents</button>
       <button class="tab" type="button" data-tab="weights" aria-selected="false">Stat Weights</button>
       <button class="tab" type="button" data-tab="results" aria-selected="false">Results</button>
     </nav>
@@ -43,8 +42,12 @@
       </section>
       <section class="panel tab-panel" data-tab-panel="buffs" hidden>
         <h2>Raid Buffs &amp; Consumes</h2>
-        <p class="hint">Raid buffs and consumes from Kadd’s logs. Hover a buff for extra notes.</p>
         <div id="buffs-controls" class="buff-groups"></div>
+      </section>
+      <section class="panel tab-panel" data-tab-panel="talents" hidden>
+        <h2>Talents</h2>
+        <p class="hint">Vol'jin baseline build from <code>data/talents/*.json</code>. Toggle talents to plan alternate builds; gear stats and tooltips update immediately. The DPS sim still uses the full baseline until combat talents are wired in.</p>
+        <div id="talents-controls" class="talent-layout-root"></div>
       </section>
       <section class="panel tab-panel" data-tab-panel="weights" hidden>
         <h2>Stat Weights (EP)</h2>
@@ -57,7 +60,7 @@
       </section>
       <section class="panel tab-panel" data-tab-panel="results" hidden>
         <h2>Results</h2>
-        <div id="results" class="results">Run a simulation to compare against Kadd's combat log baseline.</div>
+        <div id="results" class="results"></div>
       </section>
     </main>
     <div id="item-picker" class="item-picker" hidden>
