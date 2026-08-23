@@ -4478,6 +4478,8 @@
         ],
         "weapon": null,
         "stats": {
+          "strength": 4,
+          "agility": 4,
           "intellect": 4,
           "spirit": 4,
           "stamina": 4,
@@ -4639,6 +4641,8 @@
         ],
         "weapon": null,
         "stats": {
+          "strength": 3,
+          "agility": 3,
           "intellect": 3,
           "spirit": 3,
           "stamina": 3,
@@ -7644,6 +7648,8 @@
       ],
       "weapon": null,
       "stats": {
+        "strength": 4,
+        "agility": 4,
         "intellect": 4,
         "spirit": 4,
         "stamina": 4,
@@ -10297,6 +10303,8 @@
       ],
       "weapon": null,
       "stats": {
+        "strength": 3,
+        "agility": 3,
         "intellect": 3,
         "spirit": 3,
         "stamina": 3,

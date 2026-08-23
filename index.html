@@ -11,10 +11,10 @@
       <div>
         <h1>Felsworn Infernal</h1>
         <p class="sub">Conquest of Azeroth DPS sim — inspired by wowsims/classic</p>
-        <p class="hint">Level 63 raid boss · Patchwerk (no movement, no cleave). Spell hit cap 17% vs +3.</p>
+        <p class="hint">Level 63 raid boss · Patchwerk (no movement, no cleave).</p>
       </div>
       <div class="controls">
-        <label title="Each iteration varies this length by ±5% so cooldown breakpoints do not line up.">Duration (s) <input id="duration" type="number" value="120" min="20" max="600" /></label>
+        <label title="Each iteration varies this length by ±5% so cooldown breakpoints do not line up.">Duration (s) <input id="duration" type="number" value="180" min="20" max="600" /></label>
         <label>Iterations <input id="iterations" type="number" value="300" min="10" max="5000" /></label>
         <label title="6 if you walked in with Felfury from trash. 0 if the pull starts empty.">Felfury at pull <input id="pull-felfury" type="number" value="0" min="0" max="6" /></label>
         <button id="simulate" type="button">Simulate</button>
@@ -27,13 +27,19 @@
       <button class="tab" type="button" data-tab="results" aria-selected="false">Results</button>
     </nav>
     <main class="tab-content">
-      <section class="panel tab-panel is-active" data-tab-panel="gear">
-        <h2>Gear</h2>
-        <p class="hint" id="gear-hint">JavaScript is disabled or blocked for localhost. Allow JavaScript in Chrome, then reload.</p>
-        <div id="gear" class="gear-grid"></div>
-        <h3>Stats from gear</h3>
-        <p class="hint">Hover Spell Hit or Spell Crit for the rating → talent → buff breakdown.</p>
-        <dl id="stats" class="stats"></dl>
+      <section class="panel tab-panel is-active gear-panel" data-tab-panel="gear">
+        <aside id="gear-sim-summary" class="gear-sim"></aside>
+        <div class="gear-main">
+          <h2>Gear</h2>
+          <p class="hint" id="gear-hint">JavaScript is disabled or blocked for localhost. Allow JavaScript in Chrome, then reload.</p>
+          <div id="gear" class="gear-grid"></div>
+          <h3>Stats from gear</h3>
+          <p class="hint">Hover Spell Hit, Spell Crit, or Spell Haste for the rating → talent → buff breakdown.</p>
+          <dl id="stats" class="stats"></dl>
+          <h3>Set bonuses</h3>
+          <p class="hint">A bonus applies only after that many pieces of the set are equipped.</p>
+          <div id="set-bonuses" class="set-summary"></div>
+        </div>
       </section>
       <section class="panel tab-panel" data-tab-panel="buffs" hidden>
         <h2>Raid Buffs &amp; Consumes</h2>

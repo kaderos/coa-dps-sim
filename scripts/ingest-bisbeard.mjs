@@ -101,12 +101,18 @@ const SLOT_ALIASES = {
 };
 
 const STAT_ALIASES = {
+  strength: "strength",
+  str: "strength",
+  agility: "agility",
+  agi: "agility",
   intellect: "intellect",
   int: "intellect",
   spirit: "spirit",
   spi: "spirit",
   stamina: "stamina",
   sta: "stamina",
+  allstat: "allStats",
+  allstats: "allStats",
   spellpower: "spellPower",
   spell_power: "spellPower",
   spelldmg: "spellPower",
@@ -209,6 +215,9 @@ function main() {
   const web = buildWebPayload(payload, bySlot);
   writeJson(OUT_PUBLIC, web, { pretty: false });
   writeJson(OUT_DATA, payload);
+  const setCatalog = collectSets(unique);
+  writeJson(path.join(path.dirname(OUT_PUBLIC), "sets.json"), setCatalog, { pretty: false });
+  writeJson(path.join(ROOT, "data", "sets.json"), setCatalog);
   const enchants = collectEnchants(files);
   writeJson(path.join(path.dirname(OUT_PUBLIC), "enchants.json"), enchants, { pretty: false });
   writeJson(path.join(ROOT, "data", "enchants.json"), enchants);
@@ -283,6 +292,7 @@ function slimItem(item) {
   if (item.effects?.length) out.effects = item.effects;
   if (item.setName) out.setName = item.setName;
   if (item.setBonus3) out.setBonus3 = item.setBonus3;
+  if (item.setBonuses && Object.keys(item.setBonuses).length) out.setBonuses = item.setBonuses;
   return out;
 }
 
@@ -385,6 +395,7 @@ function normalizeItem(raw) {
     baseStats: tooltip.baseStats,
     effects: tooltip.effects,
     setName: raw.setName || null,
+    setBonuses: normalizeSetBonuses(raw.setBonuses),
     setBonus3: raw.setBonuses && raw.setBonuses["3"] ? String(raw.setBonuses["3"]) : null,
     stats,
     source,
@@ -536,6 +547,8 @@ function normalizeSlot(value) {
 
 function normalizeStats(raw) {
   const stats = {
+    strength: 0,
+    agility: 0,
     intellect: 0,
     spirit: 0,
     stamina: 0,
@@ -553,7 +566,7 @@ function normalizeStats(raw) {
     for (const entry of bag) {
       const name = STAT_ALIASES[String(entry.stat || entry.name || entry.type || "").toLowerCase().replace(/[\s_]+/g, "")];
       const amount = Number(entry.amount ?? entry.value ?? entry.count ?? 0);
-      if (name && Number.isFinite(amount)) stats[name] += amount;
+      applyNormalizedStat(stats, name, amount);
     }
     return stats;
   }
@@ -561,10 +574,23 @@ function normalizeStats(raw) {
     for (const [key, value] of Object.entries(bag)) {
       const name = STAT_ALIASES[key.toLowerCase().replace(/[\s_]+/g, "")];
       const amount = Number(value);
-      if (name && Number.isFinite(amount)) stats[name] += amount;
+      applyNormalizedStat(stats, name, amount);
     }
   }
   return stats;
+}
+
+function applyNormalizedStat(stats, name, amount) {
+  if (!name || !Number.isFinite(amount) || !amount) return;
+  if (name === "allStats") {
+    stats.strength += amount;
+    stats.agility += amount;
+    stats.stamina += amount;
+    stats.intellect += amount;
+    stats.spirit += amount;
+    return;
+  }
+  if (Object.prototype.hasOwnProperty.call(stats, name)) stats[name] += amount;
 }
 
 function loadAlcStubs() {
@@ -680,6 +706,29 @@ function normalizeEnchant(raw) {
     stats,
     description: raw.description || null,
     quality: raw.quality || null,
+  };
+}
+
+function normalizeSetBonuses(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const out = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (value) out[String(key)] = String(value);
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+function collectSets(items) {
+  const sets = {};
+  for (const item of items) {
+    if (!item.setName || !item.setBonuses) continue;
+    if (!sets[item.setName]) sets[item.setName] = {};
+    Object.assign(sets[item.setName], item.setBonuses);
+  }
+  return {
+    generatedAt: new Date().toISOString(),
+    count: Object.keys(sets).length,
+    sets,
   };
 }
 

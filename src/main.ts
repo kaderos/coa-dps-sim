@@ -1,4 +1,5 @@
-import type { BuffsConfig, Enchant, EnchantSet, GearSet, Item, LogBaseline, LogCastLog, Slot, SpellFit } from "./types";
+import type { BuffsConfig, Enchant, EnchantSet, GearSet, Item, LogBaseline, LogCastLog, SetCatalog, Slot, SpellFit } from "./types";
+import { absorbItemSetBonuses, equippedSets, loadSetCatalog, setBonusCombat, setProgressForItem } from "./sets";
 import { PAPER_DOLL_LEFT, PAPER_DOLL_RIGHT, PAPER_DOLL_WEAPONS, SLOTS } from "./types";
 import {
   BOSS_LEVEL,
@@ -11,11 +12,11 @@ import {
   ratingsFromGear,
   statsFromGear,
 } from "./sim/stats";
-import { buildChanceBreakdown, critCardHtml, hitCardHtml } from "./sim/chances";
+import { buildChanceBreakdown, critCardHtml, hasteCardHtml, hitCardHtml } from "./sim/chances";
 import type { ChanceBreakdown } from "./sim/chances";
 import { runSim } from "./sim/engine";
-import { DEFAULT_BUFFS, percentBuffs, ratingConsumes, setupBuffs, statsFromBuffs } from "./buffs";
-import { renderResults } from "./results";
+import { DEFAULT_BUFFS, percentBuffs, ratingConsumes, setupBuffs, statsFromBuffs, syncOffhandOilField } from "./buffs";
+import { renderGearSimCard, renderResults, toSnapshot, type SimSnapshot } from "./results";
 import {
   defaultStatWeights,
   formatEp,
@@ -40,6 +41,8 @@ type ItemDb = {
 };
 
 const EMPTY_ITEM_STATS = {
+  strength: 0,
+  agility: 0,
   intellect: 0,
   spirit: 0,
   stamina: 0,
@@ -81,6 +84,8 @@ const PINNED_TRINKETS = new Set([1414516]);
 const itemCache = new Map<Slot, Item[]>();
 const itemsById = new Map<number, Item>();
 const enchantsById = new Map<number, Enchant>();
+let lastSim: SimSnapshot | null = null;
+let pinnedSim: SimSnapshot | null = null;
 
 const SLOT_LABELS: Record<Slot, string> = {
   head: "Head",
@@ -126,13 +131,15 @@ async function load() {
   };
   setHint("Fetching /data/items.json…");
 
-  const [itemDb, spellDb, nextEnchantDb, nextBaseline, castLog] = await Promise.all([
+  const [itemDb, spellDb, nextEnchantDb, nextBaseline, castLog, setDb] = await Promise.all([
     fetchJson<ItemDb>("/data/items.json"),
     fetchJson<SpellDb>("/data/spells.json"),
     fetchJson<EnchantDb>("/data/enchants.json").catch(() => ({ slots: {} })),
     fetchJson<LogBaseline>("/data/baseline.json").catch(() => null),
     fetchJson<LogCastLog>("/data/baseline-casts.json").catch(() => null),
+    fetchJson<SetCatalog>("/data/sets.json").catch(() => ({ sets: {} })),
   ]);
+  loadSetCatalog(setDb);
   items = itemDb;
   spells = spellDb;
   enchantDb = nextEnchantDb;
@@ -159,6 +166,7 @@ async function load() {
   }, session.buffs);
   renderGear();
   renderStats();
+  refreshGearSim();
   document.getElementById("duration")?.addEventListener("change", renderStats);
   document.getElementById("pull-felfury")?.addEventListener("change", () => {
     saveSession({ pullFelfury: readPullFelfury() });
@@ -222,6 +230,7 @@ function hydrateItems(db: ItemDb) {
     item.stats = { ...EMPTY_ITEM_STATS, ...(item.stats || {}) };
     itemsById.set(item.id, item);
   }
+  absorbItemSetBonuses(itemsById.values());
 }
 
 async function fetchJson<T>(url: string, timeoutMs = 15000): Promise<T> {
@@ -300,6 +309,7 @@ function renderGear() {
   for (const slot of PAPER_DOLL_WEAPONS) weapons.appendChild(renderGearSlot(slot));
 
   root.append(left, center, right, weapons);
+  syncOffhandOilField(gear);
 }
 
 function renderGearSlot(slot: Slot) {
@@ -582,22 +592,23 @@ function renderPickerResults() {
   const phase = selectedPhase || (document.getElementById("phase-filter") as HTMLSelectElement | null)?.value || "all";
   if (!root) return;
 
-  const matches = itemsFor(activeSlot).filter((item) => {
+  const slot = activeSlot;
+  const weights = liveStatWeights();
+  const byEp = (a: Item, b: Item) => {
+    const delta = pieceEp(b, slot, weights) - pieceEp(a, slot, weights);
+    return delta || a.name.localeCompare(b.name);
+  };
+  const matches = itemsFor(slot).filter((item) => {
     const matchesName = !search || item.name.toLowerCase().includes(search) || String(item.id).includes(search);
     const matchesPhase = itemMatchesPhase(item, phase);
     return matchesName && matchesPhase;
   });
-  const pinned = matches.filter((item) => isPinnedItem(item, activeSlot));
-  const unpinned = matches.filter((item) => !isPinnedItem(item, activeSlot));
+  const pinned = matches.filter((item) => isPinnedItem(item, slot)).sort(byEp);
+  const unpinned = matches.filter((item) => !isPinnedItem(item, slot)).sort(byEp);
 
   const ranked = unpinned.slice(0, PICKER_RENDER_LIMIT);
   const shown = new Set(ranked);
-  const buriedHit = unpinned
-    .filter((item) => !shown.has(item) && isHitOrProcItem(item))
-    .sort(
-      (a, b) =>
-        (b.stats.spellHit || 0) - (a.stats.spellHit || 0) || (b.casterScore || 0) - (a.casterScore || 0),
-    );
+  const buriedHit = unpinned.filter((item) => !shown.has(item) && isHitOrProcItem(item)).sort(byEp);
 
   if (count) {
     const visible = ranked.length + buriedHit.length + pinned.length;
@@ -616,18 +627,18 @@ function renderPickerResults() {
     return;
   }
 
+  if (ranked.length) {
+    if (pinned.length || buriedHit.length) appendPickerHeading(root, "Highest EP");
+    for (const item of ranked) appendPickerItem(root, item);
+  }
   if (pinned.length) {
     appendPickerHeading(root, "Badge / always available");
     for (const item of pinned) appendPickerItem(root, item);
   }
   if (buriedHit.length) {
-    appendPickerHeading(root, "Hit and proc items (0 EP with current hit weight)");
+    appendPickerHeading(root, "Hit and proc items");
     for (const item of buriedHit) appendPickerItem(root, item);
   }
-  if (ranked.length && (pinned.length || buriedHit.length)) {
-    appendPickerHeading(root, "Highest EP");
-  }
-  for (const item of ranked) appendPickerItem(root, item);
 }
 
 function appendPickerHeading(root: HTMLElement, label: string) {
@@ -704,6 +715,68 @@ function formatStat(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
+const WHITE_STAT_NAMES = new Set(["strength", "agility", "stamina", "intellect", "spirit"]);
+
+const GREEN_STAT_EQUIP: Array<{
+  key: keyof Item["stats"];
+  match: RegExp;
+  line: (amount: number) => string;
+}> = [
+  { key: "firePower", match: /fire spell power/i, line: (n) => `Equip: Increases fire spell power by ${n}.` },
+  { key: "shadowPower", match: /shadow spell power/i, line: (n) => `Equip: Increases shadow spell power by ${n}.` },
+  { key: "spellPower", match: /spell power|spell damage|magical spells/i, line: (n) => `Equip: Increases spell power by ${n}.` },
+  { key: "spellCrit", match: /critical strike rating|crit rating/i, line: (n) => `Equip: Improves critical strike rating by ${n}.` },
+  { key: "spellHit", match: /hit rating/i, line: (n) => `Equip: Improves hit rating by ${n}.` },
+  { key: "spellHaste", match: /haste rating/i, line: (n) => `Equip: Improves haste rating by ${n}.` },
+];
+
+function isWhiteStatLine(line: string): boolean {
+  const match = line.match(/^\+(-?\d+(?:\.\d+)?)\s+(.+)$/);
+  if (!match) return true;
+  const name = match[2].toLowerCase();
+  return WHITE_STAT_NAMES.has(name) || /resistance$/.test(name);
+}
+
+function tooltipBaseStatLines(item: Item): string[] {
+  const fromTooltip = (item.baseStats || []).filter(isWhiteStatLine);
+  if (fromTooltip.length) return fromTooltip;
+  return (["stamina", "intellect", "spirit"] as const)
+    .filter((key) => item.stats[key] !== 0)
+    .map((key) => `+${formatStat(item.stats[key])} ${key[0].toUpperCase()}${key.slice(1)}`);
+}
+
+function isTimedOrChanceEffect(line: string): boolean {
+  return /^(Use|Chance on hit):/i.test(line)
+    || /\bchance to\b/i.test(line)
+    || /\bfor \d+ sec/i.test(line)
+    || /\bon (?:hit|crit|spell|cast|kill)\b/i.test(line);
+}
+
+function isGreenStatEffect(line: string): boolean {
+  if (!/^Equip:/i.test(line) || isTimedOrChanceEffect(line)) return false;
+  return GREEN_STAT_EQUIP.some((def) => def.match.test(line));
+}
+
+function matchingGreenEffect(effects: string[], def: (typeof GREEN_STAT_EQUIP)[number], amount: number): string | null {
+  return effects.find((line) => {
+    if (!isGreenStatEffect(line) || !def.match.test(line)) return false;
+    const parsed = Number(line.match(/by (?:up to )?(\d+)/i)?.[1]);
+    return parsed === amount;
+  }) ?? null;
+}
+
+function tooltipEffectLines(item: Item): string[] {
+  const effects = item.effects || [];
+  const greens: string[] = [];
+  for (const def of GREEN_STAT_EQUIP) {
+    const amount = item.stats[def.key];
+    if (!amount) continue;
+    greens.push(matchingGreenEffect(effects, def, amount) || def.line(amount));
+  }
+  const extras = effects.filter((line) => !isGreenStatEffect(line));
+  return [...greens, ...extras];
+}
+
 function bindTooltip(element: HTMLElement, item: Item) {
   element.addEventListener("mouseenter", () => showTooltip(element, item));
   element.addEventListener("mouseleave", hideTooltip);
@@ -759,23 +832,25 @@ function showTooltip(anchor: HTMLElement, item: Item) {
 
   if (item.armor) appendTooltipLine(tooltip, `${item.armor} Armor`);
 
-  const baseStats = item.baseStats?.length
-    ? item.baseStats
-    : STAT_LABELS.filter(([key]) => item.stats[key] !== 0).map(
-        ([key, label]) => `+${formatStat(item.stats[key])} ${label}`,
-      );
+  const baseStats = tooltipBaseStatLines(item);
   for (const line of baseStats) appendTooltipLine(tooltip, line);
 
   if (item.reqLevel) appendTooltipLine(tooltip, `Requires Level ${item.reqLevel}`);
   if (item.itemLevel) appendTooltipLine(tooltip, `Item Level ${item.itemLevel}`);
 
-  for (const line of item.effects || []) appendTooltipLine(tooltip, line, "item-tooltip__effect");
+  for (const line of tooltipEffectLines(item)) {
+    appendTooltipLine(tooltip, line, "item-tooltip__effect");
+  }
 
-  if (item.setName) {
-    appendTooltipLine(tooltip, item.setName, "item-tooltip__set");
-    if (item.setBonus3) {
-      const bonus = item.setBonus3.replace(/^\(\d+\) Set:\s*/i, "");
-      appendTooltipLine(tooltip, `(3) Set: ${bonus}`, "item-tooltip__effect");
+  const setInfo = setProgressForItem(item, gear);
+  if (setInfo) {
+    appendTooltipLine(tooltip, `${setInfo.name} (${setInfo.equipped}/${setInfo.threshold})`, "item-tooltip__set");
+    for (const bonus of setInfo.bonuses) {
+      appendTooltipLine(
+        tooltip,
+        `(${bonus.pieces}) Set: ${bonus.text}`,
+        bonus.active ? "item-tooltip__set-bonus is-active" : "item-tooltip__set-bonus is-inactive",
+      );
     }
   }
 
@@ -853,10 +928,10 @@ function hideChanceTooltip() {
 function renderStats() {
   const gearRatings = ratingsFromGear(gear, enchants);
   const gearStats = statsFromGear(gear, enchants);
-  const duration = Number((document.getElementById("duration") as HTMLInputElement | null)?.value) || 120;
-  const bonusStats = statsFromBuffs(buffsConfig, gearStats, duration);
+  const duration = Number((document.getElementById("duration") as HTMLInputElement | null)?.value) || 180;
+  const bonusStats = statsFromBuffs(buffsConfig, gearStats, duration, gear);
   const stats = applyTakenTalents(buildCharacter(gear, 0, bonusStats, readPullFelfury(), enchants));
-  const chances = buildChanceBreakdown(gearRatings, ratingConsumes(buffsConfig), stats.spirit, percentBuffs(buffsConfig));
+  const chances = buildChanceBreakdown(gearRatings, ratingConsumes(buffsConfig, gear), stats.spirit, percentBuffs(buffsConfig));
   const sp = effectiveSpellPower(stats, stats.hiddenPower);
   const root = document.getElementById("stats");
   if (!root) return;
@@ -866,19 +941,62 @@ function renderStats() {
     ["Spirit", stats.spirit.toFixed(1)],
     ["Spell Crit", `${chances.crit.total.toFixed(1)}%`],
     ["Spell Hit", `${chances.hit.total.toFixed(1)}%`],
-    ["Spell Haste", stats.spellHaste.toFixed(1)],
+    ["Spell Haste", `${chances.haste.total.toFixed(1)}%`],
   ];
   root.innerHTML = rows
     .map(([name, value]) => `<div><dt>${name}</dt><dd>${value}</dd></div>`)
     .join("");
   bindChanceHovers(root, chances);
+  renderSetSummary();
+}
+
+function renderSetSummary() {
+  const root = document.getElementById("set-bonuses");
+  if (!root) return;
+  root.replaceChildren();
+  const sets = equippedSets(gear);
+  if (!sets.length) {
+    const hint = document.createElement("p");
+    hint.className = "hint";
+    hint.textContent = "No set pieces equipped.";
+    root.appendChild(hint);
+    return;
+  }
+  for (const set of sets) {
+    const block = document.createElement("div");
+    block.className = "set-summary__set";
+    const head = document.createElement("div");
+    head.className = "set-summary__head";
+    const name = document.createElement("span");
+    name.className = "set-summary__name";
+    name.textContent = set.name;
+    const count = document.createElement("span");
+    count.className = "set-summary__count";
+    count.textContent = `${set.equipped}/${set.threshold}`;
+    head.append(name, count);
+    block.appendChild(head);
+    for (const bonus of set.bonuses) {
+      const line = document.createElement("div");
+      line.className = `set-summary__bonus ${bonus.active ? "is-active" : "is-inactive"}`;
+      line.textContent = `(${bonus.pieces}) ${bonus.text}`;
+      block.appendChild(line);
+    }
+    root.appendChild(block);
+  }
 }
 
 function bindChanceHovers(root: HTMLElement | null, chances: ChanceBreakdown) {
   if (!root) return;
   for (const row of root.querySelectorAll("div")) {
     const label = row.querySelector("dt")?.textContent;
-    const html = label === "Spell Hit" ? hitCardHtml(chances.hit) : label === "Spell Crit" ? critCardHtml(chances.crit) : null;
+    const html =
+      label === "Spell Hit"
+        ? hitCardHtml(chances.hit)
+        : label === "Spell Crit"
+          ? critCardHtml(chances.crit)
+          : label === "Spell Haste"
+            ? hasteCardHtml(chances.haste)
+            : null;
     if (!html) continue;
     row.classList.add("stats__hover");
     row.tabIndex = 0;
@@ -907,10 +1025,10 @@ function readPullFelfury() {
 }
 
 function simulate() {
-  const duration = Number((document.getElementById("duration") as HTMLInputElement).value) || 120;
+  const duration = Number((document.getElementById("duration") as HTMLInputElement).value) || 180;
   const iterations = Number((document.getElementById("iterations") as HTMLInputElement).value) || 300;
   const gearStats = statsFromGear(gear, enchants);
-  const stats = buildCharacter(gear, 0, statsFromBuffs(buffsConfig, gearStats, duration), readPullFelfury(), enchants);
+  const stats = buildCharacter(gear, 0, statsFromBuffs(buffsConfig, gearStats, duration, gear), readPullFelfury(), enchants);
   const result = runSim(spells.spells, stats, {
     durationSec: duration,
     iterations,
@@ -922,15 +1040,26 @@ function simulate() {
     movement: false,
     potionSpellPower: buffsConfig.potion === "spell-power" ? 75 : 0,
     potionDuration: 20,
-    potionMode:
-      buffsConfig.potion === "none"
-        ? "none"
-        : buffsConfig.potionMode === "prepot"
-          ? "prepot"
-          : "with-cooldowns",
+    potionMode: buffsConfig.potion === "none" ? "none" : buffsConfig.potionMode,
+    setDamageAbove75: setBonusCombat(gear).damageAbove75,
   }, logBaseline?.dps || spells.logDps || null, logBaseline);
+  lastSim = toSnapshot(result);
   renderResults(result);
-  activateTab("results");
+  refreshGearSim();
+  activateTab("gear");
+}
+
+function refreshGearSim() {
+  renderGearSimCard(lastSim, pinnedSim, {
+    onPin: () => {
+      pinnedSim = lastSim;
+      refreshGearSim();
+    },
+    onUnpin: () => {
+      pinnedSim = null;
+      refreshGearSim();
+    },
+  });
 }
 
 load().catch((err) => {

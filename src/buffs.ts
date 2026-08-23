@@ -1,7 +1,8 @@
-import type { BuffsConfig, ItemStats } from "./types";
+import type { BuffsConfig, GearSet, ItemStats } from "./types";
 import {
   addStats,
   emptyStats,
+  offhandAcceptsOil,
   ratingsToPercent,
   SPELL_CRIT_RATING_PER_PERCENT,
   SPELL_HIT_CAP,
@@ -169,8 +170,9 @@ export const DEFAULT_BUFFS: BuffsConfig = {
   flask: "none",
   food: "none",
   weaponOil: "none",
+  offhandWeaponOil: "none",
   potion: "spell-power",
-  potionMode: "on-cooldown",
+  potionMode: "in-fight",
 };
 
 export function setupBuffs(onChange: () => void, saved?: Partial<BuffsConfig>): BuffsConfig {
@@ -211,8 +213,8 @@ export function percentBuffs(config: BuffsConfig): ItemStats {
   return stats;
 }
 
-export function ratingConsumes(config: BuffsConfig): ItemStats {
-  const oil = optionStats(WEAPON_OILS, config.weaponOil);
+export function ratingConsumes(config: BuffsConfig, gear: GearSet = {}): ItemStats {
+  const oil = consumeOilStats(config, gear);
   return {
     ...emptyStats(),
     spellCrit: oil.spellCrit,
@@ -221,13 +223,23 @@ export function ratingConsumes(config: BuffsConfig): ItemStats {
   };
 }
 
-export function statsFromBuffs(config: BuffsConfig, _gearStats: ItemStats, _durationSec: number): ItemStats {
+export function statsFromBuffs(config: BuffsConfig, _gearStats: ItemStats, _durationSec: number, gear: GearSet = {}): ItemStats {
   let consumes = emptyStats();
   consumes = addStats(consumes, optionStats(FLASKS, config.flask));
   consumes = addStats(consumes, optionStats(FOODS, config.food));
-  const oil = optionStats(WEAPON_OILS, config.weaponOil);
+  const oil = consumeOilStats(config, gear);
   consumes = addStats(consumes, { ...oil, spellCrit: 0, spellHit: 0, spellHaste: 0 });
-  return addStats(addStats(percentBuffs(config), consumes), ratingsToPercent(ratingConsumes(config)));
+  return addStats(addStats(percentBuffs(config), consumes), ratingsToPercent(ratingConsumes(config, gear)));
+}
+
+export function syncOffhandOilField(gear: GearSet) {
+  const field = document.getElementById("offhand-oil-field");
+  const select = field?.querySelector("select");
+  if (!field || !select) return;
+  const available = offhandAcceptsOil(gear);
+  select.toggleAttribute("disabled", !available);
+  field.classList.toggle("is-disabled", !available);
+  field.title = available ? "" : "Equip a one-handed weapon in Off Hand to apply a second oil.";
 }
 
 function mergeBuffs(base: BuffsConfig, saved?: Partial<BuffsConfig>): BuffsConfig {
@@ -240,9 +252,21 @@ function mergeBuffs(base: BuffsConfig, saved?: Partial<BuffsConfig>): BuffsConfi
   if (hasOption(FLASKS, saved.flask)) config.flask = saved.flask;
   if (hasOption(FOODS, saved.food)) config.food = saved.food;
   if (hasOption(WEAPON_OILS, saved.weaponOil)) config.weaponOil = saved.weaponOil;
+  if (hasOption(WEAPON_OILS, saved.offhandWeaponOil)) config.offhandWeaponOil = saved.offhandWeaponOil;
   if (hasOption(POTIONS, saved.potion)) config.potion = saved.potion;
-  if (saved.potionMode === "prepot" || saved.potionMode === "on-cooldown") config.potionMode = saved.potionMode;
+  config.potionMode = migratePotionMode(saved.potionMode);
   return config;
+}
+
+function migratePotionMode(value: string | undefined): BuffsConfig["potionMode"] {
+  if (value === "prepot-and-second" || value === "prepot") return "prepot-and-second";
+  return "in-fight";
+}
+
+function consumeOilStats(config: BuffsConfig, gear: GearSet): ItemStats {
+  let oil = optionStats(WEAPON_OILS, config.weaponOil);
+  if (offhandAcceptsOil(gear)) oil = addStats(oil, optionStats(WEAPON_OILS, config.offhandWeaponOil));
+  return oil;
 }
 
 function hasOption<T extends string>(options: Array<SelectOption<T>>, value: string | undefined): value is T {
@@ -268,14 +292,15 @@ function renderControls(config: BuffsConfig): string {
       `<div class="consume-grid">${[
         select("Flask", "flask", FLASKS, config.flask),
         select("Food", "food", FOODS, config.food),
-        select("Weapon oil", "weaponOil", WEAPON_OILS, config.weaponOil),
+        select("Main-hand oil", "weaponOil", WEAPON_OILS, config.weaponOil),
+        select("Off-hand oil", "offhandWeaponOil", WEAPON_OILS, config.offhandWeaponOil, "offhand-oil-field"),
         select("Potion", "potion", POTIONS, config.potion),
         select(
           "Potion usage",
           "potionMode",
           [
-            { value: "on-cooldown", label: "With other cooldowns (once per fight)", stats: {} },
-            { value: "prepot", label: "Pre-pot at pull", stats: {} },
+            { value: "in-fight", label: "One potion during the fight", stats: {} },
+            { value: "prepot-and-second", label: "Pre-pot and a second potion at 1:00", stats: {} },
           ] as Array<SelectOption<BuffsConfig["potionMode"]>>,
           config.potionMode,
         ),
@@ -302,11 +327,13 @@ function select<T extends string>(
   key: keyof BuffsConfig,
   options: Array<SelectOption<T>>,
   value: T,
+  fieldId?: string,
 ): string {
   const body = options
     .map((o) => `<option value="${o.value}"${o.value === value ? " selected" : ""}>${escapeHtml(o.label)}</option>`)
     .join("");
-  return `<label class="consume-field">${escapeHtml(label)}<select data-buff="${String(key)}">${body}</select></label>`;
+  const id = fieldId ? ` id="${fieldId}"` : "";
+  return `<label class="consume-field"${id}>${escapeHtml(label)}<select data-buff="${String(key)}">${body}</select></label>`;
 }
 
 function escapeHtml(value: string): string {

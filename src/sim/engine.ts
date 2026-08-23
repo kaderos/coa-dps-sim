@@ -2,7 +2,7 @@ import type { CharacterStats, LogBaseline, SimConfig, SimResult, SpellBreakdown,
 import { Rng } from "./rng";
 import { runOnce } from "./infernal";
 
-// Fixed 120s (or any exact length) lines CDs up the same way every iteration.
+// Fixed fight length lines CDs up the same way every iteration.
 const DURATION_SALT = 0.05;
 const SIM_TICK = 0.05;
 
@@ -31,6 +31,7 @@ export function runSim(
       potionSpellPower: config.potionSpellPower,
       potionDuration: config.potionDuration,
       potionMode: config.potionMode,
+      setDamageAbove75: config.setDamageAbove75,
     });
     if (i === 0) castEvents = once.castEvents;
     dpsSamples.push(once.damage / fightSec);

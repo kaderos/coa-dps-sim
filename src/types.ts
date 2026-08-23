@@ -27,6 +27,8 @@ export const PAPER_DOLL_WEAPONS = ["mainhand", "offhand", "ranged"] as const;
 export type Slot = (typeof SLOTS)[number];
 
 export type ItemStats = {
+  strength: number;
+  agility: number;
   intellect: number;
   spirit: number;
   stamina: number;
@@ -67,6 +69,7 @@ export type Item = {
   effects?: string[];
   setName?: string | null;
   setBonus3?: string | null;
+  setBonuses?: Record<string, string> | null;
   stats: ItemStats;
   source?: string | null;
   casterScore?: number;
@@ -142,7 +145,7 @@ export type SpellFit = {
   };
 };
 
-export type PotionMode = "none" | "prepot" | "with-cooldowns";
+export type PotionMode = "none" | "in-fight" | "prepot-and-second";
 
 export type SimConfig = {
   durationSec: number;
@@ -156,6 +159,26 @@ export type SimConfig = {
   potionSpellPower: number;
   potionDuration: number;
   potionMode: PotionMode;
+  setDamageAbove75?: number;
+};
+
+export type SetCatalog = {
+  generatedAt?: string;
+  count?: number;
+  sets: Record<string, Record<string, string>>;
+};
+
+export type EquippedSetBonus = {
+  pieces: number;
+  text: string;
+  active: boolean;
+};
+
+export type EquippedSet = {
+  name: string;
+  equipped: number;
+  threshold: number;
+  bonuses: EquippedSetBonus[];
 };
 
 export type BuffsConfig = {
@@ -174,8 +197,9 @@ export type BuffsConfig = {
   flask: "none" | "manifesting-power" | "kirin-tor";
   food: "none" | "well-fed" | "fused-wizard-wontons";
   weaponOil: "none" | "brilliant-wizard-oil";
+  offhandWeaponOil: "none" | "brilliant-wizard-oil";
   potion: "none" | "spell-power";
-  potionMode: "prepot" | "on-cooldown";
+  potionMode: "in-fight" | "prepot-and-second";
 };
 
 export type SpellBreakdown = {

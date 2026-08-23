@@ -77,10 +77,16 @@ const POTION: SpellFit = {
   fit: { base: 0, coeff: 0, spellPowerUsed: 0 },
 };
 
+// Instant casts are not truly zero-time: client/server batching and latency
+// leave a short gap before the next command is accepted.
+const INSTANT_LATENCY_MIN = 0.01;
+const INSTANT_LATENCY_MAX = 0.02;
+
 export type FightOptions = {
   potionSpellPower?: number;
   potionDuration?: number;
   potionMode?: PotionMode;
+  setDamageAbove75?: number;
 };
 
 export type Aura = {
@@ -117,10 +123,12 @@ export type FightState = {
   skull: Aura | null;
   bloodRegen: Aura | null;
   potion: Aura | null;
-  potionUsed: boolean;
+  potionDrinks: number;
+  potionReadyAt: number;
   potionSpellPower: number;
   potionDuration: number;
   potionMode: PotionMode;
+  setDamageAbove75: number;
   reckoningPower: Aura | null;
   maliceCritRemain: number;
   felshockHitRemain: number;
@@ -191,10 +199,12 @@ export function runOnce(
     skull: null,
     bloodRegen: null,
     potion: null,
-    potionUsed: false,
+    potionDrinks: 0,
+    potionReadyAt: 0,
     potionSpellPower: options.potionSpellPower ?? 0,
     potionDuration: options.potionDuration ?? 20,
     potionMode: options.potionMode ?? "none",
+    setDamageAbove75: options.setDamageAbove75 ?? 0,
     reckoningPower: null,
     maliceCritRemain: 0,
     felshockHitRemain: 0,
@@ -204,9 +214,12 @@ export function runOnce(
     castEvents: [],
   };
 
-  if (state.potionMode === "prepot" && state.potionSpellPower > 0) {
+  if (state.potionMode === "prepot-and-second" && state.potionSpellPower > 0) {
     state.potion = { remain: state.potionDuration, stacks: 1 };
-    state.potionUsed = true;
+    state.potionDrinks = 1;
+    state.potionReadyAt = 60;
+    deal(state, POTION.name, 0, true, false, false);
+    logCast(state, POTION.name, "applied", 0);
   }
 
   const tick = 0.05;
@@ -338,6 +351,14 @@ function tickAuras(
   }
 }
 
+function shouldDrinkPotion(state: FightState, innerUp: boolean): boolean {
+  if (state.potionSpellPower <= 0) return false;
+  if (state.time < state.potionReadyAt) return false;
+  if (state.potionMode === "in-fight") return innerUp && state.potionDrinks < 1;
+  if (state.potionMode === "prepot-and-second") return state.potionDrinks < 2;
+  return false;
+}
+
 function chooseAction(
   state: FightState,
   fireball: SpellFit | undefined,
@@ -363,14 +384,7 @@ function chooseAction(
 
   if (inner && state.felfury >= 1 && ((!innerUp && fullFelfury) || expiring)) return inner;
 
-  if (
-    innerUp &&
-    state.potionMode === "with-cooldowns" &&
-    state.potionSpellPower > 0 &&
-    !state.potionUsed
-  ) {
-    return POTION;
-  }
+  if (shouldDrinkPotion(state, innerUp)) return POTION;
   if (innerUp && state.time >= state.bloodReadyAt) return BLOOD;
 
   const baneUp = Boolean(state.baneOfFire && state.baneOfFire.remain > 1.5);
@@ -407,6 +421,7 @@ function combatContext(spell: SpellFit, stats: CharacterStats, state: FightState
     guaranteedCrit: Boolean(state.annihilation && state.annihilation.stacks > 0),
     potionSpellPower: state.potion ? state.potionSpellPower : 0,
     targetHealth: 1,
+    setDamageAbove75: state.setDamageAbove75,
   });
 }
 
@@ -440,6 +455,11 @@ function onDirectCrit(
     addEnergy(state, INFERNAL.maliceEnergy);
     state.maliceCritRemain = INFERNAL.maliceDuration;
   }
+}
+
+function spellGcd(spell: SpellFit): number {
+  if (spell.id === 707901) return spell.gcd || 1;
+  return spell.gcd || 0;
 }
 
 function currentHaste(stats: CharacterStats, state: FightState) {
@@ -480,9 +500,12 @@ function cast(
     : isFireball(spell)
       ? fireballCastTime(spell.castTime || 0, haste, usingFelforged)
       : (spell.castTime || 0) / haste;
-  const gcd = spell.gcd > 0 ? Math.max(spell.gcd / haste, 0.75) : 0;
-  state.castingUntil = state.time + castTime;
-  state.gcdReady = state.time + Math.max(gcd, castTime);
+  const baseGcd = spellGcd(spell);
+  const gcd = baseGcd > 0 ? Math.max(baseGcd / haste, 0.75) : 0;
+  const latency = castTime > 0 ? 0 : rng.range(INSTANT_LATENCY_MIN, INSTANT_LATENCY_MAX);
+  state.castingUntil = state.time + castTime + latency;
+  // Off-GCD weaves must not clear a GCD already started (Bane, Fireball, etc.).
+  state.gcdReady = Math.max(state.gcdReady, state.time + Math.max(gcd, castTime + latency));
 
   const energyCost = reckoningFireball
     ? 0
@@ -515,7 +538,7 @@ function cast(
   }
   if (spell.id === POTION.id) {
     state.potion = { remain: state.potionDuration, stacks: 1 };
-    state.potionUsed = true;
+    state.potionDrinks += 1;
     deal(state, spell.name, 0, true, false, false);
     logCast(state, spell.name, "applied", 0);
     return;

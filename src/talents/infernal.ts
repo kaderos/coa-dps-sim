@@ -113,6 +113,7 @@ export type InfernalAuras = {
   potionSpellPower: number;
   /** Patchwerk dummy does not lose health. */
   targetHealth: number;
+  setDamageAbove75?: number;
 };
 
 export function infernalContext(spell: SpellFit, stats: CharacterStats, auras: InfernalAuras): DamageContext {
@@ -138,6 +139,9 @@ export function infernalContext(spell: SpellFit, stats: CharacterStats, auras: I
   if (isSmite(spell) && execute) damageDone *= 1 + INFERNAL.doomsayerSmiteDamage;
   if (auras.chaoticStacks > 0) damageDone *= 1 + FELSWORN.chaoticDamage * auras.chaoticStacks;
   if (auras.reckoningStacks > 0) damageDone *= 1 + FELSWORN.reckoningBuffDamage * auras.reckoningStacks;
+  if ((auras.setDamageAbove75 || 0) > 0 && auras.targetHealth > 0.75) {
+    damageDone *= 1 + (auras.setDamageAbove75 || 0);
+  }
 
   return {
     damageTakenFromCaster: auras.baneOfFire ? 1.2 : 1,

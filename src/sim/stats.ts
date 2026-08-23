@@ -1,6 +1,9 @@
 import type { CharacterStats, EnchantSet, GearSet, Item, ItemStats, Slot } from "../types";
+import { setBonusRatings } from "../sets";
 
 const EMPTY_STATS: ItemStats = {
+  strength: 0,
+  agility: 0,
   intellect: 0,
   spirit: 0,
   stamina: 0,
@@ -35,6 +38,8 @@ export function spellMissChance(spellHitPercent: number, canMiss = true): number
 
 export function addStats(a: ItemStats, b: ItemStats): ItemStats {
   return {
+    strength: (a.strength || 0) + (b.strength || 0),
+    agility: (a.agility || 0) + (b.agility || 0),
     intellect: a.intellect + b.intellect,
     spirit: a.spirit + b.spirit,
     stamina: a.stamina + b.stamina,
@@ -70,7 +75,7 @@ export function ratingsFromGear(gear: GearSet, enchants: EnchantSet = {}): ItemS
     if (!enchantFitsSlot(enchant, slot, gear[slot] ?? null, gear.mainhand ?? null)) continue;
     stats = addStats(stats, enchant.stats);
   }
-  return stats;
+  return addStats(stats, setBonusRatings(gear, stats));
 }
 
 export function statsFromGear(gear: GearSet, enchants: EnchantSet = {}): ItemStats {
@@ -117,6 +122,10 @@ export function isTwoHand(item: Item | null | undefined): boolean {
     type === "staves" ||
     type === "staff"
   );
+}
+
+export function offhandAcceptsOil(gear: GearSet): boolean {
+  return isOneHandWeapon(gear.offhand) && !isTwoHand(gear.mainhand);
 }
 
 export function isOneHandWeapon(item: Item | null | undefined): boolean {

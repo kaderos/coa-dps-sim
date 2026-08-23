@@ -1,8 +1,9 @@
 import type { ItemStats } from "../types";
-import { critFromSpiritRating, INFERNAL } from "../talents/infernal";
+import { INFERNAL } from "../talents/infernal";
 import { FELSWORN } from "../talents/felsworn";
 import {
   SPELL_CRIT_RATING_PER_PERCENT,
+  SPELL_HASTE_RATING_PER_PERCENT,
   SPELL_HIT_CAP,
   SPELL_HIT_RATING_PER_PERCENT,
 } from "./stats";
@@ -12,21 +13,21 @@ export type ChanceStat = {
   fromRating: number;
   fromTalents: number;
   fromBuffs: number;
+  fromInnerDemon: number;
   total: number;
 };
 
 export type ChanceBreakdown = {
   hit: ChanceStat;
   crit: ChanceStat;
+  haste: ChanceStat;
 };
 
-export function talentChancePercents(spirit: number): Pick<ItemStats, "spellHit" | "spellCrit"> {
+export function talentChancePercents(spirit: number): Pick<ItemStats, "spellHit" | "spellCrit" | "spellHaste"> {
   return {
     spellHit: INFERNAL.wrathSpellHit,
-    spellCrit:
-      FELSWORN.crueltyCrit +
-      INFERNAL.felInfusionPersonalCrit +
-      critFromSpiritRating(spirit, INFERNAL.netherSpiritToCritRating),
+    spellCrit: FELSWORN.crueltyCrit + INFERNAL.felInfusionPersonalCrit,
+    spellHaste: 0,
   };
 }
 
@@ -34,9 +35,19 @@ export function buildChanceBreakdown(
   gearRatings: ItemStats,
   consumeRatings: ItemStats,
   spirit: number,
-  buffPercents: Pick<ItemStats, "spellHit" | "spellCrit">,
+  buffPercents: Pick<ItemStats, "spellHit" | "spellCrit" | "spellHaste">,
 ): ChanceBreakdown {
   const talents = talentChancePercents(spirit);
+  const spiritStat = Math.max(0, spirit);
+  const netherRating = INFERNAL.netherSpiritToCritRating * spiritStat;
+  const innerDemonRating = INFERNAL.hiddenPowerInnerSpirit * spiritStat;
+  const crit = layer(
+    gearRatings.spellCrit + consumeRatings.spellCrit + netherRating + innerDemonRating,
+    SPELL_CRIT_RATING_PER_PERCENT,
+    talents.spellCrit,
+    buffPercents.spellCrit,
+  );
+  crit.fromInnerDemon = innerDemonRating / SPELL_CRIT_RATING_PER_PERCENT;
   return {
     hit: layer(
       gearRatings.spellHit + consumeRatings.spellHit,
@@ -44,11 +55,12 @@ export function buildChanceBreakdown(
       talents.spellHit,
       buffPercents.spellHit,
     ),
-    crit: layer(
-      gearRatings.spellCrit + consumeRatings.spellCrit,
-      SPELL_CRIT_RATING_PER_PERCENT,
-      talents.spellCrit,
-      buffPercents.spellCrit,
+    crit,
+    haste: layer(
+      gearRatings.spellHaste + consumeRatings.spellHaste,
+      SPELL_HASTE_RATING_PER_PERCENT,
+      talents.spellHaste,
+      buffPercents.spellHaste,
     ),
   };
 }
@@ -63,24 +75,39 @@ export function hitCardHtml(stat: ChanceStat): string {
 export function critCardHtml(stat: ChanceStat): string {
   return chanceCard("Spell Crit", stat, {
     ratingPerPercent: SPELL_CRIT_RATING_PER_PERCENT,
+    note: "Inner Demon (Hidden Power) is 20% of Spirit as crit rating and is included in this total.",
   });
 }
 
-function layer(rating: number, perPercent: number, fromTalents: number, fromBuffs: number): ChanceStat {
+export function hasteCardHtml(stat: ChanceStat): string {
+  return chanceCard("Spell Haste", stat, {
+    ratingPerPercent: SPELL_HASTE_RATING_PER_PERCENT,
+    note: "Felheart is +1% haste per Felfury in combat and is not in this total.",
+  });
+}
+
+function layer(
+  rating: number,
+  perPercent: number,
+  fromTalents: number,
+  fromBuffs: number,
+  fromInnerDemon = 0,
+): ChanceStat {
   const fromRating = rating / perPercent;
   return {
     rating,
     fromRating,
     fromTalents,
     fromBuffs,
-    total: fromRating + fromTalents + fromBuffs,
+    fromInnerDemon,
+    total: fromRating + fromTalents + fromBuffs + fromInnerDemon,
   };
 }
 
 function chanceCard(
   title: string,
   stat: ChanceStat,
-  extra: { ratingPerPercent: number; cap?: number },
+  extra: { ratingPerPercent: number; cap?: number; note?: string },
 ): string {
   const remaining = extra.cap != null ? extra.cap - stat.total : null;
   const capLine =
@@ -89,16 +116,20 @@ function chanceCard(
       : remaining > 0
         ? `${fmt(stat.total)}% of the ${extra.cap}% cap — ${fmt(remaining)}% short.`
         : `${fmt(stat.total)}% — at or over the ${extra.cap}% cap.`;
+  const extraHint = [capLine, extra.note].filter(Boolean).join(" ");
   return `<section class="chance-card">
     <h4>${title}</h4>
     <p class="hint">${extra.ratingPerPercent} rating = 1%</p>
     <dl class="stats chance-card__rows">
       <div><dt>${fmt(stat.rating)} rating</dt><dd>${fmt(stat.fromRating)}%</dd></div>
       <div><dt>Talents</dt><dd>+${fmt(stat.fromTalents)}%</dd></div>
+      ${stat.fromInnerDemon
+        ? `<div><dt>Inner Demon</dt><dd>+${fmt(stat.fromInnerDemon)}%</dd></div>`
+        : ""}
       <div><dt>Buffs &amp; debuffs</dt><dd>+${fmt(stat.fromBuffs)}%</dd></div>
       <div class="chance-card__total"><dt>Total</dt><dd>${fmt(stat.total)}%</dd></div>
     </dl>
-    ${capLine ? `<p class="hint">${capLine}</p>` : ""}
+    ${extraHint ? `<p class="hint">${extraHint}</p>` : ""}
   </section>`;
 }
 

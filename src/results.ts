@@ -1,5 +1,83 @@
 import type { SimResult } from "./types";
 
+export type SimSnapshot = {
+  meanDps: number;
+  minDps: number;
+  p50Dps: number;
+  p95Dps: number;
+  maxDps: number;
+  stdev: number;
+  iterations: number;
+};
+
+export function toSnapshot(result: SimResult): SimSnapshot {
+  return {
+    meanDps: result.meanDps,
+    minDps: result.minDps,
+    p50Dps: result.p50Dps,
+    p95Dps: result.p95Dps,
+    maxDps: result.maxDps,
+    stdev: result.stdev,
+    iterations: result.iterations,
+  };
+}
+
+export function renderGearSimCard(
+  current: SimSnapshot | null,
+  pinned: SimSnapshot | null,
+  actions: { onPin: () => void; onUnpin: () => void },
+) {
+  const root = document.getElementById("gear-sim-summary");
+  if (!root) return;
+  if (!current) {
+    root.innerHTML = `
+      <div class="gear-sim__head">
+        <h3>Sim</h3>
+      </div>
+      <p class="hint">Run a simulation to pin a result and compare the next run here.</p>`;
+    return;
+  }
+
+  const comparing = Boolean(pinned && pinned !== current);
+  root.innerHTML = `
+    <div class="gear-sim__head">
+      <h3>${comparing ? "vs pinned" : pinned ? "Pinned" : "Latest"}</h3>
+      ${pinned
+        ? `<button class="text-button" id="gear-sim-unpin" type="button">Unpin</button>`
+        : `<button class="text-button" id="gear-sim-pin" type="button">Pin</button>`}
+    </div>
+    <div class="gear-sim__dps">${current.meanDps.toFixed(0)} <small>DPS</small></div>
+    ${comparing && pinned ? `<div class="gear-sim__delta ${deltaClass(current.meanDps - pinned.meanDps)}">${signed(current.meanDps - pinned.meanDps, 0)} (${signedPct(current.meanDps, pinned.meanDps)})</div>` : ""}
+    <div class="gear-sim__metrics">
+      ${simMetric("Minimum", current.minDps, pinned?.minDps)}
+      ${simMetric("Median", current.p50Dps, pinned?.p50Dps)}
+      ${simMetric("95th percentile", current.p95Dps, pinned?.p95Dps)}
+      ${simMetric("Maximum", current.maxDps, pinned?.maxDps)}
+      ${simMetric("Std. deviation", current.stdev, pinned?.stdev)}
+      ${simMetric("Iterations", current.iterations, pinned?.iterations, 0)}
+    </div>
+    ${comparing ? `<p class="hint">Pinned ${pinned!.meanDps.toFixed(0)} DPS. Next run updates the comparison.</p>` : `<p class="hint">Pin this result, change gear, then simulate again.</p>`}
+  `;
+  document.getElementById("gear-sim-pin")?.addEventListener("click", actions.onPin);
+  document.getElementById("gear-sim-unpin")?.addEventListener("click", actions.onUnpin);
+}
+
+function simMetric(label: string, value: number, pinned: number | undefined, digits = 0): string {
+  const delta = pinned == null ? "" : `<em class="${deltaClass(value - pinned)}">${signed(value - pinned, digits)}</em>`;
+  return `<div><span>${label}</span><strong>${value.toFixed(digits)}</strong>${delta}</div>`;
+}
+
+function deltaClass(value: number): string {
+  if (value > 0) return "delta-pos";
+  if (value < 0) return "delta-neg";
+  return "delta-flat";
+}
+
+function signedPct(current: number, pinned: number): string {
+  if (!pinned) return "0.0%";
+  return `${signed(((current - pinned) / pinned) * 100)}%`;
+}
+
 export function renderResults(result: SimResult) {
   const root = document.getElementById("results");
   if (!root) return;
