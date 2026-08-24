@@ -1,0 +1,155 @@
+{
+  "player": "Jinn",
+  "source": "Combat Events Timeline.txt",
+  "durationSec": 154.573,
+  "durationLabel": "2:35",
+  "totalDamage": 1766080,
+  "dps": 11425.540036099448,
+  "modeledDps": 10575.145724026836,
+  "counts": {
+    "Fel Fireball": 41,
+    "Sargeron Smite": 46,
+    "Ruin": 40,
+    "Chaos": 40
+  },
+  "per120s": {
+    "Fel Fireball": 31.829620955794347,
+    "Sargeron Smite": 35.71128204796439,
+    "Ruin": 31.05328873736034,
+    "Chaos": 31.05328873736034
+  },
+  "chaosProcPct": 46.51162790697674,
+  "ruin": {
+    "directHits": 40,
+    "directAvg": 15583.525,
+    "directCritPct": 90,
+    "dotTicks": 100,
+    "dotAvg": 1542.53,
+    "ticksPerCast": 2.5,
+    "dotShareOfRuin": 0.19837215822138546
+  },
+  "spells": {
+    "Ruin": {
+      "name": "Ruin",
+      "hits": 40,
+      "casts": 40,
+      "total": 623341,
+      "avgHit": 15583.525,
+      "critPct": 90,
+      "share": 0.3529517349157456,
+      "dps": 4032.6641780906107,
+      "modeled": true
+    },
+    "Sargeron Smite": {
+      "name": "Sargeron Smite",
+      "hits": 46,
+      "casts": 46,
+      "total": 215600,
+      "avgHit": 4686.95652173913,
+      "critPct": 100,
+      "share": 0.12207827504982786,
+      "dps": 1394.8102191197686,
+      "modeled": true
+    },
+    "Sargeron Smite (Inner Demon)": {
+      "name": "Sargeron Smite (Inner Demon)",
+      "hits": 46,
+      "casts": 0,
+      "total": 215600,
+      "avgHit": 4686.95652173913,
+      "critPct": 0,
+      "share": 0.12207827504982786,
+      "dps": 1394.8102191197686,
+      "modeled": true
+    },
+    "Fel Fireball": {
+      "name": "Fel Fireball",
+      "hits": 41,
+      "casts": 41,
+      "total": 180463,
+      "avgHit": 4401.536585365854,
+      "critPct": 75.60975609756098,
+      "share": 0.10218280032614604,
+      "dps": 1167.4936761271372,
+      "modeled": true
+    },
+    "Chaos": {
+      "name": "Chaos",
+      "hits": 40,
+      "casts": 0,
+      "total": 172002,
+      "avgHit": 4300.05,
+      "critPct": 95,
+      "share": 0.0973919641239355,
+      "dps": 1112.755785292386,
+      "modeled": true
+    },
+    "Ruin (DoT)": {
+      "name": "Ruin (DoT)",
+      "hits": 100,
+      "casts": 0,
+      "total": 154253,
+      "avgHit": 1542.53,
+      "critPct": 0,
+      "share": 0.08734202301141511,
+      "dps": 997.9297807508426,
+      "modeled": true
+    },
+    "Neptulon's Wrath": {
+      "name": "Neptulon's Wrath",
+      "hits": 34,
+      "casts": 0,
+      "total": 106852,
+      "avgHit": 3142.705882352941,
+      "critPct": 70.58823529411765,
+      "share": 0.06050235549918463,
+      "dps": 691.2720850342556,
+      "modeled": false
+    },
+    "Felstrike": {
+      "name": "Felstrike",
+      "hits": 154,
+      "casts": 0,
+      "total": 73373,
+      "avgHit": 476.44805194805195,
+      "critPct": 0,
+      "share": 0.041545683094763544,
+      "dps": 474.68186552632085,
+      "modeled": true
+    },
+    "Envenomed Weapons": {
+      "name": "Envenomed Weapons",
+      "hits": 23,
+      "casts": 0,
+      "total": 15207,
+      "avgHit": 661.1739130434783,
+      "critPct": 60.86956521739131,
+      "share": 0.008610595216524733,
+      "dps": 98.38070038104972,
+      "modeled": false
+    },
+    "Self Damage": {
+      "name": "Self Damage",
+      "hits": 20,
+      "casts": 0,
+      "total": 9317,
+      "avgHit": 465.85,
+      "critPct": 0,
+      "share": 0.005275525457510419,
+      "dps": 60.27572732624714,
+      "modeled": false
+    },
+    "Greater Razorice": {
+      "name": "Greater Razorice",
+      "hits": 1,
+      "casts": 0,
+      "total": 72,
+      "avgHit": 72,
+      "critPct": 0,
+      "share": 0.00004076825511868092,
+      "dps": 0.4657993310604051,
+      "modeled": false
+    }
+  },
+  "note": "Parsed from AscensionLogs combat events timeline export. Ruin direct hits use damage > 5000 heuristic."
+}

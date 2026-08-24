@@ -1,3 +1,5 @@
+import type { TalentSelection } from "./talents/types";
+
 export const SLOTS = [
   "head",
   "neck",
@@ -103,12 +105,13 @@ export type SpellFit = {
   energy?: number;
   felfuryGain?: number;
   felfuryCost?: number;
+  energyGain?: number;
   gcd: number;
   castTime: number;
   duration?: number;
   maxStacks?: number;
   canCrit?: boolean;
-  school?: "fire" | "shadow" | "holy" | "nature" | "frost" | "arcane" | "physical";
+  school?: "fire" | "shadow" | "shadowflame" | "holy" | "nature" | "frost" | "arcane" | "physical";
   debuff?: {
     damageTakenFromCasterPct: number;
     fireCritFromCasterPct: number;
@@ -136,8 +139,13 @@ export type SpellFit = {
     min: number;
     max: number;
     perLevel: number;
+    /** Fallback when fireCoeff/shadowCoeff omitted. */
     coeff: number;
-    apCoeff?: number;
+    /** COND(GT(FireP, ShaP), … + FireP * fireCoeff, … + ShaP * shadowCoeff). */
+    fireCoeff?: number;
+    shadowCoeff?: number;
+    /** When false, skip perLevel×playerLevel (rank tooltip min/max already include level scaling). */
+    perLevelScalesWithPlayer?: boolean;
     energy?: number;
     castTime?: number;
     gcd?: number;
@@ -160,6 +168,13 @@ export type SimConfig = {
   potionDuration: number;
   potionMode: PotionMode;
   setDamageAbove75?: number;
+  talentSelection?: TalentSelection;
+  /** Flat DPS from party/raid procs (Bloodthistle, etc.) — added each iteration. */
+  procContributions?: Array<{ name: string; dps: number }>;
+  /** Shaman party aura: AP×0.35 Froststorm on each direct damage hit while active. */
+  neptulonsWrath?: boolean;
+  /** Linear 100%→0% boss health — Fel Cannon / Doomsayer taper after ~75% fight time. */
+  targetHealthDecays?: boolean;
 };
 
 export type SetCatalog = {
@@ -192,14 +207,20 @@ export type BuffsConfig = {
   greaterChromiesWisdom: boolean;
   greaterIllidariIntuition: boolean;
   greaterGrimMandate: boolean;
+  greaterWhispersOfNzoth: boolean;
+  greaterPrimalInstinct: boolean;
+  bloodthistle: boolean;
+  neptulonsWrath: boolean;
+  frogBones: boolean;
   racialSpellHit: boolean;
   spellHitDebuff: boolean;
   flask: "none" | "manifesting-power" | "kirin-tor";
   food: "none" | "well-fed" | "fused-wizard-wontons";
   weaponOil: "none" | "brilliant-wizard-oil";
   offhandWeaponOil: "none" | "brilliant-wizard-oil";
-  potion: "none" | "spell-power";
-  potionMode: "in-fight" | "prepot-and-second";
+  potion: "none" | "in-fight" | "prepot-and-second";
+  /** Boss fight: health falls linearly so Fel Cannon / Doomsayer taper. Off = training dummy at 100%. */
+  targetHealthDecays: boolean;
 };
 
 export type SpellBreakdown = {

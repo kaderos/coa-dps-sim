@@ -14,8 +14,17 @@ import {
 } from "./sim/stats";
 import { buildChanceBreakdown, critCardHtml, hasteCardHtml, hitCardHtml } from "./sim/chances";
 import type { ChanceBreakdown } from "./sim/chances";
-import { runSim } from "./sim/engine";
-import { DEFAULT_BUFFS, percentBuffs, ratingConsumes, setupBuffs, statsFromBuffs, syncOffhandOilField } from "./buffs";
+import { runSimAsync } from "./sim/engine";
+import {
+  applyStatScaleBuffs,
+  DEFAULT_BUFFS,
+  percentBuffs,
+  procContributionsFromBuffs,
+  ratingConsumes,
+  setupBuffs,
+  statsFromBuffs,
+  syncOffhandOilField,
+} from "./buffs";
 import { renderGearSimCard, renderResults, renderResultsEmpty, toSnapshot, type SimSnapshot } from "./results";
 import {
   defaultStatWeights,
@@ -937,13 +946,16 @@ function renderStats() {
   const gearRatings = ratingsFromGear(gear, enchants);
   const gearStats = statsFromGear(gear, enchants);
   const duration = Number((document.getElementById("duration") as HTMLInputElement | null)?.value) || 180;
-  const bonusStats = statsFromBuffs(buffsConfig, gearStats, duration, gear);
-  const stats = applyTakenTalents(buildCharacter(gear, 0, bonusStats, readPullFelfury(), enchants), talentSelection);
+  const bonusStats = statsFromBuffs(buffsConfig, gearStats, duration, gear, talentSelection);
+  const stats = applyTakenTalents(
+    applyStatScaleBuffs(buildCharacter(gear, 0, bonusStats, readPullFelfury(), enchants), buffsConfig),
+    talentSelection,
+  );
   const chances = buildChanceBreakdown(
     gearRatings,
     ratingConsumes(buffsConfig, gear),
     stats.spirit,
-    percentBuffs(buffsConfig),
+    percentBuffs(buffsConfig, talentSelection),
     talentSelection,
   );
   const sp = effectiveSpellPower(stats, stats.hiddenPower);
@@ -1039,28 +1051,83 @@ function readPullFelfury() {
 }
 
 function simulate() {
+  void runSimulation();
+}
+
+async function runSimulation() {
+  if (document.body.classList.contains("sim-running")) return;
+
   const duration = Number((document.getElementById("duration") as HTMLInputElement).value) || 180;
-  const iterations = Number((document.getElementById("iterations") as HTMLInputElement).value) || 300;
+  const iterations = Number((document.getElementById("iterations") as HTMLInputElement).value) || 600;
   const gearStats = statsFromGear(gear, enchants);
-  const stats = buildCharacter(gear, 0, statsFromBuffs(buffsConfig, gearStats, duration, gear), readPullFelfury(), enchants);
-  const result = runSim(spells.spells, stats, {
-    durationSec: duration,
-    iterations,
-    seed: 1,
-    fightStyle: "stationary",
-    playerLevel: PLAYER_LEVEL,
-    bossLevel: BOSS_LEVEL,
-    allowCleave: false,
-    movement: false,
-    potionSpellPower: buffsConfig.potion === "spell-power" ? 75 : 0,
-    potionDuration: 20,
-    potionMode: buffsConfig.potion === "none" ? "none" : buffsConfig.potionMode,
-    setDamageAbove75: setBonusCombat(gear).damageAbove75,
-  }, null, null);
-  lastSim = toSnapshot(result);
-  renderResults(result);
-  refreshGearSim();
-  activateTab("results");
+  const stats = applyStatScaleBuffs(
+    buildCharacter(
+      gear,
+      0,
+      statsFromBuffs(buffsConfig, gearStats, duration, gear, talentSelection),
+      readPullFelfury(),
+      enchants,
+    ),
+    buffsConfig,
+  );
+
+  setSimRunning(true, 0, iterations);
+  try {
+    const result = await runSimAsync(
+      spells.spells,
+      stats,
+      {
+        durationSec: duration,
+        iterations,
+        seed: 1,
+        fightStyle: "stationary",
+        playerLevel: PLAYER_LEVEL,
+        bossLevel: BOSS_LEVEL,
+        allowCleave: false,
+        movement: false,
+        potionSpellPower: buffsConfig.potion === "none" ? 0 : 75,
+        potionDuration: 20,
+        potionMode: buffsConfig.potion === "none" ? "none" : buffsConfig.potion,
+        setDamageAbove75: setBonusCombat(gear).damageAbove75,
+        talentSelection,
+        procContributions: procContributionsFromBuffs(buffsConfig),
+        neptulonsWrath: buffsConfig.neptulonsWrath,
+        targetHealthDecays: buffsConfig.targetHealthDecays,
+      },
+      null,
+      null,
+      (completed, total) => setSimProgress(completed, total),
+    );
+    lastSim = toSnapshot(result);
+    renderResults(result);
+    refreshGearSim();
+    activateTab("results");
+  } finally {
+    setSimRunning(false);
+  }
+}
+
+function setSimRunning(running: boolean, completed = 0, total = 0) {
+  document.body.classList.toggle("sim-running", running);
+  const root = document.getElementById("sim-progress");
+  if (!root) return;
+  if (!running) {
+    root.hidden = true;
+    return;
+  }
+  root.hidden = false;
+  setSimProgress(completed, total);
+}
+
+function setSimProgress(completed: number, total: number) {
+  const bar = document.getElementById("sim-progress-bar");
+  const label = document.getElementById("sim-progress-label");
+  const pct = total > 0 ? (completed / total) * 100 : 0;
+  if (bar) bar.style.width = `${pct.toFixed(1)}%`;
+  if (label) {
+    label.textContent =
+      completed >= total ? "Done" : `Simulating ${completed.toLocaleString()} / ${total.toLocaleString()}`;
+  }
 }
 
 function refreshGearSim() {

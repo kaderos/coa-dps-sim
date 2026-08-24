@@ -121,8 +121,8 @@ export function renderResults(result: SimResult) {
     </section>
     <section class="result-section">
       <h3>Spell breakdown</h3>
-      <div class="table-scroll"><table>
-        <thead><tr><th>Spell</th><th>Casts</th><th>DPS</th><th>Share</th><th>Normal</th><th>Critical</th><th>Misses</th></tr></thead>
+      <div class="table-scroll"><table class="spell-breakdown">
+        <thead><tr><th>Spell</th><th>Casts</th><th>DPS</th><th class="share-bar-col">Share</th><th>Normal</th><th>Critical</th><th>Misses</th></tr></thead>
         <tbody>${spellRows(result).join("")}</tbody>
       </table></div>
     </section>
@@ -144,6 +144,8 @@ export function renderResults(result: SimResult) {
             <input type="checkbox" id="cast-log-hide-ticks" checked />
             <span>Hide DoT ticks</span>
           </label>
+          <button class="text-button" id="cast-log-expand-all" type="button">Expand all</button>
+          <button class="text-button" id="cast-log-collapse-all" type="button">Collapse all</button>
           <button class="text-button" id="download-cast-log" type="button">Download JSON</button>
         </div>
       </div>
@@ -164,6 +166,39 @@ export function renderResults(result: SimResult) {
   });
   bindCastLogExpanders();
   bindCastLogTickFilter();
+  bindCastLogBulkExpand();
+}
+
+function setCastLogRowExpanded(row: HTMLTableRowElement, expanded: boolean) {
+  const detail = row.nextElementSibling as HTMLTableRowElement | null;
+  if (!detail?.classList.contains("cast-log-detail")) return;
+  detail.hidden = !expanded;
+  row.classList.toggle("is-expanded", expanded);
+  const toggle = row.querySelector(".cast-log-expand");
+  if (toggle) toggle.textContent = expanded ? "▾" : "▸";
+}
+
+function applyCastLogTickFilter() {
+  const checkbox = document.getElementById("cast-log-hide-ticks") as HTMLInputElement | null;
+  if (!checkbox) return;
+  const hide = checkbox.checked;
+  document.querySelectorAll<HTMLElement>("[data-log-kind='tick']").forEach((row) => {
+    row.hidden = hide;
+  });
+}
+
+function bindCastLogBulkExpand() {
+  document.getElementById("cast-log-expand-all")?.addEventListener("click", () => {
+    document.querySelectorAll<HTMLTableRowElement>(".cast-log-row--expandable").forEach((row) => {
+      setCastLogRowExpanded(row, true);
+    });
+    applyCastLogTickFilter();
+  });
+  document.getElementById("cast-log-collapse-all")?.addEventListener("click", () => {
+    document.querySelectorAll<HTMLTableRowElement>(".cast-log-row--expandable").forEach((row) => {
+      setCastLogRowExpanded(row, false);
+    });
+  });
 }
 
 function castLogHint(result: SimResult): string {
@@ -220,14 +255,8 @@ function formatActiveAura(aura: SimActiveAura): string {
 function bindCastLogTickFilter() {
   const checkbox = document.getElementById("cast-log-hide-ticks") as HTMLInputElement | null;
   if (!checkbox) return;
-  const apply = () => {
-    const hide = checkbox.checked;
-    document.querySelectorAll<HTMLElement>("[data-log-kind='tick']").forEach((row) => {
-      row.hidden = hide;
-    });
-  };
-  checkbox.addEventListener("change", apply);
-  apply();
+  checkbox.addEventListener("change", applyCastLogTickFilter);
+  applyCastLogTickFilter();
 }
 
 function bindCastLogExpanders() {
@@ -235,11 +264,7 @@ function bindCastLogExpanders() {
     row.addEventListener("click", () => {
       const detail = row.nextElementSibling as HTMLTableRowElement | null;
       if (!detail?.classList.contains("cast-log-detail")) return;
-      const open = detail.hidden;
-      detail.hidden = !open;
-      row.classList.toggle("is-expanded", open);
-      const toggle = row.querySelector(".cast-log-expand");
-      if (toggle) toggle.textContent = open ? "▾" : "▸";
+      setCastLogRowExpanded(row, detail.hidden);
     });
   });
 }
@@ -267,11 +292,24 @@ function spellRow(name: string, row: {
     <td>${escapeHtml(name)}</td>
     <td>${row.casts}</td>
     <td>${row.dps.toFixed(0)}</td>
-    <td>${(row.share * 100).toFixed(1)}%</td>
+    ${shareBarCell(row.share)}
     <td>${row.hits}</td>
     <td>${row.crits}</td>
     <td>${row.misses}</td>
   </tr>`;
+}
+
+function shareBarCell(share: number): string {
+  const pct = share * 100;
+  const width = Math.max(0, Math.min(100, pct));
+  const pctLabel = `${pct.toFixed(1)}%`;
+  const label = `${pctLabel} of total DPS`;
+  return `<td class="share-bar-cell">
+    <div class="share-bar-wrap" title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}">
+      <span class="share-bar-pct">${pctLabel}</span>
+      <div class="share-bar"><i style="width:${width.toFixed(2)}%"></i></div>
+    </div>
+  </td>`;
 }
 
 function histogram(samples: number[], meanDps: number, iterations: number): string {

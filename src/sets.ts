@@ -183,11 +183,15 @@ export function setBonusRatings(gear: GearSet, base: ItemStats): ItemStats {
   return addStats(flats, extra);
 }
 
+const FELHEART_RAIMENT = "Felheart Raiment";
+const FELHEART_EXECUTE_BONUS_PIECES = 6;
+
 export function setBonusCombat(gear: GearSet): { damageAbove75: number } {
   let damageAbove75 = 0;
   for (const set of equippedSets(gear)) {
+    if (set.name !== FELHEART_RAIMENT || set.equipped < FELHEART_EXECUTE_BONUS_PIECES) continue;
     for (const bonus of set.bonuses) {
-      if (!bonus.active) continue;
+      if (!bonus.active || bonus.pieces !== FELHEART_EXECUTE_BONUS_PIECES) continue;
       damageAbove75 += parseSetBonus(bonus.text).damageAbove75;
     }
   }

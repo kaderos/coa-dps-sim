@@ -13,7 +13,8 @@ export const FELSWORN = {
   demonicEmbraceEnergy: 50,
   demonicEmbraceFelfury: 6,
   darkTeachings: 1.2,
-  pactHunter: 1.5,
+  /** +1% crit on top of Demonfire Pact's 3% (observed in-game, not +1.5%). */
+  pactHunterCritBonus: 1,
   elementalBaneCritDamage: 0.1,
   felCommunionEnergy: 30,
   chaoticChance: 0.08,
@@ -83,12 +84,22 @@ export function felheartHaste(felfury: number) {
   return Math.floor(Math.max(0, felfury)) * FELSWORN.felheartHastePerFelfury;
 }
 
-export function scaleIntuitionStats(stats: ItemStats): ItemStats {
+export function scaleIntuitionStats(stats: ItemStats, selection?: TalentSelection): ItemStats {
+  if (selection && !isTalentEnabled(selection, "felsworn", "Dark Teachings")) return stats;
   return scalePartial(stats, FELSWORN.darkTeachings);
 }
 
-export function scalePactStats(stats: ItemStats): ItemStats {
-  return scalePartial(stats, FELSWORN.pactHunter);
+/** Demonfire Pact is 3% crit; Pact Hunter adds +1% (→ 4%), matching in-game. */
+export function demonfirePactCrit(base = 3, selection?: TalentSelection): number {
+  if (selection && isTalentEnabled(selection, "felsworn", "Pact Hunter")) {
+    return base + FELSWORN.pactHunterCritBonus;
+  }
+  return base;
+}
+
+export function scalePactStats(stats: ItemStats, selection?: TalentSelection): ItemStats {
+  if (!stats.spellCrit) return stats;
+  return { ...stats, spellCrit: demonfirePactCrit(stats.spellCrit, selection) };
 }
 
 function scalePartial(stats: ItemStats, factor: number): ItemStats {

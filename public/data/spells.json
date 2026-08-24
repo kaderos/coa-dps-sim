@@ -13,6 +13,7 @@
       "resource": "energy",
       "energy": 35,
       "felfuryGain": 1,
+      "school": "fire",
       "gcd": 1,
       "defaultCast": 2,
       "source": "db.ascension.gg",
@@ -31,14 +32,19 @@
         "min": 499,
         "max": 532,
         "perLevel": 3.51667,
-        "coeff": 0.6203
+        "coeff": 0.6203,
+        "fireCoeff": 0.62,
+        "shadowCoeff": 0.62,
+        "energy": 35,
+        "castTime": 2,
+        "gcd": 1
       },
       "fit": {
-        "method": "min-max + perLevel * 60 + 0.6203 * SP",
+        "method": "min-max + perLevel * 60 + COND(GT(FireP,ShaP), FireP*0.62, ShaP*0.62)",
         "spellPowerUsed": 0,
         "base": 515.5,
         "coeff": 0.6203,
-        "note": "School damage from db.ascension.gg. Crit rate still from Kadd logs."
+        "note": "Fire school. 35 Energy, 2s cast, +1 Felfury. Inner Demon applies Felstrike."
       }
     },
     "501298": {
@@ -47,6 +53,8 @@
       "role": "spender",
       "resource": "felfury",
       "felfuryCost": 2,
+      "energy": 30,
+      "school": "shadowflame",
       "gcd": 1,
       "defaultCast": 2.5,
       "source": "db.ascension.gg",
@@ -66,16 +74,18 @@
         "max": 2317,
         "perLevel": 12.45,
         "coeff": 1.32,
+        "fireCoeff": 1,
+        "shadowCoeff": 1.32,
         "energy": 30,
         "castTime": 2.5,
         "gcd": 1
       },
       "fit": {
-        "method": "min-max + perLevel * 60 + 1.32 * SP",
+        "method": "min-max + perLevel * 60 + COND(GT(FireP,ShaP), FireP*1, ShaP*1.32)",
         "spellPowerUsed": 0,
         "base": 2240,
         "coeff": 1.32,
-        "note": "School damage from db.ascension.gg. Rotation still spends 2 Felfury; 3-crit Ruin stays instant. Tooltip lists 30 Energy."
+        "note": "Shadowflame. 30 Energy, 2.5s cast, 2 Felfury. Inner Demon: +30% of direct hit as DoT over 3s."
       }
     },
     "501321": {
@@ -84,6 +94,8 @@
       "role": "spender",
       "resource": "felfury",
       "felfuryCost": 2,
+      "energyGain": 20,
+      "school": "shadowflame",
       "gcd": 1,
       "defaultCast": 0,
       "source": "db.ascension.gg",
@@ -102,18 +114,21 @@
         "min": 419,
         "max": 455,
         "perLevel": 11.25,
-        "coeff": 0.587,
-        "apCoeff": 0.1939,
-        "energy": 0,
+        "perLevelScalesWithPlayer": false,
+        "coeff": 0.6,
+        "fireCoeff": 0.6,
+        "shadowCoeff": 0.6,
+        "apCoeff": 0.19,
+        "energy": 20,
         "castTime": 0,
         "gcd": 1
       },
       "fit": {
-        "method": "min-max + perLevel * 60 + 0.587 * SP + 0.1939 * AP",
+        "method": "rng(min,max) + COND(GT(FireP,ShaP), FireP*0.6, ShaP*0.6) + AP*0.19",
         "spellPowerUsed": 0,
         "base": 437,
-        "coeff": 0.587,
-        "note": "School damage from db.ascension.gg. Tooltip cost is none; rotation still spends 2 Felfury from logs. Instant, 1s GCD. Inner Demon rider still copies this hit."
+        "coeff": 0.6,
+        "note": "Shadowflame. 2 Felfury, +20 Energy, instant 1s GCD. Rank 9 min/max already include level scaling (do not add perLevel×60). Inner Demon: free duplicate cast, 0% crit rider."
       }
     },
     "520693": {
@@ -197,6 +212,7 @@
       "id": 802676,
       "name": "Chaos",
       "role": "proc",
+      "school": "shadowflame",
       "gcd": 0,
       "defaultCast": 0,
       "source": "db.ascension.gg",
@@ -225,7 +241,7 @@
         "spellPowerUsed": 0,
         "base": 220.5,
         "coeff": 0.3,
-        "note": "School damage from db.ascension.gg. Tooltip GCD is 1s; as a Ruin/Smite proc it does not take the player's GCD. Proc chance still 35% from logs (Chaos was patched; log hits are stale)."
+        "note": "Procs from Ruin/Smite (~46.5%). Sim uses Sargeron Smite hit/crit with Chaos modifiers. db 220+0.3×SP does not match Kadd Kaldros logs (~5k avg)."
       }
     },
     "802678": {
@@ -274,6 +290,7 @@
       "gcd": 0,
       "defaultCast": 0,
       "canCrit": false,
+      "school": "shadowflame",
       "source": "db.ascension.gg",
       "observed": {
         "count": 2953,
@@ -290,8 +307,11 @@
         "min": 419,
         "max": 455,
         "perLevel": 11.25,
-        "coeff": 0.587,
-        "apCoeff": 0.1939,
+        "perLevelScalesWithPlayer": false,
+        "coeff": 0.6,
+        "fireCoeff": 0.6,
+        "shadowCoeff": 0.6,
+        "apCoeff": 0.19,
         "energy": 0,
         "castTime": 0,
         "gcd": 0
@@ -300,8 +320,8 @@
         "method": "same as Sargeron Smite; copies the triggering hit, no extra crit",
         "spellPowerUsed": 0,
         "base": 437,
-        "coeff": 0.587,
-        "note": "Same school formula as 501321. Combat log copies the Smite damage as a second non-crit event rather than rolling again."
+        "coeff": 0.6,
+        "note": "Same school formula as 501321. Inner Demon: casts an additional time free of cost — copies the triggering Smite hit (no extra crit roll)."
       }
     },
     "804216": {
@@ -322,7 +342,7 @@
         "spellPowerUsed": 0,
         "base": 0,
         "coeff": 0,
-        "note": "Shapeshift. No cost, instant, no GCD. Consumes current Felfury: 5s duration per point (5–30s). Enables Felstrike and Inner Demon Smite."
+        "note": "Shapeshift. No cost, instant, no GCD. Consumes current Felfury: 5s duration per point (5–30s). While active, Sargeron Smite casts an additional time free of cost; enables Felstrike from Fel Fireball."
       }
     },
     "805748": {

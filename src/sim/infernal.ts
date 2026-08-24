@@ -1,6 +1,8 @@
 import type { CharacterStats, PotionMode, SimActiveAura, SimCastEvent, SpellFit } from "../types";
 import { Rng } from "./rng";
 import { hasteMultiplier, rollSpellDamage } from "./spells";
+import { isTalentEnabled } from "../talents/baseline";
+import type { TalentSelection } from "../talents/types";
 import {
   applyTakenTalents,
 } from "../talents/taken";
@@ -10,15 +12,16 @@ import {
   INFERNAL,
   infernalContext,
   innerDemonDuration,
+  felCannonCritActive,
   isFireball,
   isFelfurySpender,
   isRuin,
+  spellAffectsFire,
   isSmite,
 } from "../talents/infernal";
 import {
   baneDuration,
   baneEnergyCost,
-  energyRegenPerSecond,
   felheartHaste,
   FELSWORN,
   skullCooldown,
@@ -82,11 +85,25 @@ const POTION: SpellFit = {
 const INSTANT_LATENCY_MIN = 0.01;
 const INSTANT_LATENCY_MAX = 0.02;
 
+/** Shaman party buff — tooltip: AP×0.35 Froststorm on direct damage, 15s aura, 1 min CD. */
+const NEPTULONS_WRATH = {
+  name: "Neptulon's Wrath",
+  duration: 15,
+  cooldown: 60,
+  apCoeff: 0.35,
+} as const;
+
 export type FightOptions = {
   potionSpellPower?: number;
   potionDuration?: number;
   potionMode?: PotionMode;
   setDamageAbove75?: number;
+  talentSelection?: TalentSelection;
+  /** Linear 100%→0% health over the fight (Fel Cannon / Doomsayer taper). Default off for dummy. */
+  targetHealthDecays?: boolean;
+  targetStartHealth?: number;
+  /** Allied Shaman aura — AP×0.35 on each direct damage hit while active. */
+  neptulonsWrath?: boolean;
 };
 
 export type Aura = {
@@ -131,9 +148,17 @@ export type FightState = {
   potionDuration: number;
   potionMode: PotionMode;
   setDamageAbove75: number;
+  fightDuration: number;
+  targetStartHealth: number;
+  targetHealthDecays: boolean;
+  talentSelection?: TalentSelection;
   reckoningPower: Aura | null;
   maliceCritRemain: number;
   felshockHitRemain: number;
+  neptulonsWrath: boolean;
+  neptulonRemain: number;
+  neptulonNextCastAt: number;
+  playerStats: CharacterStats;
   damage: number;
   bySpell: Map<string, { casts: number; damage: number; hits: number; crits: number; misses: number; events: number }>;
   auraSeconds: Map<string, number>;
@@ -141,6 +166,10 @@ export type FightState = {
 };
 
 const FELFURY_MAX = 6;
+
+function talentTaken(state: FightState, tree: "felsworn" | "infernal", name: string): boolean {
+  return !state.talentSelection || isTalentEnabled(state.talentSelection, tree, name);
+}
 const EVENT_LOG_LIMIT = 3000;
 export const CAST_EVENT_LOG_LIMIT = EVENT_LOG_LIMIT;
 
@@ -172,7 +201,7 @@ export function runOnce(
   fightSec: number;
   castLogTruncated: boolean;
 } {
-  const specStats = applyTakenTalents(stats);
+  const specStats = applyTakenTalents(stats, options.talentSelection);
   const fireball = spells["501288"];
   const ruin = spells["501298"];
   const smite = spells["501321"];
@@ -216,9 +245,17 @@ export function runOnce(
     potionDuration: options.potionDuration ?? 20,
     potionMode: options.potionMode ?? "none",
     setDamageAbove75: options.setDamageAbove75 ?? 0,
+    fightDuration: duration,
+    targetStartHealth: options.targetStartHealth ?? 1,
+    targetHealthDecays: options.targetHealthDecays ?? false,
+    talentSelection: options.talentSelection,
     reckoningPower: null,
     maliceCritRemain: 0,
     felshockHitRemain: 0,
+    neptulonsWrath: options.neptulonsWrath ?? false,
+    neptulonRemain: options.neptulonsWrath ? NEPTULONS_WRATH.duration : 0,
+    neptulonNextCastAt: options.neptulonsWrath ? NEPTULONS_WRATH.cooldown : 0,
+    playerStats: specStats,
     damage: 0,
     bySpell: new Map(),
     auraSeconds: new Map(),
@@ -242,6 +279,7 @@ export function runOnce(
       const action = chooseAction(state, fireball, ruin, smite, inner, bane, state.time >= state.gcdReady);
       if (!action) break;
       cast(state, action, specStats, rng, {
+        smite,
         smiteInner,
         felstrike,
         chaos,
@@ -261,7 +299,11 @@ export function runOnce(
 }
 
 function regen(state: FightState, dt: number) {
-  addEnergy(state, energyRegenPerSecond(Boolean(state.bloodRegen)) * dt);
+  const demonborn = talentTaken(state, "felsworn", "Demonborn");
+  const blood = Boolean(state.bloodRegen) && talentTaken(state, "felsworn", "Blood of Mannoroth");
+  const base = FELSWORN.baseEnergyRegen * (1 + (demonborn ? FELSWORN.demonbornEnergyRegen : 0));
+  const rate = blood ? base * (1 + FELSWORN.bloodOfMannorothRegen) : base;
+  addEnergy(state, rate * dt);
 }
 
 function tickAuras(
@@ -271,6 +313,7 @@ function tickAuras(
   stats: CharacterStats,
   rng: Rng,
 ) {
+  tickNeptulonsWrath(state, dt);
   if (state.ruinProc) {
     state.ruinProcRemain -= dt;
     if (state.ruinProcRemain <= 0) {
@@ -390,9 +433,22 @@ function chooseAction(
   const fullFelfury = state.felfury >= FELFURY_MAX;
   const banking = !innerUp || (innerRemain <= 8 && state.felfury < FELFURY_MAX);
 
-  if (onGcdOk && innerUp && state.ruinProc && ruin && state.felfury >= ruinCost) return ruin;
+  const ruinEnergy = ruin?.energy ?? 30;
+  if (
+    onGcdOk &&
+    innerUp &&
+    state.ruinProc &&
+    ruin &&
+    talentTaken(state, "infernal", "Ruin") &&
+    state.felfury >= ruinCost &&
+    state.energy >= ruinEnergy
+  ) {
+    return ruin;
+  }
 
-  const baneCost = baneEnergyCost(bane?.energy ?? 40);
+  const baneCost = talentTaken(state, "felsworn", "Embracing Evil")
+    ? baneEnergyCost(bane?.energy ?? 40)
+    : (bane?.energy ?? 40);
   if (onGcdOk && bane && state.energy >= baneCost && (!state.baneOfFire || state.baneOfFire.remain <= 1.5)) {
     return bane;
   }
@@ -400,15 +456,18 @@ function chooseAction(
   if (inner && state.felfury >= 1 && ((!innerUp && fullFelfury) || expiring)) return inner;
 
   if (shouldDrinkPotion(state, innerUp)) return POTION;
-  if (innerUp && state.time >= state.bloodReadyAt) return BLOOD;
+  if (innerUp && talentTaken(state, "felsworn", "Blood of Mannoroth") && state.time >= state.bloodReadyAt) {
+    return BLOOD;
+  }
 
   const baneUp = Boolean(state.baneOfFire && state.baneOfFire.remain > 1.5);
-  if (!state.ruinProc && state.felfury >= 2 && innerUp && baneUp && state.time >= state.anniReadyAt) {
-    if (state.time >= state.skullReadyAt) return SKULL;
-    return ANNIHILATION;
+  if (!state.ruinProc && state.felfury >= 2 && innerUp && baneUp) {
+    if (talentTaken(state, "felsworn", "Skull of Gul'dan") && state.time >= state.skullReadyAt) return SKULL;
+    if (talentTaken(state, "felsworn", "Annihilation") && state.time >= state.anniReadyAt) return ANNIHILATION;
   }
 
   if (
+    talentTaken(state, "felsworn", "Reckoning") &&
     !state.felforged &&
     state.felfury < 3 &&
     !state.reckoning &&
@@ -417,9 +476,12 @@ function chooseAction(
     return RECKONING;
   }
 
+  // Hold 3 Felfury so a Doomsayer Smite crit (refund 1) leaves 2 for an instant Ruin proc.
   if (onGcdOk && smite && state.felfury >= 3 && !banking) return smite;
 
-  const fbCost = fireballEnergyCost(fireball?.energy ?? 35);
+  const fbCost = talentTaken(state, "infernal", "Gul'dan's Prodigy")
+    ? fireballEnergyCost(fireball?.energy ?? 35)
+    : (fireball?.energy ?? 35);
   if (onGcdOk && fireball && state.energy >= fbCost) return fireball;
   return null;
 }
@@ -435,9 +497,12 @@ function combatContext(spell: SpellFit, stats: CharacterStats, state: FightState
     reckoningStacks: state.reckoningPower?.stacks ?? 0,
     guaranteedCrit: Boolean(state.annihilation && state.annihilation.stacks > 0),
     potionSpellPower: state.potion ? state.potionSpellPower : 0,
-    targetHealth: 1,
+    targetStartHealth: state.targetStartHealth,
+    targetHealthDecays: state.targetHealthDecays,
+    fightTime: state.time,
+    fightDuration: state.fightDuration,
     setDamageAbove75: state.setDamageAbove75,
-  });
+  }, state.talentSelection);
 }
 
 /** Buffs/procs that were active when infernalContext calculated this spell's damage. */
@@ -448,14 +513,26 @@ function snapshotDamageAuras(state: FightState, spell: SpellFit, sculptorProc = 
   };
 
   if (state.innerDemon) push("Inner Demon", state.innerDemon.stacks);
-  if (state.baneOfFire && (spell.school ?? "fire") === "fire") push("Bane of Fire");
+  if (state.baneOfFire && spellAffectsFire(spell)) push("Bane of Fire");
   if (state.maliceCritRemain > 0) push("Fragment of Malice");
   if (state.felshockHitRemain > 0) push("Felshock");
   if (state.chaotic?.stacks) push("Chaotic", state.chaotic.stacks);
   if (state.reckoningPower?.stacks) push("Reckoning", state.reckoningPower.stacks);
   if (state.annihilation?.stacks) push("Annihilation", state.annihilation.stacks);
   if (state.potion) push("Potion of Spell Power");
-  if (state.setDamageAbove75 > 0) push("Felheart 6pc");
+  if (
+    state.setDamageAbove75 > 0 &&
+    felCannonCritActive(state.time, state.fightDuration, state.targetStartHealth, state.targetHealthDecays)
+  ) {
+    push("Felheart Raiment (6pc)");
+  }
+  if (
+    talentTaken(state, "infernal", "Fel Cannon") &&
+    (isFireball(spell) || isRuin(spell)) &&
+    felCannonCritActive(state.time, state.fightDuration, state.targetStartHealth, state.targetHealthDecays)
+  ) {
+    push("Fel Cannon");
+  }
   if (isRuin(spell) && (state.ruinProc || sculptorProc)) push("Sculptor of Doom");
 
   return auras;
@@ -489,8 +566,10 @@ function tickDotAura(state: FightState, aura: Aura, dt: number, onTick: () => vo
 }
 
 function onPeriodic(state: FightState, rng: Rng) {
-  if (rng.chance(INFERNAL.illidariMagiChance)) addFelfury(state, 1);
-  if (rng.chance(INFERNAL.felforgedChance)) {
+  if (talentTaken(state, "infernal", "Illidari Magi") && rng.chance(INFERNAL.illidariMagiChance)) {
+    addFelfury(state, 1);
+  }
+  if (talentTaken(state, "infernal", "Felforged") && rng.chance(INFERNAL.felforgedChance)) {
     state.felforged = { remain: INFERNAL.felforgedDuration, stacks: INFERNAL.felforgedCharges };
   }
 }
@@ -501,14 +580,18 @@ function onDirectCrit(
   extras: { felstrike?: SpellFit },
   rng: Rng,
 ) {
-  if (isFireball(spell)) addFelfury(state, INFERNAL.illidariSmiterFelfury);
-  if (isSmite(spell)) addFelfury(state, INFERNAL.doomsayerSmiteRefund);
-  addEnergy(state, FELSWORN.focusedHatredEnergy);
+  if (isFireball(spell) && talentTaken(state, "infernal", "Illidari Smiter")) {
+    addFelfury(state, INFERNAL.illidariSmiterFelfury);
+  }
+  if (isSmite(spell) && talentTaken(state, "infernal", "Doomsayer")) {
+    addFelfury(state, INFERNAL.doomsayerSmiteRefund);
+  }
+  if (talentTaken(state, "felsworn", "Focused Hatred")) addEnergy(state, FELSWORN.focusedHatredEnergy);
   if (isFelfurySpender(spell) && state.innerDemon) {
     state.innerDemon.remain += INFERNAL.felshockInnerExtend;
     state.felshockHitRemain = INFERNAL.felshockDuration;
   }
-  if (rng.chance(INFERNAL.maliceChance)) {
+  if (talentTaken(state, "infernal", "Malice of Gul'dan") && rng.chance(INFERNAL.maliceChance)) {
     if (extras.felstrike) applyFelstrike(state, extras.felstrike);
     addEnergy(state, INFERNAL.maliceEnergy);
     state.maliceCritRemain = INFERNAL.maliceDuration;
@@ -521,7 +604,8 @@ function spellGcd(spell: SpellFit): number {
 }
 
 function currentHaste(stats: CharacterStats, state: FightState) {
-  return hasteMultiplier(stats) + felheartHaste(state.felfury);
+  const felheart = talentTaken(state, "felsworn", "Felheart") ? felheartHaste(state.felfury) : 0;
+  return hasteMultiplier(stats) + felheart;
 }
 
 function noteFireball(state: FightState) {
@@ -531,7 +615,7 @@ function noteFireball(state: FightState) {
     return;
   }
   state.fireballStreak += 1;
-  if (state.fireballStreak >= FELSWORN.felwrackedFireballs) {
+  if (state.fireballStreak >= FELSWORN.felwrackedFireballs && talentTaken(state, "felsworn", "Felwracked")) {
     addFelfury(state, 1);
     state.fireballStreak = 0;
     state.fireballStreakStart = 0;
@@ -544,6 +628,7 @@ function cast(
   stats: CharacterStats,
   rng: Rng,
   extras: {
+    smite?: SpellFit;
     smiteInner?: SpellFit;
     felstrike?: SpellFit;
     chaos?: SpellFit;
@@ -556,10 +641,11 @@ function cast(
   const logResources = { energy: logEnergy, felfury: logFelfury };
   const usingFelforged = isFireball(spell) && Boolean(state.felforged);
   const reckoningFireball = isFireball(spell) && Boolean(state.reckoning);
+  const prodigy = talentTaken(state, "infernal", "Gul'dan's Prodigy");
   const castTime = isProcRuin || reckoningFireball
     ? 0
     : isFireball(spell)
-      ? fireballCastTime(spell.castTime || 0, haste, usingFelforged)
+      ? fireballCastTime(spell.castTime || 0, haste, usingFelforged, prodigy)
       : (spell.castTime || 0) / haste;
   const baseGcd = spellGcd(spell);
   const gcd = baseGcd > 0 ? Math.max(baseGcd / haste, 0.75) : 0;
@@ -571,9 +657,11 @@ function cast(
   const energyCost = reckoningFireball
     ? 0
     : isFireball(spell)
-      ? fireballEnergyCost(spell.energy ?? 35)
+      ? (prodigy ? fireballEnergyCost(spell.energy ?? 35) : (spell.energy ?? 35))
       : spell.id === 707901
-        ? baneEnergyCost(spell.energy ?? 40)
+        ? (talentTaken(state, "felsworn", "Embracing Evil")
+          ? baneEnergyCost(spell.energy ?? 40)
+          : (spell.energy ?? 40))
         : spell.energy ?? 0;
   if (energyCost) state.energy = Math.max(0, state.energy - energyCost);
   if (spell.felfuryCost) state.felfury = Math.max(0, state.felfury - spell.felfuryCost);
@@ -590,7 +678,12 @@ function cast(
 
   if (spell.id === 804216) {
     const consumed = Math.min(FELFURY_MAX, Math.max(0, Math.floor(state.felfury)));
-    if (consumed >= FELSWORN.demonicEmbraceFelfury) addEnergy(state, FELSWORN.demonicEmbraceEnergy);
+    if (
+      talentTaken(state, "felsworn", "Demonic Embrace") &&
+      consumed >= FELSWORN.demonicEmbraceFelfury
+    ) {
+      addEnergy(state, FELSWORN.demonicEmbraceEnergy);
+    }
     state.felfury = Math.max(0, state.felfury - consumed);
     state.innerDemon = { remain: innerDemonDuration(consumed), stacks: Math.max(1, consumed) };
     deal(state, spell.name, 0, true, false, false);
@@ -613,17 +706,21 @@ function cast(
     return;
   }
   if (spell.id === 707901) {
-    state.baneOfFire = { remain: baneDuration(spell.duration ?? 21), stacks: 1 };
+    const duration = talentTaken(state, "felsworn", "Embracing Evil")
+      ? baneDuration(spell.duration ?? 21)
+      : (spell.duration ?? 21);
+    state.baneOfFire = { remain: duration, stacks: 1 };
     deal(state, spell.name, 0, true, false, false);
     logCast(state, spell.name, "applied", 0, undefined, logResources);
     return;
   }
   if (spell.id === SKULL.id) {
-    const bonus = state.baseEnergyMax * skullEnergyBonus();
+    const gifted = talentTaken(state, "felsworn", "Gul'dan's Gift");
+    const bonus = state.baseEnergyMax * (gifted ? skullEnergyBonus() : FELSWORN.skullEnergy);
     state.energyMax = state.baseEnergyMax + bonus;
     addEnergy(state, bonus);
     state.skull = { remain: FELSWORN.skullDuration, stacks: 1 };
-    state.skullReadyAt = state.time + skullCooldown();
+    state.skullReadyAt = state.time + (gifted ? skullCooldown() : FELSWORN.skullCd);
     deal(state, spell.name, 0, true, false, false);
     logCast(state, spell.name, "applied", 0, undefined, logResources);
     return;
@@ -631,9 +728,11 @@ function cast(
   if (spell.id === ANNIHILATION.id) {
     state.annihilation = { remain: FELSWORN.annihilationDuration, stacks: FELSWORN.annihilationCrits };
     state.anniReadyAt = state.time + FELSWORN.annihilationCd;
-    state.ruinProc = true;
-    state.ruinProcRemain = INFERNAL.sculptorWindow;
-    state.critsTowardRuin = 0;
+    if (talentTaken(state, "infernal", "The True Blessing")) {
+      state.ruinProc = true;
+      state.ruinProcRemain = INFERNAL.sculptorWindow;
+      state.critsTowardRuin = 0;
+    }
     deal(state, spell.name, 0, true, false, false);
     logCast(state, spell.name, "applied", 0, undefined, logResources);
     return;
@@ -649,8 +748,9 @@ function cast(
   const ctx = combatContext(spell, stats, state);
   const activeAuras = snapshotDamageAuras(state, spell, isProcRuin);
   const roll = rollSpellDamage(spell, stats, rng, true, ctx);
-  deal(state, spell.name, roll.amount, true, roll.isCrit, roll.isMiss, true, rng);
+  deal(state, spell.name, roll.amount, true, roll.isCrit, roll.isMiss, true, rng, true);
   logCast(state, spell.name, roll.isMiss ? "miss" : roll.isCrit ? "crit" : "hit", roll.amount, activeAuras, logResources);
+  if (!roll.isMiss && spell.energyGain) addEnergy(state, spell.energyGain);
   if (!roll.isMiss && state.annihilation) {
     state.annihilation.stacks -= 1;
     if (state.annihilation.stacks <= 0) state.annihilation = null;
@@ -660,7 +760,7 @@ function cast(
     state.reckoningPower = { remain: FELSWORN.reckoningBuffDuration, stacks };
   }
 
-  if (isRuin(spell) && !roll.isMiss && state.innerDemon) {
+  if (isRuin(spell) && !roll.isMiss && state.innerDemon && talentTaken(state, "infernal", "Ruin")) {
     state.ruinDot = {
       remain: INFERNAL.ruinDotDuration,
       stacks: 1,
@@ -669,18 +769,28 @@ function cast(
       tickPeriod: DOT_TIMING.ruinDot.tickPeriod,
     };
   }
-  if (isRuin(spell) && state.innerDemon && !roll.isMiss) {
+  if (isRuin(spell) && state.innerDemon && !roll.isMiss && talentTaken(state, "infernal", "Dark Magician")) {
     addEnergy(state, INFERNAL.darkMagicianEnergy);
   }
 
-  if (isFireball(spell) && state.innerDemon && extras.felstrike) {
+  if (
+    isFireball(spell) &&
+    state.innerDemon &&
+    extras.felstrike &&
+    talentTaken(state, "infernal", "Fel Apprentice")
+  ) {
     applyFelstrike(state, extras.felstrike);
   }
-  if ((isRuin(spell) || isSmite(spell)) && extras.chaos && rng.chance(0.35)) {
+  if ((isRuin(spell) || isSmite(spell)) && extras.chaos && extras.smite && rng.chance(INFERNAL.chaosProcChance)) {
     const chaosSpell = extras.chaos;
+    const smiteSpell = extras.smite;
+    const chaosCtx = combatContext(chaosSpell, stats, state);
     const chaosAuras = snapshotDamageAuras(state, chaosSpell);
-    const chaosRoll = rollSpellDamage(chaosSpell, stats, rng, true, combatContext(chaosSpell, stats, state));
-    deal(state, chaosSpell.name, chaosRoll.amount, true, chaosRoll.isCrit, chaosRoll.isMiss, true, rng);
+    const chaosRoll = rollSpellDamage(chaosSpell, stats, rng, true, chaosCtx, {
+      formulaSpell: smiteSpell,
+      critSpell: smiteSpell,
+    });
+    deal(state, chaosSpell.name, chaosRoll.amount, true, chaosRoll.isCrit, chaosRoll.isMiss, true, rng, true);
     logCast(
       state,
       chaosSpell.name,
@@ -696,7 +806,8 @@ function cast(
   }
   if (isSmite(spell) && state.innerDemon && extras.smiteInner && !roll.isMiss) {
     const riderAuras = snapshotDamageAuras(state, extras.smiteInner);
-    deal(state, extras.smiteInner.name, roll.amount, true, false, false, false, rng);
+    // Inner Demon: Smite casts an additional time free of cost (no Felfury, Energy, GCD, or crit roll).
+    deal(state, extras.smiteInner.name, roll.amount, true, false, false, false, rng, true);
     logCast(state, extras.smiteInner.name, "hit", roll.amount, riderAuras);
   }
   if (roll.isCrit) onDirectCrit(state, spell, extras, rng);
@@ -745,9 +856,32 @@ function logTick(
 }
 
 function tryChaotic(state: FightState, rng: Rng) {
-  if (!rng.chance(FELSWORN.chaoticChance)) return;
+  if (!talentTaken(state, "felsworn", "Chaotic") || !rng.chance(FELSWORN.chaoticChance)) return;
   const stacks = Math.min(FELSWORN.chaoticStacks, (state.chaotic?.stacks ?? 0) + 1);
   state.chaotic = { remain: FELSWORN.chaoticDuration, stacks };
+}
+
+function tickNeptulonsWrath(state: FightState, dt: number) {
+  if (!state.neptulonsWrath) return;
+  if (state.neptulonRemain > 0) {
+    state.neptulonRemain = Math.max(0, state.neptulonRemain - dt);
+    addAuraTime(state, NEPTULONS_WRATH.name, dt);
+  }
+  if (state.neptulonNextCastAt > 0 && state.time >= state.neptulonNextCastAt) {
+    state.neptulonRemain = NEPTULONS_WRATH.duration;
+    state.neptulonNextCastAt = state.time + NEPTULONS_WRATH.cooldown;
+  }
+}
+
+function applyNeptulonsWrath(state: FightState, rng: Rng) {
+  if (!state.neptulonsWrath || state.neptulonRemain <= 0) return;
+  const ap = state.playerStats.attackPower ?? 0;
+  const base = ap * NEPTULONS_WRATH.apCoeff;
+  if (base <= 0) return;
+  const critRate = Math.min(1, Math.max(0, state.playerStats.spellCrit / 100));
+  const isCrit = rng.chance(critRate);
+  const amount = isCrit ? base * 2 : base;
+  deal(state, NEPTULONS_WRATH.name, amount, false, isCrit, false, false, rng, false);
 }
 
 function deal(
@@ -759,6 +893,7 @@ function deal(
   isMiss: boolean,
   countsTowardRuin = false,
   rng?: Rng,
+  direct = false,
 ) {
   state.damage += amount;
   const rec = state.bySpell.get(name) || { casts: 0, damage: 0, hits: 0, crits: 0, misses: 0, events: 0 };
@@ -774,7 +909,11 @@ function deal(
   rec.damage += amount;
   state.bySpell.set(name, rec);
 
-  if (countsTowardRuin && isCrit && !state.ruinProc) {
+  if (direct && !isMiss && amount > 0 && rng) {
+    applyNeptulonsWrath(state, rng);
+  }
+
+  if (countsTowardRuin && isCrit && !state.ruinProc && talentTaken(state, "infernal", "Sculptor of Doom")) {
     state.critsTowardRuin += 1;
     if (state.critsTowardRuin >= INFERNAL.sculptorCrits) {
       state.critsTowardRuin = 0;

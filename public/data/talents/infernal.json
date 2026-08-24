@@ -1,7 +1,7 @@
 {
   "spec": "Infernal",
   "choice": "Doomsayer",
-  "note": "Taken Infernal spec talents from the Vol'jin builder. Inner Demon lasts 5s per Felfury consumed (5–30s). The training dummy is always treated as above 75% health. Rating conversions: 14 crit / 8 hit / 10 haste per 1%.",
+  "note": "Taken Infernal spec talents from the Vol'jin builder. Inner Demon lasts 5s per Felfury consumed (5–30s). Training dummy: fixed 100% target health (Fel Cannon + Doomsayer stay active). Boss sims can enable linear health decay so Fel Cannon tapers after ~75% fight time. Felheart talent = +1% haste per Felfury (not a damage bonus). Felheart Raiment 6pc (+6% damage above 75%) only applies when 6/6 set pieces are equipped. Rating conversions: 14 crit / 8 hit / 10 haste per 1%.",
   "talents": [
     {
       "name": "Ruin",
@@ -49,7 +49,7 @@
       "name": "Fel Cannon",
       "rank": "1/1",
       "combat": true,
-      "effect": "+20% Fel Fireball and Ruin crit vs enemies above 75% health."
+      "effect": "+20% Fel Fireball and Ruin crit while target is above 75% health (per cast; tapers when target health drops over the fight)."
     },
     {
       "name": "Felwrath",

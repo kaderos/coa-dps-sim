@@ -14,8 +14,14 @@
         <p class="hint">Level 63 raid boss · stationary fight (no movement, no cleave).</p>
       </div>
       <div class="controls">
+        <div class="sim-progress" id="sim-progress" hidden>
+          <div class="sim-progress__track" aria-hidden="true">
+            <div class="sim-progress__bar" id="sim-progress-bar"></div>
+          </div>
+          <span class="sim-progress__label" id="sim-progress-label"></span>
+        </div>
         <label title="Each iteration varies this length by ±5% so cooldown breakpoints do not line up.">Duration (s) <input id="duration" type="number" value="180" min="20" max="600" /></label>
-        <label>Iterations <input id="iterations" type="number" value="300" min="10" max="5000" /></label>
+        <label>Iterations <input id="iterations" type="number" value="600" min="10" max="5000" /></label>
       </div>
     </header>
     <nav class="tabs" aria-label="Simulator sections">
@@ -100,9 +106,9 @@
     </div>
     <div id="item-tooltip" class="item-tooltip" role="tooltip" hidden></div>
     <div id="chance-tooltip" class="chance-tooltip" role="tooltip" hidden></div>
+    <div id="hint-tooltip" class="hint-tooltip" role="tooltip" hidden></div>
     <footer>
-      Spell math is fitted from local combat logs. Item stats come from a Bisbeard dump. CoA Tavern is not used.
-      Original sim architecture: <a href="https://github.com/wowsims/classic">wowsims/classic</a> (MIT).
+      Spell math is fitted from combat logs. Item stats come from a Bisbeard. Original sim architecture: <a href="https://github.com/wowsims/classic">wowsims/classic</a> (MIT).
     </footer>
     <script>
       (() => {

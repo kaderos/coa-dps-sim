@@ -87,6 +87,30 @@ export function effectiveSpellPower(stats: ItemStats, hiddenPower = 0): number {
   return stats.spellPower + school + hiddenPower * (stats.intellect + stats.spirit);
 }
 
+/** Total Fire spell power (base + fire school + Hidden Power primary stat bonus). */
+export function fireSpellPower(stats: ItemStats, hiddenPower = 0, extra = 0): number {
+  return stats.spellPower + stats.firePower + hiddenPower * (stats.intellect + stats.spirit) + extra;
+}
+
+/** Total Shadow spell power (base + shadow school + Hidden Power primary stat bonus). */
+export function shadowSpellPower(stats: ItemStats, hiddenPower = 0, extra = 0): number {
+  return stats.spellPower + stats.shadowPower + hiddenPower * (stats.intellect + stats.spirit) + extra;
+}
+
+/** Pick FireP or ShaP branch and its coefficient for db.ascension.gg COND formulas. */
+export function condSchoolPower(
+  stats: ItemStats,
+  hiddenPower: number,
+  extra: number,
+  fireCoeff: number,
+  shadowCoeff: number,
+): { power: number; coeff: number } {
+  const fireP = fireSpellPower(stats, hiddenPower, extra);
+  const shaP = shadowSpellPower(stats, hiddenPower, extra);
+  if (fireP > shaP) return { power: fireP, coeff: fireCoeff };
+  return { power: shaP, coeff: shadowCoeff };
+}
+
 export function buildCharacter(
   gear: GearSet,
   hiddenPower = 0,

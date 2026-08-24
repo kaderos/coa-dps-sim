@@ -9,6 +9,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "parse-logs": "node scripts/parse-logs.mjs",
+    "parse-timeline": "node scripts/parse-timeline.mjs",
+    "parse-fight": "node scripts/parse-fight.mjs",
     "ingest": "node scripts/ingest-bisbeard.mjs",
     "fit-spells": "node scripts/fit-spells.mjs",
     "analyze-dot-timing": "node scripts/analyze-dot-timing.mjs",

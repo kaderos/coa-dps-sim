@@ -1,4 +1,4 @@
-import type { BuffsConfig, GearSet, ItemStats } from "./types";
+import type { BuffsConfig, CharacterStats, GearSet, ItemStats } from "./types";
 import {
   addStats,
   emptyStats,
@@ -9,6 +9,8 @@ import {
   SPELL_HIT_RATING_PER_PERCENT,
 } from "./sim/stats";
 import { scaleIntuitionStats, scalePactStats } from "./talents/felsworn";
+import type { TalentSelection } from "./talents/types";
+import { bindHintTooltips } from "./hint-tooltip";
 
 type BooleanBuffKey = {
   [K in keyof BuffsConfig]: BuffsConfig[K] extends boolean ? K : never;
@@ -17,9 +19,20 @@ type BooleanBuffKey = {
 type ToggleDef = {
   key: BooleanBuffKey;
   label: string;
+  /** Single-line hint (native-style); shown in styled tooltip when hintBody is omitted. */
   note?: string;
+  /** Tooltip heading; defaults to the label before " — ". */
+  hintTitle?: string;
+  /** Multi-paragraph hint body; separate paragraphs with blank lines. */
+  hintBody?: string;
   defaultOn: boolean;
   stats: Partial<ItemStats>;
+  /** Flat DPS when enabled (log-fitted party procs). */
+  procDps?: number;
+  procName?: string;
+  /** Multiplies selected item stats when enabled. Applied after flat buffs. */
+  statScalePct?: number;
+  statScaleKeys?: (keyof ItemStats)[];
 };
 
 const UNKNOWN_BONUS = "bonus unknown";
@@ -29,7 +42,7 @@ const UNKNOWN_BONUS = "bonus unknown";
 const RAID_BUFFS: ToggleDef[] = [
   {
     key: "demonfirePact",
-    label: "Demonfire Pact — +3% critical strike chance (4.5% with Pact Hunter)",
+    label: "Demonfire Pact — +3% critical strike chance (+4% with Pact Hunter)",
     note: "Also +5% damage against Demons",
     defaultOn: true,
     stats: { spellCrit: 3 },
@@ -57,36 +70,52 @@ const RAID_BUFFS: ToggleDef[] = [
   {
     key: "greaterSealOfAlysrazor",
     label: "Greater Seal of Alysrazor — +31 Intellect",
-    defaultOn: true,
+    defaultOn: false,
     stats: { intellect: 31 },
   },
   {
-    // Greater Grim Mandate was skipped as a world-buff-style aura when the
-    // raid list was built from Kadd logs. Related family aura in those logs:
-    // Whispers of the Pit (805235), negligible combat uptime — default off.
+    // Spell 572790. Not on Kadd before Kaldros kill in the Aug 23 log.
     key: "greaterGrimMandate",
     label: "Greater Grim Mandate — +74 Spell Power",
     defaultOn: false,
     stats: { spellPower: 74 },
   },
   {
+    // Spell 561387. Active on Kadd at Kaldros pull.
+    key: "greaterWhispersOfNzoth",
+    label: "Greater Whispers of N'zoth — +10% primary stats",
+    note: "Int, Spirit, Str, Agi, Stamina · 30 min party/raid buff",
+    defaultOn: true,
+    stats: {},
+    statScalePct: 10,
+    statScaleKeys: ["strength", "agility", "intellect", "spirit", "stamina"],
+  },
+  {
+    // Spell 680310. Refreshed on Kadd ~12:40 during the Kaldros pull.
+    key: "greaterPrimalInstinct",
+    label: "Greater Primal Instinct — +232 Attack Power",
+    note: "30 min; no Infernal spell scaling",
+    defaultOn: true,
+    stats: { attackPower: 232 },
+  },
+  {
     key: "berserkerAura",
     label: "Berserker Aura — +60 Frost Resistance",
     note: "The Barbarian also gains +5% attack power",
-    defaultOn: true,
+    defaultOn: false,
     stats: {},
   },
   {
     key: "legionfelPact",
     label: "Legionfel Pact — +52.8 Fire Resistance",
     note: "Also +15% chance to resist curses and magic effects",
-    defaultOn: true,
+    defaultOn: false,
     stats: {},
   },
   {
     key: "greaterChromiesWisdom",
     label: "Greater Chromie's Wisdom — +40 Spirit",
-    defaultOn: false,
+    defaultOn: true,
     stats: { spirit: 40 },
   },
   {
@@ -94,6 +123,35 @@ const RAID_BUFFS: ToggleDef[] = [
     label: "Greater Illidari Intuition — +77 Agility",
     note: "No caster DPS stat effect",
     defaultOn: false,
+    stats: {},
+  },
+];
+
+const PARTY_BUFFS: ToggleDef[] = [
+  {
+    // Spell 802771 / proc 803287. Kaldros log: 15,738 dmg → ~141 DPS over 112s.
+    key: "bloodthistle",
+    label: "Bloodthistle — ~141 DPS (Kaldros log)",
+    note: "Alchemist party proc; also heals the caster",
+    defaultOn: true,
+    stats: {},
+    procDps: 141,
+    procName: "Bloodthistle",
+  },
+  {
+    // Shaman party CD. 15s aura, 1 min CD — AP×0.35 Froststorm on each direct damage hit.
+    key: "neptulonsWrath",
+    label: "Neptulon's Wrath — AP×0.35 on direct damage",
+    note: "15s aura · 1 min CD · Kaldros log ~780 DPS (39 hits / 112s)",
+    defaultOn: true,
+    stats: {},
+  },
+  {
+    // Spell 803697. 2s raid area aura; −3% damage taken (defensive).
+    key: "frogBones",
+    label: "Frog Bones — −3% damage taken (raid)",
+    note: "2s alchemist splash; defensive, not included in DPS",
+    defaultOn: true,
     stats: {},
   },
 ];
@@ -115,7 +173,7 @@ const HIT_BUFFS: ToggleDef[] = [
   },
 ];
 
-const ALL_TOGGLES = [...RAID_BUFFS, ...HIT_BUFFS];
+const ALL_TOGGLES = [...RAID_BUFFS, ...PARTY_BUFFS, ...HIT_BUFFS];
 
 type SelectOption<T extends string> = {
   value: T;
@@ -156,23 +214,43 @@ const WEAPON_OILS: Array<SelectOption<BuffsConfig["weaponOil"]>> = [
   },
 ];
 
+const CONSUME_TOGGLES: ToggleDef[] = [
+  {
+    key: "targetHealthDecays",
+    label: "Boss health decay — Fel Cannon / Doomsayer taper",
+    hintTitle: "Boss health decay",
+    hintBody:
+      "Simulates the boss losing health over the fight. Target HP falls linearly from 100% to 0% based on elapsed time and fight length.\n\nExample: at half the duration, the target is at 50% health.\n\nFel Cannon and Doomsayer only apply while health is above 75% (~first 25% of the fight).\n\nUncheck to keep the target at 100% like a training dummy.",
+    defaultOn: true,
+    stats: {},
+  },
+];
+
 const POTIONS: Array<SelectOption<BuffsConfig["potion"]>> = [
   { value: "none", label: "None", stats: {} },
   {
-    value: "spell-power",
-    label: "Potion of Spell Power (+75 Spell Power for 20 sec)",
+    value: "in-fight",
+    label: "Potion of Spell Power (+75 SP, one during the fight)",
+    stats: { spellPower: 75 },
+  },
+  {
+    value: "prepot-and-second",
+    label: "Potion of Spell Power (+75 SP, pre-pot + second at 1:00)",
     stats: { spellPower: 75 },
   },
 ];
 
 export const DEFAULT_BUFFS: BuffsConfig = {
   ...(Object.fromEntries(ALL_TOGGLES.map((def) => [def.key, def.defaultOn])) as Record<BooleanBuffKey, boolean>),
-  flask: "none",
-  food: "none",
-  weaponOil: "none",
-  offhandWeaponOil: "none",
-  potion: "spell-power",
-  potionMode: "in-fight",
+  ...(Object.fromEntries(CONSUME_TOGGLES.map((def) => [def.key, def.defaultOn])) as Record<
+    BooleanBuffKey,
+    boolean
+  >),
+  flask: "manifesting-power",
+  food: "well-fed",
+  weaponOil: "brilliant-wizard-oil",
+  offhandWeaponOil: "brilliant-wizard-oil",
+  potion: "prepot-and-second",
 };
 
 export function setupBuffs(onChange: () => void, saved?: Partial<BuffsConfig>): BuffsConfig {
@@ -196,18 +274,19 @@ export function setupBuffs(onChange: () => void, saved?: Partial<BuffsConfig>): 
       onChange();
     });
   });
+  bindHintTooltips(root);
   return config;
 }
 
-export function percentBuffs(config: BuffsConfig): ItemStats {
+export function percentBuffs(config: BuffsConfig, selection?: TalentSelection): ItemStats {
   let stats = emptyStats();
   for (const def of ALL_TOGGLES) {
     if (!config[def.key]) continue;
     let bonus = { ...emptyStats(), ...def.stats };
     if (def.key === "greaterManariIntuition" || def.key === "greaterIllidariIntuition") {
-      bonus = scaleIntuitionStats(bonus);
+      bonus = scaleIntuitionStats(bonus, selection);
     }
-    if (def.key === "demonfirePact") bonus = scalePactStats(bonus);
+    if (def.key === "demonfirePact") bonus = scalePactStats(bonus, selection);
     stats = addStats(stats, bonus);
   }
   return stats;
@@ -223,13 +302,43 @@ export function ratingConsumes(config: BuffsConfig, gear: GearSet = {}): ItemSta
   };
 }
 
-export function statsFromBuffs(config: BuffsConfig, _gearStats: ItemStats, _durationSec: number, gear: GearSet = {}): ItemStats {
+export function statsFromBuffs(
+  config: BuffsConfig,
+  _gearStats: ItemStats,
+  _durationSec: number,
+  gear: GearSet = {},
+  selection?: TalentSelection,
+): ItemStats {
   let consumes = emptyStats();
   consumes = addStats(consumes, optionStats(FLASKS, config.flask));
   consumes = addStats(consumes, optionStats(FOODS, config.food));
   const oil = consumeOilStats(config, gear);
   consumes = addStats(consumes, { ...oil, spellCrit: 0, spellHit: 0, spellHaste: 0 });
-  return addStats(addStats(percentBuffs(config), consumes), ratingsToPercent(ratingConsumes(config, gear)));
+  return addStats(addStats(percentBuffs(config, selection), consumes), ratingsToPercent(ratingConsumes(config, gear)));
+}
+
+export function procContributionsFromBuffs(config: BuffsConfig): Array<{ name: string; dps: number }> {
+  const out: Array<{ name: string; dps: number }> = [];
+  for (const def of ALL_TOGGLES) {
+    if (!config[def.key] || !def.procDps) continue;
+    out.push({ name: def.procName ?? def.label.split(" — ")[0] ?? def.key, dps: def.procDps });
+  }
+  return out;
+}
+
+/** Primary-stat percent buffs (Whispers of N'zoth) apply after flat gear and consume bonuses. */
+export function applyStatScaleBuffs(stats: CharacterStats, config: BuffsConfig): CharacterStats {
+  const scaled = { ...stats };
+  let changed = false;
+  for (const def of ALL_TOGGLES) {
+    if (!config[def.key] || !def.statScalePct || !def.statScaleKeys?.length) continue;
+    const factor = 1 + def.statScalePct / 100;
+    for (const key of def.statScaleKeys) {
+      scaled[key] = stats[key] * factor;
+    }
+    changed = true;
+  }
+  return changed ? scaled : stats;
 }
 
 export function syncOffhandOilField(gear: GearSet) {
@@ -245,7 +354,7 @@ export function syncOffhandOilField(gear: GearSet) {
 function mergeBuffs(base: BuffsConfig, saved?: Partial<BuffsConfig>): BuffsConfig {
   const config = { ...base };
   if (!saved) return config;
-  for (const def of ALL_TOGGLES) {
+  for (const def of [...ALL_TOGGLES, ...CONSUME_TOGGLES]) {
     const value = saved[def.key];
     if (typeof value === "boolean") config[def.key] = value;
   }
@@ -254,13 +363,23 @@ function mergeBuffs(base: BuffsConfig, saved?: Partial<BuffsConfig>): BuffsConfi
   if (hasOption(WEAPON_OILS, saved.weaponOil)) config.weaponOil = saved.weaponOil;
   if (hasOption(WEAPON_OILS, saved.offhandWeaponOil)) config.offhandWeaponOil = saved.offhandWeaponOil;
   if (hasOption(POTIONS, saved.potion)) config.potion = saved.potion;
-  config.potionMode = migratePotionMode(saved.potionMode);
+  else config.potion = migratePotion(saved);
   return config;
 }
 
-function migratePotionMode(value: string | undefined): BuffsConfig["potionMode"] {
-  if (value === "prepot-and-second" || value === "prepot") return "prepot-and-second";
-  return "in-fight";
+type LegacyBuffs = Partial<BuffsConfig> & {
+  potion?: string;
+  potionMode?: string;
+};
+
+function migratePotion(saved?: LegacyBuffs): BuffsConfig["potion"] {
+  if (saved?.potion === "none") return "none";
+  if (saved?.potion === "in-fight" || saved?.potion === "prepot-and-second") return saved.potion;
+  if (saved?.potion === "spell-power") {
+    if (saved.potionMode === "prepot-and-second" || saved.potionMode === "prepot") return "prepot-and-second";
+    return "in-fight";
+  }
+  return DEFAULT_BUFFS.potion;
 }
 
 function consumeOilStats(config: BuffsConfig, gear: GearSet): ItemStats {
@@ -281,6 +400,7 @@ function optionStats<T extends string>(options: Array<SelectOption<T>>, value: T
 function renderControls(config: BuffsConfig): string {
   return [
     fieldset("Raid buffs", "buff-raid", RAID_BUFFS.map((def) => checkbox(def, config)).join("")),
+    fieldset("Party buffs", "buff-party", PARTY_BUFFS.map((def) => checkbox(def, config)).join("")),
     fieldset(
       "Spell hit",
       "buff-hit",
@@ -292,20 +412,11 @@ function renderControls(config: BuffsConfig): string {
       `<div class="consume-grid">${[
         `<label class="consume-field" title="6 if you walked in with Felfury from trash. 0 if the pull starts empty.">Felfury at pull<input id="pull-felfury" type="number" value="0" min="0" max="6" /></label>`,
         select("Flask", "flask", FLASKS, config.flask),
-        select("Food", "food", FOODS, config.food),
         select("Main-hand oil", "weaponOil", WEAPON_OILS, config.weaponOil),
+        select("Food", "food", FOODS, config.food),
         select("Off-hand oil", "offhandWeaponOil", WEAPON_OILS, config.offhandWeaponOil, "offhand-oil-field"),
         select("Potion", "potion", POTIONS, config.potion),
-        select(
-          "Potion usage",
-          "potionMode",
-          [
-            { value: "in-fight", label: "One potion during the fight", stats: {} },
-            { value: "prepot-and-second", label: "Pre-pot and a second potion at 1:00", stats: {} },
-          ] as Array<SelectOption<BuffsConfig["potionMode"]>>,
-          config.potionMode,
-        ),
-      ].join("")}</div>`,
+      ].join("")}</div>${CONSUME_TOGGLES.map((def) => checkbox(def, config)).join("")}`,
     ),
   ].join("");
 }
@@ -315,10 +426,15 @@ function fieldset(legend: string, className: string, body: string): string {
 }
 
 function checkbox(def: ToggleDef, config: BuffsConfig): string {
-  const title = def.note ? ` title="${escapeHtml(def.note)}"` : "";
   const checked = config[def.key] ? " checked" : "";
+  const body = def.hintBody ?? def.note;
+  const hasHint = Boolean(body || def.hintTitle);
+  const hintClass = hasHint ? " check-option--hint" : "";
+  const hintAttrs = hasHint
+    ? ` data-hint-title="${escapeAttr(def.hintTitle ?? def.label.split(" — ")[0] ?? def.key)}" data-hint-body="${escapeAttr(body ?? "")}"`
+    : "";
   return (
-    `<label class="check-option"${title}><input type="checkbox" data-buff="${def.key}"${checked} /> ` +
+    `<label class="check-option${hintClass}"${hintAttrs}><input type="checkbox" data-buff="${def.key}"${checked} /> ` +
     `<span>${escapeHtml(def.label)}</span></label>`
   );
 }
@@ -343,4 +459,8 @@ function escapeHtml(value: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function escapeAttr(value: string): string {
+  return escapeHtml(value).replace(/\r\n|\r|\n/g, "&#10;");
 }

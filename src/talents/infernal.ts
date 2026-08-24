@@ -3,7 +3,7 @@ import type { DamageContext } from "../sim/spells";
 import { SPELL_CRIT_RATING_PER_PERCENT } from "../sim/stats";
 import { isTalentEnabled } from "./baseline";
 import { FELSWORN } from "./felsworn";
-import type { TalentSelection } from "./types";
+import type { TalentSelection, TalentTreeId } from "./types";
 
 export { SPELL_CRIT_RATING_PER_PERCENT };
 
@@ -21,8 +21,8 @@ export const INFERNAL = {
   blackMagicChaos: 0.2,
   adeptSmiteCrit: 0.2,
   felCannonCrit: 0.2,
-  /** Execute-phase uptime assumed for Fel Cannon crit on stationary fights. */
-  felCannonUptime: 0.75,
+  /** Ruin/Smite Chaos proc — Kadd dummy ~48%, Jinn Snowgrave 155s ~46.5%. */
+  chaosProcChance: 0.465,
   doomsayerSmiteDamage: 0.25,
   doomsayerSmiteRefund: 1,
   illidariSmiterFelfury: 1,
@@ -52,6 +52,31 @@ export function innerDemonDuration(felfury: number) {
   return consumed * INFERNAL.innerDemonSecPerFelfury;
 }
 
+/** Target health at `time` (0–1). Dummy stays at start health; bosses can decay linearly. */
+export function targetHealthAtTime(
+  time: number,
+  duration: number,
+  startHealth: number,
+  decays: boolean,
+): number {
+  if (!decays || duration <= 0) return startHealth;
+  return startHealth * Math.max(0, 1 - time / duration);
+}
+
+export function isAboveExecuteHealth(health: number): boolean {
+  return health > INFERNAL.executeHealth;
+}
+
+/** Fel Cannon / Doomsayer: +crit or +damage while target is above 75% health. */
+export function felCannonCritActive(
+  time: number,
+  duration: number,
+  startHealth: number,
+  decays: boolean,
+): boolean {
+  return isAboveExecuteHealth(targetHealthAtTime(time, duration, startHealth, decays));
+}
+
 const FIREBALL = 501288;
 const RUIN = 501298;
 const SMITE = 501321;
@@ -77,12 +102,21 @@ export function isFelfurySpender(spell: SpellFit) {
   return spell.id === RUIN || spell.id === SMITE;
 }
 
-export function fireballEnergyCost(base: number) {
-  return base * (1 - INFERNAL.prodigyFireball);
+/** Shadowflame counts as both fire and shadow for elemental effects. */
+export function spellAffectsFire(spell: SpellFit): boolean {
+  return spell.school === "fire" || spell.school === "shadowflame";
 }
 
-export function fireballCastTime(base: number, haste: number, felforged: boolean) {
-  let time = (base || 0) * (1 - INFERNAL.prodigyFireball);
+export function spellAffectsShadow(spell: SpellFit): boolean {
+  return spell.school === "shadow" || spell.school === "shadowflame";
+}
+
+export function fireballEnergyCost(base: number, prodigy = true) {
+  return prodigy ? base * (1 - INFERNAL.prodigyFireball) : base;
+}
+
+export function fireballCastTime(base: number, haste: number, felforged: boolean, prodigy = true) {
+  let time = prodigy ? (base || 0) * (1 - INFERNAL.prodigyFireball) : (base || 0);
   if (felforged) time *= 1 - INFERNAL.felforgedCastReduction;
   return time / haste;
 }
@@ -125,37 +159,66 @@ export type InfernalAuras = {
   reckoningStacks: number;
   guaranteedCrit: boolean;
   potionSpellPower: number;
-  /** Training dummy does not lose health. */
-  targetHealth: number;
+  /** Target health at pull (dummy = 1). */
+  targetStartHealth: number;
+  /** When true, health falls linearly to 0 over the fight (Fel Cannon tapers off). */
+  targetHealthDecays: boolean;
+  fightTime: number;
+  fightDuration: number;
   setDamageAbove75?: number;
 };
 
-export function infernalContext(spell: SpellFit, stats: CharacterStats, auras: InfernalAuras): DamageContext {
-  const execute = auras.targetHealth > INFERNAL.executeHealth;
-  const fire = (spell.school ?? "fire") === "fire";
+export function infernalContext(
+  spell: SpellFit,
+  stats: CharacterStats,
+  auras: InfernalAuras,
+  selection?: TalentSelection,
+): DamageContext {
+  const has = (tree: TalentTreeId, name: string) => !selection || isTalentEnabled(selection, tree, name);
+  const health = targetHealthAtTime(
+    auras.fightTime,
+    auras.fightDuration,
+    auras.targetStartHealth,
+    auras.targetHealthDecays,
+  );
+  const execute = isAboveExecuteHealth(health);
+  const fire = spellAffectsFire(spell);
   let extraCrit = 0;
-  let damageDone = 1 + INFERNAL.wrathMagicDamage;
+  let damageDone = 1;
+  if (has("infernal", "Wrath of Sargeras")) damageDone *= 1 + INFERNAL.wrathMagicDamage;
   if (auras.innerDemon) damageDone *= 1.1;
-  if (auras.baneOfFire) {
-    if (fire) extraCrit += 0.2;
+  if (auras.baneOfFire && fire) extraCrit += 0.2;
+  if ((isSmite(spell) || isChaos(spell)) && has("infernal", "Felfire Adept")) {
+    extraCrit += INFERNAL.adeptSmiteCrit;
   }
-  if (isSmite(spell)) extraCrit += INFERNAL.adeptSmiteCrit;
-  if (isFireball(spell) || isRuin(spell)) {
-    extraCrit += INFERNAL.felCannonCrit * INFERNAL.felCannonUptime;
+  if (
+    (isFireball(spell) || isRuin(spell)) &&
+    has("infernal", "Fel Cannon") &&
+    felCannonCritActive(auras.fightTime, auras.fightDuration, auras.targetStartHealth, auras.targetHealthDecays)
+  ) {
+    extraCrit += INFERNAL.felCannonCrit;
   }
-  if (isFelfurySpender(spell)) {
+  if ((isFelfurySpender(spell) || isChaos(spell)) && has("infernal", "Archimonde's Wrath")) {
     extraCrit += INFERNAL.archimondeCritPerTenEnergy * Math.floor(Math.max(0, auras.energy) / 10);
   }
-  if (auras.maliceCritRemain > 0) extraCrit += INFERNAL.maliceCrit;
-  if (auras.innerDemon) {
+  if (auras.maliceCritRemain > 0 && has("infernal", "Malice of Gul'dan")) {
+    extraCrit += INFERNAL.maliceCrit;
+  }
+  if (auras.innerDemon && has("infernal", "Hidden Power")) {
     extraCrit += critFromSpiritRating(stats.spirit, INFERNAL.hiddenPowerInnerSpirit) / 100;
   }
-  if (isRuin(spell)) damageDone *= 1 + INFERNAL.blackMagicRuin;
-  if (isChaos(spell)) damageDone *= 1 + INFERNAL.blackMagicChaos;
-  if (isSmite(spell) && execute) damageDone *= 1 + INFERNAL.doomsayerSmiteDamage;
-  if (auras.chaoticStacks > 0) damageDone *= 1 + FELSWORN.chaoticDamage * auras.chaoticStacks;
-  if (auras.reckoningStacks > 0) damageDone *= 1 + FELSWORN.reckoningBuffDamage * auras.reckoningStacks;
-  if ((auras.setDamageAbove75 || 0) > 0 && auras.targetHealth > 0.75) {
+  if (isRuin(spell) && has("infernal", "Black Magic")) damageDone *= 1 + INFERNAL.blackMagicRuin;
+  if (isChaos(spell) && has("infernal", "Black Magic")) damageDone *= 1 + INFERNAL.blackMagicChaos;
+  if ((isSmite(spell) || isChaos(spell)) && execute && has("infernal", "Doomsayer")) {
+    damageDone *= 1 + INFERNAL.doomsayerSmiteDamage;
+  }
+  if (auras.chaoticStacks > 0 && has("felsworn", "Chaotic")) {
+    damageDone *= 1 + FELSWORN.chaoticDamage * auras.chaoticStacks;
+  }
+  if (auras.reckoningStacks > 0 && has("felsworn", "Reckoning")) {
+    damageDone *= 1 + FELSWORN.reckoningBuffDamage * auras.reckoningStacks;
+  }
+  if ((auras.setDamageAbove75 || 0) > 0 && execute) {
     damageDone *= 1 + (auras.setDamageAbove75 || 0);
   }
 
@@ -164,9 +227,10 @@ export function infernalContext(spell: SpellFit, stats: CharacterStats, auras: I
     extraCrit,
     damageDone,
     extraSpellPower:
-      (auras.innerDemon ? INFERNAL.hiddenPowerInnerSpirit * stats.spirit : 0) + (auras.potionSpellPower || 0),
+      (auras.innerDemon && has("infernal", "Hidden Power")
+        ? INFERNAL.hiddenPowerInnerSpirit * stats.spirit
+        : 0) + (auras.potionSpellPower || 0),
     extraHit: auras.felshockHitRemain > 0 ? INFERNAL.felshockHit : 0,
-    critMultiplier: INFERNAL.manariCritMultiplier + FELSWORN.elementalBaneCritDamage,
     ignoreLogCrit: true,
     guaranteedCrit: auras.guaranteedCrit,
   };
