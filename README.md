@@ -4,21 +4,12 @@ Browser DPS simulator for **Felsworn Infernal** on Project Ascension Conquest of
 
 ## What this repo contains
 
-- `userscripts/bisbeard-dump.user.js` — Violentmonkey script that probes/dumps [coa.bisbeard.com](https://coa.bisbeard.com/) IndexedDB, in-memory stores, and captured JSON traffic.
+- `userscripts/bisbeard-dump.user.js` — script that probes/dumps [coa.bisbeard.com](https://coa.bisbeard.com/)
 - `scripts/parse-logs.mjs` — parses local `WoWCombatLog.txt` for Kadd and ALC combatant packets.
 - `scripts/ingest-bisbeard.mjs` — turns a Bisbeard dump into a slot-indexed item DB.
 - `scripts/fit-spells.mjs` — fits Infernal spell averages from combat logs (not CoA Tavern).
 - `src/` — stationary single-target event sim + gear picker UI.
 - `vendor/wowsims-classic/` — local shallow clone of wowsims for reference (gitignored).
-
-## Violentmonkey dump
-
-1. Install [Violentmonkey](https://violentmonkey.github.io/).
-2. Create a new script and paste `userscripts/bisbeard-dump.user.js` (or open that file from disk).
-3. Open https://coa.bisbeard.com/ with **CoA** selected and wait until the Database finishes loading.
-4. Use the panel (or Violentmonkey menu): **Probe**, then **Dump**.
-5. Copy the downloaded JSON files into `data/bisbeard/`.
-6. Run `npm run ingest`.
 
 ## Local commands
 
@@ -61,4 +52,3 @@ npm run preview # smoke-test dist/ locally
 
 - Combat logs are source of truth for damage.
 - Bisbeard dumps are source of truth for item stats.
-- CoA Tavern is not used.
