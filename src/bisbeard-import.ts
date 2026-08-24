@@ -79,6 +79,15 @@ function proxyBase(): string | null {
   return null;
 }
 
+function missingProxyMessage(): string {
+  return (
+    "Bisbeard import is not configured for this host (missing CORS proxy). " +
+    "Deploy workers/bisbeard-build-proxy with npm run deploy:bisbeard-proxy, " +
+    "set GitHub variable BISBEARD_PROXY_URL to the worker URL, and redeploy Pages " +
+    "(or add CLOUDFLARE_API_TOKEN so CI deploys the proxy automatically)."
+  );
+}
+
 async function fetchBuildJson(buildId: string): Promise<BisbeardBuildResponse> {
   const target = buildApiUrl(buildId);
   const proxy = proxyBase();
@@ -89,9 +98,7 @@ async function fetchBuildJson(buildId: string): Promise<BisbeardBuildResponse> {
     response = await fetch(url);
   } catch {
     throw new BisbeardImportError(
-      proxy
-        ? "Could not reach the Bisbeard import proxy. Check your connection and try again."
-        : "Bisbeard import is not configured for this host (missing CORS proxy).",
+      proxy ? "Could not reach the Bisbeard import proxy. Check your connection and try again." : missingProxyMessage(),
     );
   }
 
