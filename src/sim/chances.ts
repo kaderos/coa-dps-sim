@@ -1,9 +1,10 @@
-import type { ItemStats } from "../types";
+import type { BuffsConfig, ItemStats } from "../types";
 import { isTalentEnabled } from "../talents/baseline";
-import { INFERNAL } from "../talents/infernal";
 import { FELSWORN } from "../talents/felsworn";
+import { felInfusionCritPercent, INFERNAL } from "../talents/infernal";
 import type { TalentSelection } from "../talents/types";
 import {
+  intellectCritPercent,
   SPELL_CRIT_RATING_PER_PERCENT,
   SPELL_HASTE_RATING_PER_PERCENT,
   SPELL_HIT_CAP,
@@ -16,6 +17,7 @@ export type ChanceStat = {
   fromTalents: number;
   fromBuffs: number;
   fromInnerDemon: number;
+  fromIntellect: number;
   total: number;
 };
 
@@ -28,13 +30,15 @@ export type ChanceBreakdown = {
 export function talentChancePercents(
   _spirit: number,
   selection?: TalentSelection,
+  buffs?: Pick<BuffsConfig, "demonfirePact">,
 ): Pick<ItemStats, "spellHit" | "spellCrit" | "spellHaste"> {
   const has = (tree: "felsworn" | "infernal", name: string) => !selection || isTalentEnabled(selection, tree, name);
+  const demonfirePactActive = buffs?.demonfirePact !== false;
   return {
     spellHit: has("infernal", "Wrath of Sargeras") ? INFERNAL.wrathSpellHit : 0,
     spellCrit:
       (has("felsworn", "Cruelty") ? FELSWORN.crueltyCrit : 0) +
-      (has("infernal", "Fel Infusion") ? INFERNAL.felInfusionPersonalCrit : 0),
+      (has("infernal", "Fel Infusion") ? felInfusionCritPercent(demonfirePactActive) : 0),
     spellHaste: 0,
   };
 }
@@ -43,11 +47,14 @@ export function buildChanceBreakdown(
   gearRatings: ItemStats,
   consumeRatings: ItemStats,
   spirit: number,
+  intellect: number,
   buffPercents: Pick<ItemStats, "spellHit" | "spellCrit" | "spellHaste">,
   selection?: TalentSelection,
+  buffs?: Pick<BuffsConfig, "demonfirePact">,
 ): ChanceBreakdown {
-  const talents = talentChancePercents(spirit, selection);
+  const talents = talentChancePercents(spirit, selection, buffs);
   const spiritStat = Math.max(0, spirit);
+  const intellectStat = Math.max(0, intellect);
   const has = (tree: "felsworn" | "infernal", name: string) => !selection || isTalentEnabled(selection, tree, name);
   const netherRating = has("infernal", "Nether Spirit") ? INFERNAL.netherSpiritToCritRating * spiritStat : 0;
   const innerDemonRating = has("infernal", "Hidden Power") ? INFERNAL.hiddenPowerInnerSpirit * spiritStat : 0;
@@ -58,6 +65,8 @@ export function buildChanceBreakdown(
     buffPercents.spellCrit,
   );
   crit.fromInnerDemon = innerDemonRating / SPELL_CRIT_RATING_PER_PERCENT;
+  crit.fromIntellect = intellectCritPercent(intellectStat);
+  crit.total += crit.fromIntellect;
   return {
     hit: layer(
       gearRatings.spellHit + consumeRatings.spellHit,
@@ -113,6 +122,7 @@ function layer(
     fromTalents,
     fromBuffs,
     fromInnerDemon,
+    fromIntellect: 0,
     total: fromRating + fromTalents + fromBuffs + fromInnerDemon,
   };
 }
@@ -138,6 +148,9 @@ function chanceCard(
       <div><dt>Talents</dt><dd>+${fmt(stat.fromTalents)}%</dd></div>
       ${stat.fromInnerDemon
         ? `<div><dt>Inner Demon</dt><dd>+${fmt(stat.fromInnerDemon)}%</dd></div>`
+        : ""}
+      ${stat.fromIntellect
+        ? `<div><dt>Intellect</dt><dd>+${fmt(stat.fromIntellect)}%</dd></div>`
         : ""}
       <div><dt>Buffs &amp; debuffs</dt><dd>+${fmt(stat.fromBuffs)}%</dd></div>
       <div class="chance-card__total"><dt>Total</dt><dd>${fmt(stat.total)}%</dd></div>

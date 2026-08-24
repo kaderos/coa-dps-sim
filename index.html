@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CoA Infernal DPS Sim</title>
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
     <link rel="stylesheet" href="/src/styles.css" />
   </head>
   <body>
@@ -42,9 +44,17 @@
       <section class="panel tab-panel is-active" data-tab-panel="gear">
         <h2>Gear</h2>
         <p class="hint" id="gear-hint">JavaScript is disabled or blocked for localhost. Allow JavaScript in Chrome, then reload.</p>
+        <div class="bisbeard-import">
+          <label class="bisbeard-import__field">
+            <a class="bisbeard-import__link" href="https://coa.bisbeard.com/" target="_blank" rel="noopener noreferrer">Bisbeard share link</a>
+            <input id="bisbeard-import-url" type="url" inputmode="url" placeholder="https://coa.bisbeard.com/b/…   Paste Share Build link here to import." autocomplete="off" spellcheck="false" />
+          </label>
+          <button id="bisbeard-import-run" type="button">Import gear</button>
+          <p class="hint bisbeard-import__status" id="bisbeard-import-status" hidden></p>
+        </div>
         <div id="gear" class="gear-grid"></div>
-        <h3>Stats from gear</h3>
-        <p class="hint">Hover Spell Hit, Spell Crit, or Spell Haste for the rating → talent → buff breakdown.</p>
+        <h3>Character stats</h3>
+        <p class="hint">Hover Spell Power, Spell Penetration, Spell Hit, Spell Crit, Spell Haste, Intellect, or Spirit for a breakdown.</p>
         <dl id="stats" class="stats"></dl>
         <h3>Set bonuses</h3>
         <p class="hint">A bonus applies only after that many pieces of the set are equipped.</p>

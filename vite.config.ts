@@ -10,6 +10,13 @@ export default defineConfig(({ mode }) => ({
     // "::" binds dual-stack so both 127.0.0.1 and ::1 answer. Chrome resolves
     // localhost to ::1 first, and an IPv4-only bind gets refused there.
     host: "::",
+    proxy: {
+      "/bisbeard-api": {
+        target: "https://gear-planner-api.bisbeard.workers.dev",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/bisbeard-api/, ""),
+      },
+    },
     fs: {
       deny: ["vendor/**"],
     },

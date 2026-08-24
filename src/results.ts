@@ -92,15 +92,13 @@ function signedPct(current: number, pinned: number): string {
   return `${signed(((current - pinned) / pinned) * 100)}%`;
 }
 
-export function renderResultsEmpty(onSimulate: () => void) {
+export function renderResultsEmpty() {
   const root = document.getElementById("results");
   if (!root) return;
   root.innerHTML = `
     <div class="results-empty">
-      <p class="hint">Run a simulation to see DPS, spell breakdown, and cast log.</p>
-      <button class="results-empty__run" id="results-sim-run" type="button">Simulate</button>
+      <p class="hint">Use Simulate in the sidebar to see DPS, spell breakdown, and cast log.</p>
     </div>`;
-  document.getElementById("results-sim-run")?.addEventListener("click", onSimulate);
 }
 
 export function renderResults(result: SimResult) {

@@ -41,6 +41,7 @@ export type ItemStats = {
   spellCrit: number;
   spellHit: number;
   spellHaste: number;
+  spellPenetration: number;
   mp5: number;
 };
 
@@ -176,6 +177,8 @@ export type SimConfig = {
   neptulonsWrath?: boolean;
   /** Linear 100%→0% boss health — Fel Cannon / Doomsayer taper after ~75% fight time. */
   targetHealthDecays?: boolean;
+  /** Demonfire Pact buff — Fel Infusion personal crit is 3% while active, 6% when off. */
+  demonfirePact?: boolean;
 };
 
 export type SetCatalog = {
@@ -217,6 +220,7 @@ export type BuffsConfig = {
   spellHitDebuff: boolean;
   flask: "none" | "manifesting-power" | "kirin-tor";
   food: "none" | "well-fed" | "fused-wizard-wontons";
+  scroll: "none" | "spirit-iv";
   weaponOil: "none" | "brilliant-wizard-oil";
   offhandWeaponOil: "none" | "brilliant-wizard-oil";
   potion: "none" | "in-fight" | "prepot-and-second";

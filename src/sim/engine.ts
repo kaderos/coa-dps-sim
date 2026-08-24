@@ -109,6 +109,7 @@ function runIterationBatch(
       talentSelection: config.talentSelection,
       neptulonsWrath: config.neptulonsWrath,
       targetHealthDecays: config.targetHealthDecays,
+      demonfirePact: config.demonfirePact,
     });
     applyProcContributions(once, fightSec, config.procContributions);
     if (i === 0) {

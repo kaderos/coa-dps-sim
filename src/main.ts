@@ -1,10 +1,10 @@
-import type { BuffsConfig, Enchant, EnchantSet, GearSet, Item, SetCatalog, Slot, SpellFit } from "./types";
+import type { BuffsConfig, CharacterStats, Enchant, EnchantSet, GearSet, Item, SetCatalog, Slot, SpellFit } from "./types";
 import { absorbItemSetBonuses, equippedSets, loadSetCatalog, setBonusCombat, setProgressForItem } from "./sets";
 import { PAPER_DOLL_LEFT, PAPER_DOLL_RIGHT, PAPER_DOLL_WEAPONS, SLOTS } from "./types";
 import {
   BOSS_LEVEL,
   buildCharacter,
-  effectiveSpellPower,
+  displaySpellPower,
   enchantFitsSlot,
   isTwoHand,
   itemForSlot,
@@ -12,7 +12,7 @@ import {
   ratingsFromGear,
   statsFromGear,
 } from "./sim/stats";
-import { buildChanceBreakdown, critCardHtml, hasteCardHtml, hitCardHtml } from "./sim/chances";
+import { buildChanceBreakdown, hasteCardHtml, hitCardHtml } from "./sim/chances";
 import type { ChanceBreakdown } from "./sim/chances";
 import { runSimAsync } from "./sim/engine";
 import {
@@ -40,6 +40,10 @@ import { setupTalents } from "./talents/ui";
 import type { FelswornTalentDoc, InfernalTalentDoc } from "./talents/types";
 import { applyTakenTalents } from "./talents/taken";
 import { loadSession, restoreEnchantSet, restoreGearSet, saveEnchantSet, saveGearSet, saveSession } from "./persist";
+import { BisbeardImportError, loadBisbeardBuild, type BisbeardMappedBuild } from "./bisbeard-import";
+import { bindHintTooltips } from "./hint-tooltip";
+import { primaryStatBreakdown, primaryStatHintBody, spellCritBreakdown, spellCritHintBody, spellCritRatingNote, spellPowerBreakdown, spellPowerHintBody, statLayerBreakdown, statLayerHintBody } from "./stat-breakdown";
+import { hydrateEnchantEffectStats, hydrateItemEffectStats } from "./effect-stats";
 
 (window as Window & { __coaModuleStarted?: boolean }).__coaModuleStarted = true;
 
@@ -65,6 +69,7 @@ const EMPTY_ITEM_STATS = {
   spellCrit: 0,
   spellHit: 0,
   spellHaste: 0,
+  spellPenetration: 0,
   mp5: 0,
 };
 
@@ -157,6 +162,7 @@ async function load() {
   if (session.selectedPhase) selectedPhase = session.selectedPhase;
 
   setupItemPicker();
+  setupBisbeardImport();
   setupTabs();
   statWeights = loadStatWeights();
   setupStatWeights();
@@ -178,12 +184,16 @@ async function load() {
   renderGear();
   renderStats();
   refreshGearSim();
-  renderResultsEmpty(simulate);
+  renderResultsEmpty();
   document.getElementById("duration")?.addEventListener("change", renderStats);
   if (hint) {
-    hint.textContent = items.itemCount
-      ? `${items.note} Spell math is fitted from combat logs.`
-      : "No items found in /data/items.json. Run `npm run ingest` to rebuild it from the Bisbeard dump.";
+    if (items.itemCount) {
+      hint.hidden = false;
+      hint.textContent = "Trinket and weapon proc effects are not included in simulations yet.";
+    } else {
+      hint.hidden = false;
+      hint.textContent = "No items found in /data/items.json. Run `npm run ingest` to rebuild it from the Bisbeard dump.";
+    }
   }
 }
 
@@ -194,12 +204,14 @@ function hydrateEnchants(db: EnchantDb) {
   for (const list of Object.values(db.slots || {})) {
     for (const enchant of list) {
       enchant.stats = { ...EMPTY_ITEM_STATS, ...(enchant.stats || {}) };
+      hydrateEnchantEffectStats(enchant);
       enchantsById.set(enchant.id, enchant);
     }
   }
   for (const enchant of db.enchants || []) {
     if (enchantsById.has(enchant.id)) continue;
     enchant.stats = { ...EMPTY_ITEM_STATS, ...(enchant.stats || {}) };
+    hydrateEnchantEffectStats(enchant);
     enchantsById.set(enchant.id, enchant);
   }
 }
@@ -229,12 +241,14 @@ function hydrateItems(db: ItemDb) {
   for (const list of Object.values(db.slots || {})) {
     for (const item of list) {
       item.stats = { ...EMPTY_ITEM_STATS, ...(item.stats || {}) };
+      hydrateItemEffectStats(item);
       itemsById.set(item.id, item);
     }
   }
   for (const item of db.items || []) {
     if (itemsById.has(item.id)) continue;
     item.stats = { ...EMPTY_ITEM_STATS, ...(item.stats || {}) };
+    hydrateItemEffectStats(item);
     itemsById.set(item.id, item);
   }
   absorbItemSetBonuses(itemsById.values());
@@ -371,6 +385,106 @@ function renderGearSlot(slot: Slot) {
 
   row.append(slotName, button);
   return row;
+}
+
+function setupBisbeardImport() {
+  const input = document.getElementById("bisbeard-import-url") as HTMLInputElement | null;
+  const button = document.getElementById("bisbeard-import-run") as HTMLButtonElement | null;
+  const status = document.getElementById("bisbeard-import-status");
+  if (!input || !button || !status) return;
+
+  const setStatus = (text: string, isError = false) => {
+    status.hidden = !text;
+    status.textContent = text;
+    status.classList.toggle("is-error", isError);
+  };
+
+  const run = async () => {
+    button.disabled = true;
+    setStatus("Fetching build…");
+    try {
+      const mapped = await loadBisbeardBuild(input.value);
+      applyBisbeardBuild(mapped, setStatus);
+    } catch (err) {
+      const message = err instanceof BisbeardImportError ? err.message : "Import failed.";
+      setStatus(message, true);
+    } finally {
+      button.disabled = false;
+    }
+  };
+
+  button.addEventListener("click", () => void run());
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") void run();
+  });
+}
+
+function applyBisbeardBuild(mapped: BisbeardMappedBuild, setStatus: (text: string, isError?: boolean) => void) {
+  const missingItems: string[] = [];
+  const missingEnchants: string[] = [];
+  let equipped = 0;
+
+  for (const slot of SLOTS) {
+    const id = mapped.gear[slot];
+    if (id == null) {
+      gear[slot] = null;
+      continue;
+    }
+    const item = itemsById.get(id);
+    if (item) {
+      gear[slot] = item;
+      equipped += 1;
+    } else {
+      gear[slot] = null;
+      missingItems.push(`${SLOT_LABELS[slot]} (${id})`);
+    }
+  }
+
+  if (isTwoHand(gear.mainhand)) {
+    gear.offhand = null;
+    enchants.offhand = null;
+  }
+
+  for (const slot of SLOTS) {
+    const id = mapped.enchants[slot];
+    if (id == null) {
+      enchants[slot] = null;
+      continue;
+    }
+    const enchant = enchantsById.get(id);
+    const item = gear[slot] ?? null;
+    if (enchant && item && enchantFitsSlot(enchant, slot, item, gear.mainhand ?? null)) {
+      enchants[slot] = enchant;
+    } else {
+      enchants[slot] = null;
+      if (id != null) missingEnchants.push(`${SLOT_LABELS[slot]} (${id})`);
+    }
+  }
+
+  if (mapped.phase) {
+    selectedPhase = mapped.phase;
+    saveSession({ selectedPhase });
+    const phaseSelect = document.getElementById("phase-filter") as HTMLSelectElement | null;
+    if (phaseSelect && [...phaseSelect.options].some((option) => option.value === mapped.phase)) {
+      phaseSelect.value = mapped.phase;
+    }
+  }
+
+  itemCache.clear();
+  saveGearSet(gear);
+  saveEnchantSet(enchants);
+  syncOffhandOilField(gear);
+  renderGear();
+  renderStats();
+
+  const parts = [`Imported ${equipped} item${equipped === 1 ? "" : "s"}.`];
+  if (mapped.specName) parts.push(mapped.specName);
+  if (mapped.phase) parts.push(`Phase ${mapped.phase}`);
+  if (missingItems.length) parts.push(`${missingItems.length} item${missingItems.length === 1 ? "" : "s"} not in catalog.`);
+  if (missingEnchants.length) {
+    parts.push(`${missingEnchants.length} enchant${missingEnchants.length === 1 ? "" : "s"} skipped.`);
+  }
+  setStatus(parts.join(" · "));
 }
 
 function setupItemPicker() {
@@ -722,6 +836,10 @@ function formatStat(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
+function floorStat(value: number): string {
+  return String(Math.floor(value));
+}
+
 const WHITE_STAT_NAMES = new Set(["strength", "agility", "stamina", "intellect", "spirit"]);
 
 const GREEN_STAT_EQUIP: Array<{
@@ -940,22 +1058,27 @@ function renderStats() {
   const stats = applyTakenTalents(
     applyStatScaleBuffs(buildCharacter(gear, 0, bonusStats, readPullFelfury(), enchants), buffsConfig),
     talentSelection,
+    buffsConfig,
   );
   const chances = buildChanceBreakdown(
     gearRatings,
     ratingConsumes(buffsConfig, gear),
     stats.spirit,
+    stats.intellect,
     percentBuffs(buffsConfig, talentSelection),
     talentSelection,
+    buffsConfig,
   );
-  const sp = effectiveSpellPower(stats, stats.hiddenPower);
+  const sp = displaySpellPower(stats, stats.hiddenPower);
+  const spellPen = stats.spellPenetration || 0;
   const root = document.getElementById("stats");
   if (!root) return;
   const rows: Array<[string, string]> = [
-    ["Spell Power", sp.toFixed(1)],
-    ["Intellect", stats.intellect.toFixed(1)],
-    ["Spirit", stats.spirit.toFixed(1)],
-    ["Spell Crit", `${chances.crit.total.toFixed(1)}%`],
+    ["Spell Power", floorStat(sp)],
+    ["Spell Penetration", floorStat(spellPen)],
+    ["Intellect", floorStat(stats.intellect)],
+    ["Spirit", floorStat(stats.spirit)],
+    ["Spell Crit", `${chances.crit.total.toFixed(2)}%`],
     ["Spell Hit", `${chances.hit.total.toFixed(1)}%`],
     ["Spell Haste", `${chances.haste.total.toFixed(1)}%`],
   ];
@@ -963,7 +1086,55 @@ function renderStats() {
     .map(([name, value]) => `<div><dt>${name}</dt><dd>${value}</dd></div>`)
     .join("");
   bindChanceHovers(root, chances);
+  bindStatBreakdownHovers(root, stats, duration, chances);
   renderSetSummary();
+}
+
+function bindStatBreakdownHovers(
+  root: HTMLElement,
+  stats: CharacterStats,
+  durationSec: number,
+  chances: ChanceBreakdown,
+) {
+  const spellPowerRow = [...root.querySelectorAll("div")].find((el) => el.querySelector("dt")?.textContent === "Spell Power");
+  if (spellPowerRow) {
+    const breakdown = spellPowerBreakdown(gear, enchants, buffsConfig, durationSec, talentSelection);
+    spellPowerRow.classList.add("stats__hover");
+    spellPowerRow.dataset.hintTitle = "Spell Power";
+    spellPowerRow.dataset.hintBody = spellPowerHintBody(breakdown);
+    spellPowerRow.tabIndex = 0;
+  }
+
+  const spellPenRow = [...root.querySelectorAll("div")].find((el) => el.querySelector("dt")?.textContent === "Spell Penetration");
+  if (spellPenRow) {
+    const breakdown = statLayerBreakdown("spellPenetration", gear, enchants, buffsConfig, durationSec, talentSelection);
+    spellPenRow.classList.add("stats__hover");
+    spellPenRow.dataset.hintTitle = "Spell Penetration";
+    spellPenRow.dataset.hintBody = statLayerHintBody("Spell Penetration", breakdown);
+    spellPenRow.tabIndex = 0;
+  }
+
+  const spellCritRow = [...root.querySelectorAll("div")].find((el) => el.querySelector("dt")?.textContent === "Spell Crit");
+  if (spellCritRow) {
+    const breakdown = spellCritBreakdown(gear, enchants, buffsConfig, stats, talentSelection, chances.crit.total);
+    spellCritRow.classList.add("stats__hover");
+    spellCritRow.dataset.hintTitle = "Spell Crit";
+    spellCritRow.dataset.hintNote = spellCritRatingNote();
+    spellCritRow.dataset.hintBody = spellCritHintBody(breakdown, chances.crit.rating);
+    spellCritRow.tabIndex = 0;
+  }
+
+  for (const key of ["Intellect", "Spirit"] as const) {
+    const row = [...root.querySelectorAll("div")].find((el) => el.querySelector("dt")?.textContent === key);
+    if (!row) continue;
+    const statKey = key.toLowerCase() as "intellect" | "spirit";
+    const breakdown = primaryStatBreakdown(statKey, gear, enchants, buffsConfig, durationSec, talentSelection);
+    row.classList.add("stats__hover");
+    row.dataset.hintTitle = key;
+    row.dataset.hintBody = primaryStatHintBody(statKey, breakdown, stats, talentSelection);
+    row.tabIndex = 0;
+  }
+  bindHintTooltips(root, ".stats__hover[data-hint-body]");
 }
 
 function renderSetSummary() {
@@ -1008,11 +1179,9 @@ function bindChanceHovers(root: HTMLElement | null, chances: ChanceBreakdown) {
     const html =
       label === "Spell Hit"
         ? hitCardHtml(chances.hit)
-        : label === "Spell Crit"
-          ? critCardHtml(chances.crit)
-          : label === "Spell Haste"
-            ? hasteCardHtml(chances.haste)
-            : null;
+        : label === "Spell Haste"
+          ? hasteCardHtml(chances.haste)
+          : null;
     if (!html) continue;
     row.classList.add("stats__hover");
     row.tabIndex = 0;
@@ -1083,6 +1252,7 @@ async function runSimulation() {
         procContributions: procContributionsFromBuffs(buffsConfig),
         neptulonsWrath: buffsConfig.neptulonsWrath,
         targetHealthDecays: buffsConfig.targetHealthDecays,
+        demonfirePact: buffsConfig.demonfirePact,
       },
       null,
       null,

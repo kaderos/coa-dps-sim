@@ -57,9 +57,9 @@ function renderTreeSection(
   tree: TalentTreeId,
   title: string,
   subtitle: string,
-  note: string,
   talents: TalentEntry[],
   selection: TalentSelection,
+  note?: string,
 ): string {
   const enabled = countEnabledTalents(selection, tree, talents);
   const combat = talents.filter((talent) => talent.combat).length;
@@ -77,7 +77,7 @@ function renderTreeSection(
           <span>${combatEnabled}/${combat} combat</span>
         </div>
       </header>
-      <p class="hint talent-tree__note">${escapeHtml(note)}</p>
+      ${note ? `<p class="hint talent-tree__note">${escapeHtml(note)}</p>` : ""}
       <div class="talent-grid">
         ${talents.map((talent) => renderTalentCard(tree, talent, selection)).join("")}
       </div>
@@ -90,17 +90,17 @@ export function renderTalentTrees(trees: TalentTrees, selection: TalentSelection
     "felsworn",
     trees.felsworn.class,
     `Capstone: ${trees.felsworn.choice}`,
-    trees.felsworn.note,
     trees.felsworn.talents,
     selection,
+    trees.felsworn.note,
   );
   const infernal = renderTreeSection(
     "infernal",
     trees.infernal.spec,
     `Capstone: ${trees.infernal.choice}`,
-    trees.infernal.note,
     trees.infernal.talents,
     selection,
+    trees.infernal.note,
   );
   return `<div class="talent-layout">${felsworn}${infernal}</div>`;
 }

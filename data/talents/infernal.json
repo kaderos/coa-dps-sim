@@ -1,7 +1,6 @@
 {
   "spec": "Infernal",
   "choice": "Doomsayer",
-  "note": "Taken Infernal spec talents from the Vol'jin builder. Inner Demon lasts 5s per Felfury consumed (5–30s). Training dummy: fixed 100% target health (Fel Cannon + Doomsayer stay active). Boss sims can enable linear health decay so Fel Cannon tapers after ~75% fight time. Felheart talent = +1% haste per Felfury (not a damage bonus). Felheart Raiment 6pc (+6% damage above 75%) only applies when 6/6 set pieces are equipped. Rating conversions: 14 crit / 8 hit / 10 haste per 1%.",
   "talents": [
     {
       "name": "Ruin",
@@ -61,7 +60,7 @@
       "name": "Hidden Power",
       "rank": "passive",
       "combat": true,
-      "effect": "Spell damage +15% of Intellect and Spirit. Inner Demon: further +20% of Spirit to spell damage and crit rating."
+      "effect": "Spell damage +15% of Intellect and Spirit. Inner Demon: +20% of Spirit to crit rating."
     },
     {
       "name": "Black Magic",
@@ -90,8 +89,8 @@
     {
       "name": "Shadow Magi",
       "rank": "1/1",
-      "combat": false,
-      "effect": "Annihilation/Sunder cooldown reductions. Unused in stationary fights."
+      "combat": true,
+      "effect": "Reduces Annihilation cooldown (Sunder unused in sim). Sim uses 45s Annihilation with this talent; Annihilation is in the combat rotation."
     },
     {
       "name": "Sculptor of Doom",
@@ -108,8 +107,8 @@
     {
       "name": "The True Blessing",
       "rank": "1/1",
-      "combat": false,
-      "effect": "Annihilation grants Sculptor of Doom. Unused in stationary fights."
+      "combat": true,
+      "effect": "Annihilation immediately grants a Sculptor Ruin proc (instant Ruin within 8s). Sim casts Annihilation for this when Sculptor is down, Felfury >= 2, Inner Demon and Bane are up."
     },
     {
       "name": "Doomsayer",

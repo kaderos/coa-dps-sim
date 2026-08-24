@@ -13,7 +13,10 @@ export const INFERNAL = {
   hiddenPowerFromPrimary: 0.15,
   hiddenPowerInnerSpirit: 0.2,
   netherSpiritToCritRating: 0.2,
+  /** Personal crit when Demonfire Pact is off (primary auras do not stack). */
   felInfusionPersonalCrit: 6,
+  /** Personal crit while Demonfire Pact is active — pact supplies the other 3%. */
+  felInfusionPersonalCritWithPact: 3,
   manariCritMultiplier: 2.5,
   prodigyFireball: 0.15,
   darkMagicianEnergy: 20,
@@ -102,6 +105,31 @@ export function isFelfurySpender(spell: SpellFit) {
   return spell.id === RUIN || spell.id === SMITE;
 }
 
+/** Felfury spenders only — Chaos procs do not gain Archimonde's Wrath crit. */
+export function archimondesWrathApplies(spell: SpellFit, selection?: TalentSelection): boolean {
+  if (selection && !isTalentEnabled(selection, "infernal", "Archimonde's Wrath")) return false;
+  return isFelfurySpender(spell);
+}
+
+/** +1% crit per 10 Energy at cast (decimal, e.g. 0.08 for +8%). */
+export function archimondesWrathCritBonus(
+  energy: number,
+  selection?: TalentSelection,
+  spell?: SpellFit,
+): number {
+  if (spell && !archimondesWrathApplies(spell, selection)) return 0;
+  if (selection && !isTalentEnabled(selection, "infernal", "Archimonde's Wrath")) return 0;
+  return INFERNAL.archimondeCritPerTenEnergy * Math.floor(Math.max(0, energy) / 10);
+}
+
+export function archimondesWrathCritPercent(
+  energy: number,
+  selection?: TalentSelection,
+  spell?: SpellFit,
+): number {
+  return archimondesWrathCritBonus(energy, selection, spell) * 100;
+}
+
 /** Shadowflame counts as both fire and shadow for elemental effects. */
 export function spellAffectsFire(spell: SpellFit): boolean {
   return spell.school === "fire" || spell.school === "shadowflame";
@@ -125,14 +153,25 @@ export function critFromSpiritRating(spirit: number, fraction: number) {
   return (fraction * Math.max(0, spirit)) / SPELL_CRIT_RATING_PER_PERCENT;
 }
 
-export function applyInfernalPassives(stats: CharacterStats, selection?: TalentSelection): CharacterStats {
+/** Fel Infusion personal crit — 3% with Demonfire Pact, 6% without (primary auras overlap). */
+export function felInfusionCritPercent(demonfirePactActive = true): number {
+  return demonfirePactActive
+    ? INFERNAL.felInfusionPersonalCritWithPact
+    : INFERNAL.felInfusionPersonalCrit;
+}
+
+export function applyInfernalPassives(
+  stats: CharacterStats,
+  selection?: TalentSelection,
+  demonfirePactActive = true,
+): CharacterStats {
   let spellHit = stats.spellHit;
   let spellCrit = stats.spellCrit;
   if (!selection || isTalentEnabled(selection, "infernal", "Wrath of Sargeras")) {
     spellHit += INFERNAL.wrathSpellHit;
   }
   if (!selection || isTalentEnabled(selection, "infernal", "Fel Infusion")) {
-    spellCrit += INFERNAL.felInfusionPersonalCrit;
+    spellCrit += felInfusionCritPercent(demonfirePactActive);
   }
   if (!selection || isTalentEnabled(selection, "infernal", "Nether Spirit")) {
     spellCrit += critFromSpiritRating(stats.spirit, INFERNAL.netherSpiritToCritRating);
@@ -198,9 +237,7 @@ export function infernalContext(
   ) {
     extraCrit += INFERNAL.felCannonCrit;
   }
-  if ((isFelfurySpender(spell) || isChaos(spell)) && has("infernal", "Archimonde's Wrath")) {
-    extraCrit += INFERNAL.archimondeCritPerTenEnergy * Math.floor(Math.max(0, auras.energy) / 10);
-  }
+  extraCrit += archimondesWrathCritBonus(auras.energy, selection, spell);
   if (auras.maliceCritRemain > 0 && has("infernal", "Malice of Gul'dan")) {
     extraCrit += INFERNAL.maliceCrit;
   }
@@ -226,10 +263,7 @@ export function infernalContext(
     damageTakenFromCaster: auras.baneOfFire ? 1.2 : 1,
     extraCrit,
     damageDone,
-    extraSpellPower:
-      (auras.innerDemon && has("infernal", "Hidden Power")
-        ? INFERNAL.hiddenPowerInnerSpirit * stats.spirit
-        : 0) + (auras.potionSpellPower || 0),
+    extraSpellPower: (auras.potionSpellPower || 0),
     extraHit: auras.felshockHitRemain > 0 ? INFERNAL.felshockHit : 0,
     ignoreLogCrit: true,
     guaranteedCrit: auras.guaranteedCrit,

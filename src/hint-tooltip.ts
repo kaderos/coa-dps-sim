@@ -32,6 +32,14 @@ export function bindHintTooltips(root: ParentNode, selector = "[data-hint-body]"
       card.appendChild(heading);
     }
 
+    const note = anchor.dataset.hintNote;
+    if (note) {
+      const sub = document.createElement("p");
+      sub.className = "hint-card__note";
+      sub.textContent = note;
+      card.appendChild(sub);
+    }
+
     const paragraphs = (body ?? "").split("\n\n").filter((line) => line.trim());
     if (!paragraphs.length && body) paragraphs.push(body);
     for (const text of paragraphs) {

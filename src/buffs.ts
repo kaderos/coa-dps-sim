@@ -4,6 +4,7 @@ import {
   emptyStats,
   offhandAcceptsOil,
   ratingsToPercent,
+  scalePrimaryStats,
   SPELL_CRIT_RATING_PER_PERCENT,
   SPELL_HIT_CAP,
   SPELL_HIT_RATING_PER_PERCENT,
@@ -49,22 +50,22 @@ const RAID_BUFFS: ToggleDef[] = [
   },
   {
     key: "greaterManariIntuition",
-    label: "Greater Man'ari Intuition — +12 all primary stats (14.4 with Dark Teachings)",
+    label: "Greater Man'ari Intuition — +12 all primary stats (14 with Dark Teachings)",
     note: "Also +285 armor",
     defaultOn: true,
-    stats: { intellect: 12, stamina: 12 },
+    stats: { intellect: 12, spirit: 12, stamina: 12, strength: 12, agility: 12 },
   },
   {
     key: "greaterBloodthorns",
     label: "Greater Bloodthorns — 21 Shadow damage to attackers",
     note: "Reactive damage; not included in player DPS",
-    defaultOn: true,
+    defaultOn: false,
     stats: {},
   },
   {
     key: "greaterSanguinaryOffering",
     label: "Greater Sanguinary Offering — +54 Stamina",
-    defaultOn: true,
+    defaultOn: false,
     stats: { stamina: 54 },
   },
   {
@@ -85,7 +86,7 @@ const RAID_BUFFS: ToggleDef[] = [
     key: "greaterWhispersOfNzoth",
     label: "Greater Whispers of N'zoth — +10% primary stats",
     note: "Int, Spirit, Str, Agi, Stamina · 30 min party/raid buff",
-    defaultOn: true,
+    defaultOn: false,
     stats: {},
     statScalePct: 10,
     statScaleKeys: ["strength", "agility", "intellect", "spirit", "stamina"],
@@ -95,7 +96,7 @@ const RAID_BUFFS: ToggleDef[] = [
     key: "greaterPrimalInstinct",
     label: "Greater Primal Instinct — +232 Attack Power",
     note: "30 min; no Infernal spell scaling",
-    defaultOn: true,
+    defaultOn: false,
     stats: { attackPower: 232 },
   },
   {
@@ -115,7 +116,7 @@ const RAID_BUFFS: ToggleDef[] = [
   {
     key: "greaterChromiesWisdom",
     label: "Greater Chromie's Wisdom — +40 Spirit",
-    defaultOn: true,
+    defaultOn: false,
     stats: { spirit: 40 },
   },
   {
@@ -133,7 +134,7 @@ const PARTY_BUFFS: ToggleDef[] = [
     key: "bloodthistle",
     label: "Bloodthistle — ~141 DPS (Kaldros log)",
     note: "Alchemist party proc; also heals the caster",
-    defaultOn: true,
+    defaultOn: false,
     stats: {},
     procDps: 141,
     procName: "Bloodthistle",
@@ -143,7 +144,7 @@ const PARTY_BUFFS: ToggleDef[] = [
     key: "neptulonsWrath",
     label: "Neptulon's Wrath — AP×0.35 on direct damage",
     note: "15s aura · 1 min CD · Kaldros log ~780 DPS (39 hits / 112s)",
-    defaultOn: true,
+    defaultOn: false,
     stats: {},
   },
   {
@@ -151,7 +152,7 @@ const PARTY_BUFFS: ToggleDef[] = [
     key: "frogBones",
     label: "Frog Bones — −3% damage taken (raid)",
     note: "2s alchemist splash; defensive, not included in DPS",
-    defaultOn: true,
+    defaultOn: false,
     stats: {},
   },
 ];
@@ -161,14 +162,14 @@ const HIT_BUFFS: ToggleDef[] = [
     key: "racialSpellHit",
     label: "Racial spell hit",
     note: "+1% spell hit",
-    defaultOn: true,
+    defaultOn: false,
     stats: { spellHit: 1 },
   },
   {
     key: "spellHitDebuff",
     label: "Spell hit debuff on target",
     note: "+3% spell hit",
-    defaultOn: true,
+    defaultOn: false,
     stats: { spellHit: 3 },
   },
 ];
@@ -205,6 +206,11 @@ const FOODS: Array<SelectOption<BuffsConfig["food"]>> = [
   },
 ];
 
+const SCROLLS: Array<SelectOption<BuffsConfig["scroll"]>> = [
+  { value: "none", label: "None", stats: {} },
+  { value: "spirit-iv", label: "Scroll of Spirit IV (+18 Spirit)", stats: { spirit: 18 } },
+];
+
 const WEAPON_OILS: Array<SelectOption<BuffsConfig["weaponOil"]>> = [
   { value: "none", label: "None", stats: {} },
   {
@@ -221,7 +227,7 @@ const CONSUME_TOGGLES: ToggleDef[] = [
     hintTitle: "Boss health decay",
     hintBody:
       "Simulates the boss losing health over the fight. Target HP falls linearly from 100% to 0% based on elapsed time and fight length.\n\nExample: at half the duration, the target is at 50% health.\n\nFel Cannon and Doomsayer only apply while health is above 75% (~first 25% of the fight).\n\nUncheck to keep the target at 100% like a training dummy.",
-    defaultOn: true,
+    defaultOn: false,
     stats: {},
   },
 ];
@@ -246,11 +252,12 @@ export const DEFAULT_BUFFS: BuffsConfig = {
     BooleanBuffKey,
     boolean
   >),
-  flask: "manifesting-power",
-  food: "well-fed",
-  weaponOil: "brilliant-wizard-oil",
-  offhandWeaponOil: "brilliant-wizard-oil",
-  potion: "prepot-and-second",
+  flask: "none",
+  food: "none",
+  scroll: "none",
+  weaponOil: "none",
+  offhandWeaponOil: "none",
+  potion: "none",
 };
 
 export function setupBuffs(onChange: () => void, saved?: Partial<BuffsConfig>): BuffsConfig {
@@ -312,6 +319,7 @@ export function statsFromBuffs(
   let consumes = emptyStats();
   consumes = addStats(consumes, optionStats(FLASKS, config.flask));
   consumes = addStats(consumes, optionStats(FOODS, config.food));
+  consumes = addStats(consumes, optionStats(SCROLLS, config.scroll));
   const oil = consumeOilStats(config, gear);
   consumes = addStats(consumes, { ...oil, spellCrit: 0, spellHit: 0, spellHaste: 0 });
   return addStats(addStats(percentBuffs(config, selection), consumes), ratingsToPercent(ratingConsumes(config, gear)));
@@ -328,17 +336,12 @@ export function procContributionsFromBuffs(config: BuffsConfig): Array<{ name: s
 
 /** Primary-stat percent buffs (Whispers of N'zoth) apply after flat gear and consume bonuses. */
 export function applyStatScaleBuffs(stats: CharacterStats, config: BuffsConfig): CharacterStats {
-  const scaled = { ...stats };
-  let changed = false;
+  let scaled: CharacterStats = stats;
   for (const def of ALL_TOGGLES) {
     if (!config[def.key] || !def.statScalePct || !def.statScaleKeys?.length) continue;
-    const factor = 1 + def.statScalePct / 100;
-    for (const key of def.statScaleKeys) {
-      scaled[key] = stats[key] * factor;
-    }
-    changed = true;
+    scaled = { ...scaled, ...scalePrimaryStats(scaled, 1 + def.statScalePct / 100) };
   }
-  return changed ? scaled : stats;
+  return scaled;
 }
 
 export function syncOffhandOilField(gear: GearSet) {
@@ -360,6 +363,7 @@ function mergeBuffs(base: BuffsConfig, saved?: Partial<BuffsConfig>): BuffsConfi
   }
   if (hasOption(FLASKS, saved.flask)) config.flask = saved.flask;
   if (hasOption(FOODS, saved.food)) config.food = saved.food;
+  if (hasOption(SCROLLS, saved.scroll)) config.scroll = saved.scroll;
   if (hasOption(WEAPON_OILS, saved.weaponOil)) config.weaponOil = saved.weaponOil;
   if (hasOption(WEAPON_OILS, saved.offhandWeaponOil)) config.offhandWeaponOil = saved.offhandWeaponOil;
   if (hasOption(POTIONS, saved.potion)) config.potion = saved.potion;
@@ -400,7 +404,7 @@ function optionStats<T extends string>(options: Array<SelectOption<T>>, value: T
 function renderControls(config: BuffsConfig): string {
   return [
     fieldset("Raid buffs", "buff-raid", RAID_BUFFS.map((def) => checkbox(def, config)).join("")),
-    fieldset("Party buffs", "buff-party", PARTY_BUFFS.map((def) => checkbox(def, config)).join("")),
+    fieldset("Other Buffs", "buff-party", PARTY_BUFFS.map((def) => checkbox(def, config)).join("")),
     fieldset(
       "Spell hit",
       "buff-hit",
@@ -414,6 +418,7 @@ function renderControls(config: BuffsConfig): string {
         select("Flask", "flask", FLASKS, config.flask),
         select("Main-hand oil", "weaponOil", WEAPON_OILS, config.weaponOil),
         select("Food", "food", FOODS, config.food),
+        select("Scroll", "scroll", SCROLLS, config.scroll),
         select("Off-hand oil", "offhandWeaponOil", WEAPON_OILS, config.offhandWeaponOil, "offhand-oil-field"),
         select("Potion", "potion", POTIONS, config.potion),
       ].join("")}</div>${CONSUME_TOGGLES.map((def) => checkbox(def, config)).join("")}`,
