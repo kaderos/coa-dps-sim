@@ -1,7 +1,6 @@
 {
   "class": "Felsworn",
   "choice": "Gul'dan's Gift",
-  "note": "Taken class-tree talents from the Vol'jin builder. Cooldowns: Annihilation 45s, Reckoning 2m, Skull of Gul'dan 1.5m with Gul'dan's Gift, Blood of Mannoroth 3m. Base Energy regen 10/s.",
   "talents": [
     { "name": "Annihilation", "rank": "1/1", "combat": true, "effect": "No GCD. Next 5 direct hits are guaranteed crits (12s). No damage. Grants Sculptor of Doom via The True Blessing. Used when Sculptor is down, Felfury >= 2, Inner Demon and Bane are up." },
     { "name": "Hateforged Barrier", "rank": "1/1", "combat": false, "effect": "Absorb shield. Unused in stationary fights." },

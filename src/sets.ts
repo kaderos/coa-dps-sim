@@ -18,6 +18,7 @@ function emptyStats(): ItemStats {
     spellCrit: 0,
     spellHit: 0,
     spellHaste: 0,
+    spellPenetration: 0,
     mp5: 0,
   };
 }
@@ -36,6 +37,7 @@ function addStats(a: ItemStats, b: ItemStats): ItemStats {
     spellCrit: a.spellCrit + b.spellCrit,
     spellHit: a.spellHit + b.spellHit,
     spellHaste: a.spellHaste + b.spellHaste,
+    spellPenetration: (a.spellPenetration || 0) + (b.spellPenetration || 0),
     mp5: a.mp5 + b.mp5,
   };
 }
@@ -139,6 +141,24 @@ export function setProgressForItem(item: Item, gear: GearSet): EquippedSet | nul
   if (!item.setName) return null;
   const found = equippedSets(gear).find((set) => set.name === item.setName);
   return found ?? setProgress(item.setName, 0, item);
+}
+
+/** Flat set crit rating and intellect→crit scaling for stat panel breakdowns. */
+export function setSpellCritParts(gear: GearSet, stats: ItemStats): { flatRating: number; fromIntellectRating: number } {
+  let flatRating = 0;
+  let fromIntellectRating = 0;
+  for (const set of equippedSets(gear)) {
+    for (const bonus of set.bonuses) {
+      if (!bonus.active) continue;
+      const parsed = parseSetBonus(bonus.text);
+      flatRating += parsed.stats.spellCrit;
+      for (const row of parsed.scaling) {
+        if (row.dest !== "spellCrit" || row.source !== "intellect") continue;
+        fromIntellectRating += stats.intellect * row.percent;
+      }
+    }
+  }
+  return { flatRating, fromIntellectRating };
 }
 
 export function setBonusRatings(gear: GearSet, base: ItemStats): ItemStats {
@@ -290,6 +310,12 @@ export function parseSetBonus(text: string): ParsedSetBonus {
     /increases(?: your)? (intellect|spirit|stamina|strength|agility) by (\d+(?:\.\d+)?)(?!\s*%)/gi,
   )) {
     add(PRIMARY[match[1].toLowerCase()], Number(match[2]));
+  }
+  for (const match of raw.matchAll(/increases(?: your)? spell penetration by (\d+(?:\.\d+)?)/gi)) {
+    add("spellPenetration", Number(match[1]));
+  }
+  for (const match of raw.matchAll(/\+(\d+(?:\.\d+)?)\s+spell penetration/gi)) {
+    add("spellPenetration", Number(match[1]));
   }
   for (const match of raw.matchAll(/restores (\d+(?:\.\d+)?) mana per 5 sec/gi)) {
     add("mp5", Number(match[1]));

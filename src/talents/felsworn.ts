@@ -42,6 +42,28 @@ export const FELSWORN = {
   bloodOfMannorothRegenDuration: 20,
 };
 
+/** Naked level 60 Felsworn primary stats (before gear). */
+export const FELSWORN_BASE_STATS: Readonly<ItemStats> = {
+  strength: 70,
+  agility: 100,
+  intellect: 72,
+  spirit: 72,
+  stamina: 115,
+  spellPower: 0,
+  firePower: 0,
+  shadowPower: 0,
+  attackPower: 0,
+  spellCrit: 0,
+  spellHit: 0,
+  spellHaste: 0,
+  spellPenetration: 0,
+  mp5: 0,
+};
+
+export function felswornBaseStats(): ItemStats {
+  return { ...FELSWORN_BASE_STATS };
+}
+
 export function applyFelswornPassives(stats: CharacterStats, selection?: TalentSelection): CharacterStats {
   let spellCrit = stats.spellCrit;
   let energyMax = stats.energyMax;
@@ -104,8 +126,9 @@ export function scalePactStats(stats: ItemStats, selection?: TalentSelection): I
 
 function scalePartial(stats: ItemStats, factor: number): ItemStats {
   const out = { ...stats };
-  (Object.keys(out) as Array<keyof ItemStats>).forEach((key) => {
-    out[key] = stats[key] * factor;
-  });
+  for (const key of ["strength", "agility", "intellect", "spirit", "stamina"] as const) {
+    const value = out[key];
+    if (value) out[key] = Math.floor(value * factor);
+  }
   return out;
 }

@@ -132,6 +132,8 @@ const STAT_ALIASES = {
   spellhaste: "spellHaste",
   haste: "spellHaste",
   hasterating: "spellHaste",
+  spellpenetration: "spellPenetration",
+  spellpen: "spellPenetration",
   mp5: "mp5",
   manaper5: "mp5",
 };
@@ -373,6 +375,7 @@ function normalizeItem(raw) {
   const slot = normalizeSlot(rawSlot);
   const stats = normalizeStats(raw);
   const tooltip = parseTooltip(raw);
+  applyEffectSpellPenetration(stats, tooltip.effects);
   const phase = Number(raw.phase ?? 0) || null;
   const source = raw.source ?? raw.sourceCategory ?? null;
   const sourceCategory = raw.sourceCategory ?? null;
@@ -546,6 +549,20 @@ function normalizeSlot(value) {
   return SLOT_ALIASES[lower] || SLOT_ALIASES[key] || "mainhand";
 }
 
+function parseSpellPenetrationFromText(text) {
+  if (!text || /armor penetration/i.test(text)) return 0;
+  const equip = /(?:spell penetration|spelldamage penetration).*?by (\d+)/i.exec(String(text));
+  if (equip) return Number(equip[1]) || 0;
+  const plus = /\+(\d+)\s+spell penetration\b/i.exec(String(text));
+  return plus ? Number(plus[1]) || 0 : 0;
+}
+
+function applyEffectSpellPenetration(stats, lines) {
+  for (const line of lines || []) {
+    stats.spellPenetration += parseSpellPenetrationFromText(line);
+  }
+}
+
 function normalizeStats(raw) {
   const stats = {
     strength: 0,
@@ -560,6 +577,7 @@ function normalizeStats(raw) {
     spellCrit: 0,
     spellHit: 0,
     spellHaste: 0,
+    spellPenetration: 0,
     mp5: 0,
   };
   const bag = raw.stats || raw.stat || raw.bonuses || raw;
@@ -698,6 +716,7 @@ function normalizeEnchant(raw) {
   const key = lower.replace(/[\s-]+/g, "");
   const normalized = ENCHANT_SLOT_ALIASES[lower] || ENCHANT_SLOT_ALIASES[key] || normalizeSlot(rawSlot);
   const stats = normalizeStats(raw);
+  if (raw.description) stats.spellPenetration += parseSpellPenetrationFromText(raw.description);
   const applies = enchantAppliesTo(normalized);
   return {
     id,

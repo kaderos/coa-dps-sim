@@ -1,5 +1,12 @@
 import type { CharacterStats, EnchantSet, GearSet, Item, ItemStats, Slot } from "../types";
 import { setBonusRatings } from "../sets";
+import { felswornBaseStats } from "../talents/felsworn";
+
+export type HiddenPowerSpellBonus = {
+  intellect: number;
+  spirit: number;
+  total: number;
+};
 
 const EMPTY_STATS: ItemStats = {
   strength: 0,
@@ -14,6 +21,7 @@ const EMPTY_STATS: ItemStats = {
   spellCrit: 0,
   spellHit: 0,
   spellHaste: 0,
+  spellPenetration: 0,
   mp5: 0,
 };
 
@@ -23,11 +31,26 @@ export const BOSS_LEVEL = 63;
 export const SPELL_HIT_CAP = 17;
 /** CoA rating conversions. Gear hit/crit/haste from Bisbeard are ratings. */
 export const SPELL_CRIT_RATING_PER_PERCENT = 14;
+export const SPELL_CRIT_INTELLECT_PER_PERCENT = 61;
 export const SPELL_HIT_RATING_PER_PERCENT = 8;
 export const SPELL_HASTE_RATING_PER_PERCENT = 10;
 
 export function emptyStats(): ItemStats {
   return { ...EMPTY_STATS };
+}
+
+export const PRIMARY_STAT_KEYS = ["strength", "agility", "intellect", "spirit", "stamina"] as const satisfies ReadonlyArray<
+  keyof ItemStats
+>;
+
+/** CoA floors primary stats after multiplicative buff scaling. */
+export function scalePrimaryStats(stats: ItemStats, factor: number): ItemStats {
+  const out = { ...stats };
+  for (const key of PRIMARY_STAT_KEYS) {
+    const value = out[key];
+    if (value) out[key] = Math.floor(value * factor);
+  }
+  return out;
 }
 
 /** `spellHit` is percentage points after rating conversion. Base miss is 17% vs a +3 raid boss. */
@@ -50,8 +73,14 @@ export function addStats(a: ItemStats, b: ItemStats): ItemStats {
     spellCrit: a.spellCrit + b.spellCrit,
     spellHit: a.spellHit + b.spellHit,
     spellHaste: a.spellHaste + b.spellHaste,
+    spellPenetration: (a.spellPenetration || 0) + (b.spellPenetration || 0),
     mp5: a.mp5 + b.mp5,
   };
+}
+
+/** spellPower plus the higher of firePower or shadowPower (CoA school stacking). */
+export function schoolSpellPower(stats: Pick<ItemStats, "spellPower" | "firePower" | "shadowPower">): number {
+  return stats.spellPower + Math.max(stats.firePower, stats.shadowPower);
 }
 
 export function ratingsToPercent(stats: ItemStats): ItemStats {
@@ -63,8 +92,13 @@ export function ratingsToPercent(stats: ItemStats): ItemStats {
   };
 }
 
+/** Base spell crit from Intellect (61 Intellect = 1% crit). */
+export function intellectCritPercent(intellect: number): number {
+  return Math.max(0, intellect) / SPELL_CRIT_INTELLECT_PER_PERCENT;
+}
+
 export function ratingsFromGear(gear: GearSet, enchants: EnchantSet = {}): ItemStats {
-  let stats = emptyStats();
+  let stats = felswornBaseStats();
   for (const [slot, item] of Object.entries(gear) as Array<[Slot, Item | null | undefined]>) {
     if (!item?.stats) continue;
     if (slot === "offhand" && isTwoHand(gear.mainhand)) continue;
@@ -78,23 +112,59 @@ export function ratingsFromGear(gear: GearSet, enchants: EnchantSet = {}): ItemS
   return addStats(stats, setBonusRatings(gear, stats));
 }
 
+export function ratingsFromGearWithoutSets(gear: GearSet, enchants: EnchantSet = {}): ItemStats {
+  let stats = felswornBaseStats();
+  for (const [slot, item] of Object.entries(gear) as Array<[Slot, Item | null | undefined]>) {
+    if (!item?.stats) continue;
+    if (slot === "offhand" && isTwoHand(gear.mainhand)) continue;
+    stats = addStats(stats, item.stats);
+  }
+  for (const [slot, enchant] of Object.entries(enchants) as Array<[Slot, EnchantSet[Slot]]>) {
+    if (!enchant?.stats) continue;
+    if (!enchantFitsSlot(enchant, slot, gear[slot] ?? null, gear.mainhand ?? null)) continue;
+    stats = addStats(stats, enchant.stats);
+  }
+  return stats;
+}
+
+export function statsFromGearWithoutSets(gear: GearSet, enchants: EnchantSet = {}): ItemStats {
+  return ratingsToPercent(ratingsFromGearWithoutSets(gear, enchants));
+}
+
 export function statsFromGear(gear: GearSet, enchants: EnchantSet = {}): ItemStats {
   return ratingsToPercent(ratingsFromGear(gear, enchants));
 }
 
+/** Hidden Power spell damage: +15% of Intellect and +15% of Spirit. Inner Demon's +20% Spirit is crit only. */
+export function hiddenPowerSpellBonus(
+  stats: Pick<ItemStats, "intellect" | "spirit">,
+  hiddenPower = 0,
+): HiddenPowerSpellBonus {
+  if (!hiddenPower) return { intellect: 0, spirit: 0, total: 0 };
+  const intellect = hiddenPower * stats.intellect;
+  const spirit = hiddenPower * stats.spirit;
+  return { intellect, spirit, total: intellect + spirit };
+}
+
 export function effectiveSpellPower(stats: ItemStats, hiddenPower = 0): number {
-  const school = Math.max(stats.firePower, stats.shadowPower);
-  return stats.spellPower + school + hiddenPower * (stats.intellect + stats.spirit);
+  return schoolSpellPower(stats) + hiddenPowerSpellBonus(stats, hiddenPower).total;
 }
 
-/** Total Fire spell power (base + fire school + Hidden Power primary stat bonus). */
+/** Spell Power shown in the gear sidebar. */
+export function displaySpellPower(stats: ItemStats, hiddenPower = 0): number {
+  return effectiveSpellPower(stats, hiddenPower);
+}
+
+/** Total Fire spell power (base + fire school + Hidden Power bonus). */
 export function fireSpellPower(stats: ItemStats, hiddenPower = 0, extra = 0): number {
-  return stats.spellPower + stats.firePower + hiddenPower * (stats.intellect + stats.spirit) + extra;
+  const hp = hiddenPowerSpellBonus(stats, hiddenPower);
+  return stats.spellPower + stats.firePower + hp.total + extra;
 }
 
-/** Total Shadow spell power (base + shadow school + Hidden Power primary stat bonus). */
+/** Total Shadow spell power (base + shadow school + Hidden Power bonus). */
 export function shadowSpellPower(stats: ItemStats, hiddenPower = 0, extra = 0): number {
-  return stats.spellPower + stats.shadowPower + hiddenPower * (stats.intellect + stats.spirit) + extra;
+  const hp = hiddenPowerSpellBonus(stats, hiddenPower);
+  return stats.spellPower + stats.shadowPower + hp.total + extra;
 }
 
 /** Pick FireP or ShaP branch and its coefficient for db.ascension.gg COND formulas. */

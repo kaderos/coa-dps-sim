@@ -1,6 +1,13 @@
 import type { SimActiveAura } from "./types";
 
-const STACKED_AURAS = new Set(["Chaotic", "Reckoning", "Annihilation", "Inner Demon", "Felstrike"]);
+const STACKED_AURAS = new Set([
+  "Chaotic",
+  "Reckoning",
+  "Annihilation",
+  "Inner Demon",
+  "Felstrike",
+  "Archimonde's Wrath",
+]);
 
 /** Short hover text for procs/buffs listed in expanded cast-log rows. */
 const CAST_LOG_AURA_HINTS: Record<string, string> = {
@@ -16,6 +23,7 @@ const CAST_LOG_AURA_HINTS: Record<string, string> = {
   "Felheart Raiment (6pc)": "Set bonus — +10% damage vs targets above 75% health.",
   "Fel Cannon": "+20% Fel Fireball and Ruin crit while the target is above 75% health.",
   "Sculptor of Doom": "Sculptor proc — next Ruin within 8s is instant (still costs 2 Felfury).",
+  "Archimonde's Wrath": "Felfury spenders — +1% crit per 10 Energy at cast.",
   Felstrike: "Periodic Fire damage on the target; stacks from Fel Fireball during Inner Demon.",
 };
 
@@ -25,6 +33,7 @@ const STACK_NOTES: Partial<Record<string, (stacks: number) => string>> = {
   Reckoning: (stacks) => `${stacks} stack${stacks === 1 ? "" : "s"} → +${stacks * 4}% damage.`,
   Annihilation: (stacks) => `${stacks} guaranteed crit${stacks === 1 ? "" : "s"} remaining.`,
   Felstrike: (stacks) => `${stacks} stack${stacks === 1 ? "" : "s"} ticking.`,
+  "Archimonde's Wrath": (stacks) => `+${stacks}% crit (${stacks * 10}+ Energy at cast).`,
 };
 
 export function formatCastLogAuraLabel(aura: SimActiveAura): string {
@@ -34,7 +43,10 @@ export function formatCastLogAuraLabel(aura: SimActiveAura): string {
 
 function castLogAuraHintBody(aura: SimActiveAura): string {
   const base = CAST_LOG_AURA_HINTS[aura.name] ?? "Active proc or buff affecting this hit.";
-  const stackNote = aura.stacks > 1 ? STACK_NOTES[aura.name]?.(aura.stacks) : undefined;
+  const stackNote =
+    aura.stacks > 1 || aura.name === "Archimonde's Wrath"
+      ? STACK_NOTES[aura.name]?.(aura.stacks)
+      : undefined;
   return stackNote ? `${base} ${stackNote}` : base;
 }
 

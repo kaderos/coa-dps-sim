@@ -68,8 +68,7 @@ h1, h2, h3 { margin: 0 0 8px; }
   font-size: 11px;
   color: var(--muted);
 }
-body.sim-running button.gear-sim__run,
-body.sim-running button.results-empty__run {
+body.sim-running button.gear-sim__run {
   opacity: 0.65;
   cursor: wait;
 }
@@ -102,6 +101,38 @@ main {
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 16px;
+}
+.bisbeard-import {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #120f1a;
+}
+.bisbeard-import__field {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+.bisbeard-import__field .bisbeard-import__link {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: none;
+}
+.bisbeard-import__field .bisbeard-import__link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.bisbeard-import__field input {
+  width: 100%;
+}
+.bisbeard-import__status.is-error {
+  color: #f87171;
 }
 .paperdoll {
   display: grid;
@@ -256,10 +287,16 @@ main {
   box-shadow: 0 8px 24px rgb(0 0 0 / 55%);
 }
 .hint-card__title {
-  margin: 0 0 8px;
+  margin: 0 0 4px;
   font-size: 13px;
   font-weight: 700;
   color: #ddd6fe;
+}
+.hint-card__note {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
 }
 .hint-card__body {
   margin: 0;
@@ -781,9 +818,6 @@ legend { padding: 0 6px; font-weight: 700; }
   align-items: flex-start;
   gap: 12px;
   max-width: 420px;
-}
-.results-empty__run {
-  padding: 10px 16px;
 }
 .result-summary .compare { grid-column: 1 / -1; }
 .metric-grid {

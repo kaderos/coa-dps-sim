@@ -7,6 +7,7 @@ import {
   applyTakenTalents,
 } from "../talents/taken";
 import {
+  archimondesWrathApplies,
   fireballCastTime,
   fireballEnergyCost,
   INFERNAL,
@@ -106,6 +107,8 @@ export type FightOptions = {
   targetStartHealth?: number;
   /** Allied Shaman aura — AP×0.35 on each direct damage hit while active. */
   neptulonsWrath?: boolean;
+  /** Demonfire Pact buff — Fel Infusion personal crit is 3% while active, 6% when off. */
+  demonfirePact?: boolean;
 };
 
 export type Aura = {
@@ -205,7 +208,9 @@ export function runOnce(
   fightSec: number;
   castLogTruncated: boolean;
 } {
-  const specStats = applyTakenTalents(stats, options.talentSelection);
+  const specStats = applyTakenTalents(stats, options.talentSelection, {
+    demonfirePact: options.demonfirePact !== false,
+  });
   const fireball = spells["501288"];
   const ruin = spells["501298"];
   const smite = spells["501321"];
@@ -493,13 +498,13 @@ function chooseAction(
   return null;
 }
 
-function combatContext(spell: SpellFit, stats: CharacterStats, state: FightState) {
+function combatContext(spell: SpellFit, stats: CharacterStats, state: FightState, energyAtCast?: number) {
   return infernalContext(spell, stats, {
     innerDemon: Boolean(state.innerDemon),
     baneOfFire: Boolean(state.baneOfFire),
     maliceCritRemain: state.maliceCritRemain,
     felshockHitRemain: state.felshockHitRemain,
-    energy: state.energy,
+    energy: energyAtCast ?? state.energy,
     chaoticStacks: state.chaotic?.stacks ?? 0,
     reckoningStacks: state.reckoningPower?.stacks ?? 0,
     guaranteedCrit: Boolean(state.annihilation && state.annihilation.stacks > 0),
@@ -513,7 +518,12 @@ function combatContext(spell: SpellFit, stats: CharacterStats, state: FightState
 }
 
 /** Buffs/procs that were active when infernalContext calculated this spell's damage. */
-function snapshotDamageAuras(state: FightState, spell: SpellFit, sculptorProc = false): SimActiveAura[] {
+function snapshotDamageAuras(
+  state: FightState,
+  spell: SpellFit,
+  options: { sculptorProc?: boolean; energyAtCast?: number } = {},
+): SimActiveAura[] {
+  const { sculptorProc = false, energyAtCast } = options;
   const auras: SimActiveAura[] = [];
   const push = (name: string, stacks = 1) => {
     if (stacks > 0) auras.push({ name, stacks });
@@ -541,6 +551,10 @@ function snapshotDamageAuras(state: FightState, spell: SpellFit, sculptorProc = 
     push("Fel Cannon");
   }
   if (isRuin(spell) && (state.ruinProc || sculptorProc)) push("Sculptor of Doom");
+  if (energyAtCast != null && archimondesWrathApplies(spell, state.talentSelection)) {
+    const stacks = Math.floor(Math.max(0, energyAtCast) / 10);
+    if (stacks > 0) push("Archimonde's Wrath", stacks);
+  }
 
   return auras;
 }
@@ -752,8 +766,8 @@ function cast(
     return;
   }
 
-  const ctx = combatContext(spell, stats, state);
-  const activeAuras = snapshotDamageAuras(state, spell, isProcRuin);
+  const ctx = combatContext(spell, stats, state, logEnergy);
+  const activeAuras = snapshotDamageAuras(state, spell, { sculptorProc: isProcRuin, energyAtCast: logEnergy });
   const roll = rollSpellDamage(spell, stats, rng, true, ctx);
   deal(state, spell.name, roll.amount, true, roll.isCrit, roll.isMiss, true, rng, true);
   logCast(state, spell.name, roll.isMiss ? "miss" : roll.isCrit ? "crit" : "hit", roll.amount, activeAuras, logResources);
@@ -797,7 +811,7 @@ function cast(
       formulaSpell: smiteSpell,
       critSpell: smiteSpell,
     });
-    deal(state, chaosSpell.name, chaosRoll.amount, true, chaosRoll.isCrit, chaosRoll.isMiss, true, rng, true);
+    deal(state, chaosSpell.name, chaosRoll.amount, true, chaosRoll.isCrit, chaosRoll.isMiss, false, rng, true);
     logCast(
       state,
       chaosSpell.name,

@@ -2,22 +2,21 @@ import type { Item, ItemStats } from "./types";
 
 export type StatWeights = Record<keyof ItemStats, number>;
 
-// Extracted from the Bisbeard dump (cgp_coa_weights → Felsworn-Infernal).
-// Stats the export does not weight (stamina, hit, mp5) start at 0; hit is left
-// to the user because the 17% cap makes its value all-or-nothing.
+// Bisbeard Felsworn–Infernal defaults (CoA gear planner).
 export const DEFAULT_STAT_WEIGHTS: Readonly<StatWeights> = {
   strength: 0,
   agility: 0,
-  intellect: 0.414,
-  spirit: 0.517,
-  stamina: 0,
+  intellect: 0.76,
+  spirit: 1.11,
+  stamina: 0.4,
   spellPower: 1,
   firePower: 1,
   shadowPower: 1,
   attackPower: 0,
-  spellCrit: 1.242,
+  spellCrit: 1.6,
   spellHit: 0,
-  spellHaste: 0.6,
+  spellHaste: 0.5,
+  spellPenetration: 0,
   mp5: 0,
 };
 

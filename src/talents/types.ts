@@ -8,14 +8,14 @@ export type TalentEntry = {
 export type FelswornTalentDoc = {
   class: string;
   choice: string;
-  note: string;
+  note?: string;
   talents: TalentEntry[];
 };
 
 export type InfernalTalentDoc = {
   spec: string;
   choice: string;
-  note: string;
+  note?: string;
   talents: TalentEntry[];
 };
 
