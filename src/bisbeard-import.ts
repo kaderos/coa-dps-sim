@@ -1,8 +1,6 @@
 import { decompressFromEncodedURIComponent } from "lz-string";
 import type { Slot } from "./types";
 
-const BISBEARD_API = "https://gear-planner-api.bisbeard.workers.dev";
-
 /** Bisbeard gear[] / enchants[] slot order (17 equipment slots). */
 export const BISBEARD_GEAR_SLOTS: Slot[] = [
   "head",
@@ -68,30 +66,34 @@ export function parseBisbeardBuildId(input: string): string | null {
   return null;
 }
 
-function buildApiUrl(buildId: string): string {
-  return `${BISBEARD_API}/api/builds/${encodeURIComponent(buildId)}`;
+/** Same-origin proxy path — dev uses Vite; production uses bisbeard-sw.js. */
+export function bisbeardProxyBase(): string {
+  if (import.meta.env.DEV) return "/bisbeard-api";
+  return `${import.meta.env.BASE_URL}bisbeard-api`.replace(/\/$/, "");
 }
 
-function proxyBase(): string | null {
-  const configured = import.meta.env.VITE_BISBEARD_PROXY?.trim();
-  if (configured) return configured.replace(/\/$/, "");
-  if (import.meta.env.DEV) return "/bisbeard-api";
-  return null;
+export async function ensureBisbeardProxyReady(): Promise<void> {
+  if (import.meta.env.DEV) return;
+  if (!("serviceWorker" in navigator)) {
+    throw new BisbeardImportError("Bisbeard import requires service workers, which this browser does not support.");
+  }
+  await navigator.serviceWorker.register(`${import.meta.env.BASE_URL}bisbeard-sw.js`, {
+    scope: import.meta.env.BASE_URL,
+  });
+  await navigator.serviceWorker.ready;
 }
 
 async function fetchBuildJson(buildId: string): Promise<BisbeardBuildResponse> {
-  const target = buildApiUrl(buildId);
-  const proxy = proxyBase();
-  const url = proxy ? `${proxy}/api/builds/${encodeURIComponent(buildId)}` : target;
+  const proxy = bisbeardProxyBase();
+  const url = `${proxy}/api/builds/${encodeURIComponent(buildId)}`;
 
   let response: Response;
   try {
     response = await fetch(url);
-  } catch {
+  } catch (cause) {
+    console.error("[bisbeard-import] proxy fetch failed", url, cause);
     throw new BisbeardImportError(
-      proxy
-        ? "Could not reach the Bisbeard import proxy. Check your connection and try again."
-        : "Bisbeard import is not configured for this host (missing CORS proxy).",
+      "Could not reach the Bisbeard import proxy. Hard-refresh the page (Ctrl+F5) and try again.",
     );
   }
 
@@ -162,6 +164,7 @@ export async function loadBisbeardBuild(input: string): Promise<BisbeardMappedBu
   if (!buildId) {
     throw new BisbeardImportError("Paste a Bisbeard share URL (coa.bisbeard.com/b/…) or build id.");
   }
+  await ensureBisbeardProxyReady();
   const response = await fetchBuildJson(buildId);
   const build = decodeBisbeardBuild(response.data);
   return mapBisbeardBuild(build);

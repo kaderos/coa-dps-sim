@@ -2,7 +2,7 @@ name: Deploy GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/bisbeard-import-ui-updates]
   workflow_dispatch:
 
 permissions:
@@ -15,7 +15,44 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  bisbeard-proxy:
+    runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.proxy-url.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Deploy Bisbeard CORS proxy
+        id: deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "No CLOUDFLARE_API_TOKEN — skip proxy deploy."
+            exit 0
+          fi
+          output=$(npx wrangler deploy --config workers/bisbeard-build-proxy/wrangler.toml 2>&1)
+          echo "$output"
+          url=$(echo "$output" | grep -Eo 'https://[a-zA-Z0-9.-]+\.workers\.dev' | tail -1)
+          echo "deployed_url=$url" >> "$GITHUB_OUTPUT"
+      - name: Resolve proxy URL
+        id: proxy-url
+        run: |
+          if [ -n "${{ vars.BISBEARD_PROXY_URL }}" ]; then
+            echo "url=${{ vars.BISBEARD_PROXY_URL }}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ steps.deploy.outputs.deployed_url }}" ]; then
+            echo "url=${{ steps.deploy.outputs.deployed_url }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "No Bisbeard proxy URL (set vars.BISBEARD_PROXY_URL or secrets.CLOUDFLARE_API_TOKEN)."
+          fi
+
   build:
+    needs: bisbeard-proxy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,7 +63,7 @@ jobs:
       - run: npm ci
       - run: npm run build
         env:
-          VITE_BISBEARD_PROXY: ${{ vars.BISBEARD_PROXY_URL }}
+          VITE_BISBEARD_PROXY: ${{ vars.BISBEARD_PROXY_URL != '' && vars.BISBEARD_PROXY_URL || needs.bisbeard-proxy.outputs.url }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
