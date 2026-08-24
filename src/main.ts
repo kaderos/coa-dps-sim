@@ -40,7 +40,7 @@ import { setupTalents } from "./talents/ui";
 import type { FelswornTalentDoc, InfernalTalentDoc } from "./talents/types";
 import { applyTakenTalents } from "./talents/taken";
 import { loadSession, restoreEnchantSet, restoreGearSet, saveEnchantSet, saveGearSet, saveSession } from "./persist";
-import { BisbeardImportError, loadBisbeardBuild, type BisbeardMappedBuild } from "./bisbeard-import";
+import { BisbeardImportError, ensureBisbeardProxyReady, loadBisbeardBuild, type BisbeardMappedBuild } from "./bisbeard-import";
 import { bindHintTooltips } from "./hint-tooltip";
 import { primaryStatBreakdown, primaryStatHintBody, spellCritBreakdown, spellCritHintBody, spellCritRatingNote, spellPowerBreakdown, spellPowerHintBody, statLayerBreakdown, statLayerHintBody } from "./stat-breakdown";
 import { hydrateEnchantEffectStats, hydrateItemEffectStats } from "./effect-stats";
@@ -162,6 +162,7 @@ async function load() {
   if (session.selectedPhase) selectedPhase = session.selectedPhase;
 
   setupItemPicker();
+  void ensureBisbeardProxyReady().catch((err) => console.warn("[coa-sim] Bisbeard proxy SW:", err));
   setupBisbeardImport();
   setupTabs();
   statWeights = loadStatWeights();
