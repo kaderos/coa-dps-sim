@@ -17,6 +17,9 @@
   --quality-artifact: #e6cc80;
 }
 * { box-sizing: border-box; }
+html {
+  scrollbar-gutter: stable;
+}
 html, body {
   margin: 0;
   background: var(--bg);
@@ -92,9 +95,6 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   outline-offset: 2px;
 }
 main {
-  display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 16px;
   padding: 16px 24px 48px;
 }
 .panel {
@@ -504,22 +504,62 @@ footer { padding: 0 24px 24px; font-size: 12px; }
   border-bottom-color: var(--panel);
   margin-bottom: -1px;
 }
-.tab-content { display: block; max-width: 1240px; margin: 0 auto; }
-.tab-panel[hidden] { display: none; }
-.gear-panel.is-active,
-.gear-panel:not([hidden]) {
+.tab-content {
+  max-width: 1240px;
+  margin: 0 auto;
+}
+.app-layout {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
   gap: 16px;
   align-items: start;
 }
-.gear-sim {
+.tab-panels {
+  min-width: 0;
+}
+.tab-panel[hidden] { display: none; }
+.gear-sidebar {
   position: sticky;
   top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.gear-sim {
   padding: 12px;
   background: #14111d;
   border: 1px solid var(--line);
   border-radius: 10px;
+}
+.gear-sim__progress {
+  margin: 8px 0 0;
+  min-width: 0;
+}
+.gear-sim__progress[hidden] {
+  display: none !important;
+}
+.gear-sidebar__settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.gear-sidebar__settings label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text);
+  min-width: 0;
+}
+.gear-sidebar__settings input {
+  width: 100%;
+  min-width: 0;
+}
+.gear-sim__hint {
+  margin: 12px 0 0;
 }
 .gear-sim__head {
   display: flex;
@@ -531,7 +571,12 @@ footer { padding: 0 24px 24px; font-size: 12px; }
 .gear-sim__head h3 { margin: 0; font-size: 14px; }
 .gear-sim__run {
   width: 100%;
-  margin-bottom: 10px;
+  margin-bottom: 0;
+}
+#gear-sim-details {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
 }
 .gear-sim__dps {
   font-size: 32px;
@@ -541,7 +586,6 @@ footer { padding: 0 24px 24px; font-size: 12px; }
 }
 .gear-sim__dps small { font-size: 14px; color: var(--muted); font-weight: 600; }
 .gear-sim__delta { margin-top: 4px; font-size: 13px; font-weight: 600; }
-.gear-main { min-width: 0; }
 .gear-sim__metrics {
   display: flex;
   flex-direction: column;
@@ -901,6 +945,13 @@ tr.unmodeled td { color: var(--muted); }
   line-height: 1.5;
 }
 .cast-log-buffs li::marker { content: "> "; }
+.cast-log-buffs .hint-anchor {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-decoration-color: #6b608a;
+  text-underline-offset: 2px;
+}
+.cast-log-buffs .hint-anchor:hover { color: var(--text); }
 .uptime-list { display: grid; gap: 9px; }
 .uptime-list > div {
   display: grid;
@@ -967,12 +1018,11 @@ tr.unmodeled td { color: var(--muted); }
       "consumes";
   }
   .buff-raid { grid-template-columns: 1fr; }
-  .gear-panel.is-active,
-  .gear-panel:not([hidden]) {
+  .app-layout {
     grid-template-columns: 1fr;
   }
   .talent-layout { grid-template-columns: 1fr; }
-  .gear-sim { position: static; }
+  .gear-sidebar { position: static; }
   .result-summary { display: block; }
   .metric-grid { margin-top: 12px; }
 }

@@ -1,4 +1,6 @@
-import type { SimActiveAura, SimCastEvent, SimResult } from "./types";
+import type { SimCastEvent, SimResult } from "./types";
+import { renderCastLogAuraItem } from "./cast-log-hints";
+import { bindHintTooltips } from "./hint-tooltip";
 import { CAST_EVENT_LOG_LIMIT } from "./sim/infernal";
 
 export type SimSnapshot = {
@@ -28,28 +30,31 @@ export function renderGearSimCard(
   pinned: SimSnapshot | null,
   actions: { onSimulate: () => void; onPin: () => void; onUnpin: () => void },
 ) {
-  const root = document.getElementById("gear-sim-summary");
-  if (!root) return;
+  const summary = document.getElementById("gear-sim-summary");
+  const details = document.getElementById("gear-sim-details");
+  if (!summary || !details) return;
+
   if (!current) {
-    root.innerHTML = `
+    summary.innerHTML = `
       <div class="gear-sim__head">
         <h3>Sim</h3>
       </div>
-      <button class="gear-sim__run" id="gear-sim-run" type="button">Simulate</button>
-      <p class="hint">Pin a result, change gear, then simulate again to compare.</p>`;
+      <button class="gear-sim__run" id="gear-sim-run" type="button">Simulate</button>`;
+    details.innerHTML = `<p class="hint gear-sim__hint">Pin a result, change gear, then simulate again to compare.</p>`;
     wireGearSimActions(actions);
     return;
   }
 
   const comparing = Boolean(pinned && pinned !== current);
-  root.innerHTML = `
+  summary.innerHTML = `
     <div class="gear-sim__head">
       <h3>${comparing ? "vs pinned" : pinned ? "Pinned" : "Latest"}</h3>
       ${pinned
         ? `<button class="text-button" id="gear-sim-unpin" type="button">Unpin</button>`
         : `<button class="text-button" id="gear-sim-pin" type="button">📌 Pin</button>`}
     </div>
-    <button class="gear-sim__run" id="gear-sim-run" type="button">Simulate</button>
+    <button class="gear-sim__run" id="gear-sim-run" type="button">Simulate</button>`;
+  details.innerHTML = `
     <div class="gear-sim__dps">${current.meanDps.toFixed(0)} <small>DPS</small></div>
     ${comparing && pinned ? `<div class="gear-sim__delta ${deltaClass(current.meanDps - pinned.meanDps)}">${signed(current.meanDps - pinned.meanDps, 0)} (${signedPct(current.meanDps, pinned.meanDps)})</div>` : ""}
     <div class="gear-sim__metrics">
@@ -60,7 +65,7 @@ export function renderGearSimCard(
       ${simMetric("Std. deviation", current.stdev, pinned?.stdev)}
       ${simMetric("Iterations", current.iterations, pinned?.iterations, 0)}
     </div>
-    ${comparing ? `<p class="hint">Pinned ${pinned!.meanDps.toFixed(0)} DPS. Next run updates the comparison.</p>` : `<p class="hint">Pin this result, change gear, then simulate again.</p>`}
+    ${comparing ? `<p class="hint gear-sim__hint">Pinned ${pinned!.meanDps.toFixed(0)} DPS. Next run updates the comparison.</p>` : `<p class="hint gear-sim__hint">Pin this result, change gear, then simulate again.</p>`}
   `;
   wireGearSimActions(actions);
 }
@@ -167,6 +172,8 @@ export function renderResults(result: SimResult) {
   bindCastLogExpanders();
   bindCastLogTickFilter();
   bindCastLogBulkExpand();
+  const castLog = root.querySelector(".cast-log");
+  if (castLog) bindHintTooltips(castLog);
 }
 
 function setCastLogRowExpanded(row: HTMLTableRowElement, expanded: boolean) {
@@ -239,17 +246,11 @@ function castLogRows(events: SimCastEvent[]): string[] {
       main,
       `<tr class="cast-log-detail" data-cast-log-detail="${index}"${isTick ? ' data-log-kind="tick"' : ""} hidden>
         <td colspan="7">
-          <ul class="cast-log-buffs">${auras.map((aura) => `<li>${escapeHtml(formatActiveAura(aura))}</li>`).join("")}</ul>
+          <ul class="cast-log-buffs">${auras.map((aura) => renderCastLogAuraItem(aura)).join("")}</ul>
         </td>
       </tr>`,
     ];
   });
-}
-
-function formatActiveAura(aura: SimActiveAura): string {
-  const stacked = new Set(["Chaotic", "Reckoning", "Annihilation", "Inner Demon", "Felstrike"]);
-  if (stacked.has(aura.name) && aura.stacks > 1) return `${aura.name} x${aura.stacks}`;
-  return aura.name;
 }
 
 function bindCastLogTickFilter() {
@@ -270,10 +271,12 @@ function bindCastLogExpanders() {
 }
 
 function spellRows(result: SimResult): string[] {
+  const maxShare = result.breakdown.reduce((peak, row) => Math.max(peak, row.share), 0);
   return result.breakdown.map((row) => spellRow(row.name, {
     casts: row.casts.toFixed(1),
     dps: row.dps,
     share: row.share,
+    maxShare,
     hits: combatCount(row.hits, row.hits + row.crits + row.misses),
     crits: combatCount(row.crits, row.hits + row.crits + row.misses),
     misses: combatCount(row.misses, row.hits + row.crits + row.misses),
@@ -284,6 +287,7 @@ function spellRow(name: string, row: {
   casts: string;
   dps: number;
   share: number;
+  maxShare: number;
   hits: string;
   crits: string;
   misses: string;
@@ -292,16 +296,16 @@ function spellRow(name: string, row: {
     <td>${escapeHtml(name)}</td>
     <td>${row.casts}</td>
     <td>${row.dps.toFixed(0)}</td>
-    ${shareBarCell(row.share)}
+    ${shareBarCell(row.share, row.maxShare)}
     <td>${row.hits}</td>
     <td>${row.crits}</td>
     <td>${row.misses}</td>
   </tr>`;
 }
 
-function shareBarCell(share: number): string {
+function shareBarCell(share: number, maxShare: number): string {
   const pct = share * 100;
-  const width = Math.max(0, Math.min(100, pct));
+  const width = maxShare > 0 ? Math.max(0, Math.min(100, (share / maxShare) * 100)) : 0;
   const pctLabel = `${pct.toFixed(1)}%`;
   const label = `${pctLabel} of total DPS`;
   return `<td class="share-bar-cell">

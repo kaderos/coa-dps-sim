@@ -34,6 +34,15 @@ npm run dev
 
 Open http://localhost:5173 and click **Simulate**. Mean DPS is compared to the parsed log baseline.
 
+## GitHub Pages
+
+Pushes to `main` deploy via GitHub Actions to **https://kaderos.github.io/coa-dps-sim/**
+
+```bash
+npm run build   # uses base path /coa-dps-sim/
+npm run preview # smoke-test dist/ locally
+```
+
 ## Data policy
 
 - Combat logs are source of truth for damage.

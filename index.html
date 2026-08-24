@@ -13,16 +13,6 @@
         <p class="sub">Conquest of Azeroth DPS sim — inspired by wowsims/classic</p>
         <p class="hint">Level 63 raid boss · stationary fight (no movement, no cleave).</p>
       </div>
-      <div class="controls">
-        <div class="sim-progress" id="sim-progress" hidden>
-          <div class="sim-progress__track" aria-hidden="true">
-            <div class="sim-progress__bar" id="sim-progress-bar"></div>
-          </div>
-          <span class="sim-progress__label" id="sim-progress-label"></span>
-        </div>
-        <label title="Each iteration varies this length by ±5% so cooldown breakpoints do not line up.">Duration (s) <input id="duration" type="number" value="180" min="20" max="600" /></label>
-        <label>Iterations <input id="iterations" type="number" value="600" min="10" max="5000" /></label>
-      </div>
     </header>
     <nav class="tabs" aria-label="Simulator sections">
       <button class="tab is-active" type="button" data-tab="gear" aria-selected="true">Gear</button>
@@ -31,20 +21,34 @@
       <button class="tab" type="button" data-tab="weights" aria-selected="false">Stat Weights</button>
       <button class="tab" type="button" data-tab="results" aria-selected="false">Results</button>
     </nav>
-    <main class="tab-content">
-      <section class="panel tab-panel is-active gear-panel" data-tab-panel="gear">
-        <aside id="gear-sim-summary" class="gear-sim"></aside>
-        <div class="gear-main">
-          <h2>Gear</h2>
-          <p class="hint" id="gear-hint">JavaScript is disabled or blocked for localhost. Allow JavaScript in Chrome, then reload.</p>
-          <div id="gear" class="gear-grid"></div>
-          <h3>Stats from gear</h3>
-          <p class="hint">Hover Spell Hit, Spell Crit, or Spell Haste for the rating → talent → buff breakdown.</p>
-          <dl id="stats" class="stats"></dl>
-          <h3>Set bonuses</h3>
-          <p class="hint">A bonus applies only after that many pieces of the set are equipped.</p>
-          <div id="set-bonuses" class="set-summary"></div>
+    <main class="tab-content app-layout">
+      <aside class="gear-sidebar">
+        <div class="gear-sim">
+          <div id="gear-sim-summary"></div>
+          <div class="sim-progress gear-sim__progress" id="sim-progress" hidden>
+            <div class="sim-progress__track" aria-hidden="true">
+              <div class="sim-progress__bar" id="sim-progress-bar"></div>
+            </div>
+            <span class="sim-progress__label" id="sim-progress-label"></span>
+          </div>
+          <div class="gear-sidebar__settings">
+            <label title="Each iteration varies this length by ±5% so cooldown breakpoints do not line up.">Duration (s) <input id="duration" type="number" value="180" min="20" max="600" /></label>
+            <label>Iterations <input id="iterations" type="number" value="600" min="10" max="5000" /></label>
+          </div>
+          <div id="gear-sim-details"></div>
         </div>
+      </aside>
+      <div class="tab-panels">
+      <section class="panel tab-panel is-active" data-tab-panel="gear">
+        <h2>Gear</h2>
+        <p class="hint" id="gear-hint">JavaScript is disabled or blocked for localhost. Allow JavaScript in Chrome, then reload.</p>
+        <div id="gear" class="gear-grid"></div>
+        <h3>Stats from gear</h3>
+        <p class="hint">Hover Spell Hit, Spell Crit, or Spell Haste for the rating → talent → buff breakdown.</p>
+        <dl id="stats" class="stats"></dl>
+        <h3>Set bonuses</h3>
+        <p class="hint">A bonus applies only after that many pieces of the set are equipped.</p>
+        <div id="set-bonuses" class="set-summary"></div>
       </section>
       <section class="panel tab-panel" data-tab-panel="buffs" hidden>
         <h2>Raid Buffs &amp; Consumes</h2>
@@ -68,6 +72,7 @@
         <h2>Results</h2>
         <div id="results" class="results"></div>
       </section>
+      </div>
     </main>
     <div id="item-picker" class="item-picker" hidden>
       <button class="item-picker__backdrop" type="button" aria-label="Close item picker"></button>

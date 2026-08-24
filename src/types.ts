@@ -146,6 +146,7 @@ export type SpellFit = {
     shadowCoeff?: number;
     /** When false, skip perLevel×playerLevel (rank tooltip min/max already include level scaling). */
     perLevelScalesWithPlayer?: boolean;
+    apCoeff?: number;
     energy?: number;
     castTime?: number;
     gcd?: number;

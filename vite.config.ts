@@ -1,8 +1,9 @@
 import { defineConfig } from "vite";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   root: ".",
   publicDir: "public",
+  base: mode === "production" ? "/coa-dps-sim/" : "/",
   server: {
     port: 5173,
     strictPort: true,
@@ -25,4 +26,4 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
   },
-});
+}));

@@ -121,19 +121,9 @@ const SLOT_LABELS: Record<Slot, string> = {
   ranged: "Ranged",
 };
 
-const STAT_LABELS: Array<[keyof Item["stats"], string]> = [
-  ["stamina", "Stamina"],
-  ["intellect", "Intellect"],
-  ["spirit", "Spirit"],
-  ["spellPower", "Spell Power"],
-  ["firePower", "Fire Spell Power"],
-  ["shadowPower", "Shadow Spell Power"],
-  ["attackPower", "Attack Power"],
-  ["spellCrit", "Spell Crit Rating"],
-  ["spellHit", "Spell Hit Rating"],
-  ["spellHaste", "Spell Haste Rating"],
-  ["mp5", "Mana per 5 sec"],
-];
+function dataUrl(path: string): string {
+  return `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
+}
 
 async function load() {
   const hint = document.getElementById("gear-hint");
@@ -141,15 +131,15 @@ async function load() {
     if (hint) hint.textContent = text;
     console.info(`[coa-sim] ${text}`);
   };
-  setHint("Fetching /data/items.json…");
+  setHint("Fetching item database…");
 
   const [itemDb, spellDb, nextEnchantDb, setDb, felswornTalents, infernalTalents] = await Promise.all([
-    fetchJson<ItemDb>("/data/items.json"),
-    fetchJson<SpellDb>("/data/spells.json"),
-    fetchJson<EnchantDb>("/data/enchants.json").catch(() => ({ slots: {} })),
-    fetchJson<SetCatalog>("/data/sets.json").catch(() => ({ sets: {} })),
-    fetchJson<FelswornTalentDoc>("/data/talents/felsworn.json"),
-    fetchJson<InfernalTalentDoc>("/data/talents/infernal.json"),
+    fetchJson<ItemDb>(dataUrl("data/items.json")),
+    fetchJson<SpellDb>(dataUrl("data/spells.json")),
+    fetchJson<EnchantDb>(dataUrl("data/enchants.json")).catch(() => ({ slots: {} })),
+    fetchJson<SetCatalog>(dataUrl("data/sets.json")).catch(() => ({ sets: {} })),
+    fetchJson<FelswornTalentDoc>(dataUrl("data/talents/felsworn.json")),
+    fetchJson<InfernalTalentDoc>(dataUrl("data/talents/infernal.json")),
   ]);
   loadSetCatalog(setDb);
   talentTrees = { felsworn: felswornTalents, infernal: infernalTalents };
@@ -1101,7 +1091,6 @@ async function runSimulation() {
     lastSim = toSnapshot(result);
     renderResults(result);
     refreshGearSim();
-    activateTab("results");
   } finally {
     setSimRunning(false);
   }

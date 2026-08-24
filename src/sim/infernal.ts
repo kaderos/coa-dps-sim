@@ -84,6 +84,8 @@ const POTION: SpellFit = {
 // leave a short gap before the next command is accepted.
 const INSTANT_LATENCY_MIN = 0.01;
 const INSTANT_LATENCY_MAX = 0.02;
+/** Reaction time after Sculptor / True Blessing Ruin proc before the cast fires. */
+const RUIN_PROC_REACTION = 0.02;
 
 /** Shaman party buff — tooltip: AP×0.35 Froststorm on direct damage, 15s aura, 1 min CD. */
 const NEPTULONS_WRATH = {
@@ -123,6 +125,8 @@ export type FightState = {
   critsTowardRuin: number;
   ruinProc: boolean;
   ruinProcRemain: number;
+  /** Earliest time the player reacts and casts proc Ruin. */
+  ruinReactUntil: number;
   innerDemon: Aura | null;
   baneOfFire: Aura | null;
   felstrike: Aura | null;
@@ -220,6 +224,7 @@ export function runOnce(
     critsTowardRuin: 0,
     ruinProc: false,
     ruinProcRemain: 0,
+    ruinReactUntil: 0,
     innerDemon: null,
     baneOfFire: null,
     felstrike: null,
@@ -319,6 +324,7 @@ function tickAuras(
     if (state.ruinProcRemain <= 0) {
       state.ruinProc = false;
       state.ruinProcRemain = 0;
+      state.ruinReactUntil = 0;
     }
   }
   if (state.maliceCritRemain > 0) {
@@ -436,6 +442,7 @@ function chooseAction(
   const ruinEnergy = ruin?.energy ?? 30;
   if (
     onGcdOk &&
+    state.time >= state.ruinReactUntil &&
     innerUp &&
     state.ruinProc &&
     ruin &&
@@ -674,6 +681,7 @@ function cast(
   if (isProcRuin) {
     state.ruinProc = false;
     state.ruinProcRemain = 0;
+    state.ruinReactUntil = 0;
   }
 
   if (spell.id === 804216) {
@@ -729,8 +737,7 @@ function cast(
     state.annihilation = { remain: FELSWORN.annihilationDuration, stacks: FELSWORN.annihilationCrits };
     state.anniReadyAt = state.time + FELSWORN.annihilationCd;
     if (talentTaken(state, "infernal", "The True Blessing")) {
-      state.ruinProc = true;
-      state.ruinProcRemain = INFERNAL.sculptorWindow;
+      grantRuinProc(state);
       state.critsTowardRuin = 0;
     }
     deal(state, spell.name, 0, true, false, false);
@@ -917,10 +924,15 @@ function deal(
     state.critsTowardRuin += 1;
     if (state.critsTowardRuin >= INFERNAL.sculptorCrits) {
       state.critsTowardRuin = 0;
-      state.ruinProc = true;
-      state.ruinProcRemain = INFERNAL.sculptorWindow;
+      grantRuinProc(state);
     }
   }
+}
+
+function grantRuinProc(state: FightState, window = INFERNAL.sculptorWindow) {
+  state.ruinProc = true;
+  state.ruinProcRemain = window;
+  state.ruinReactUntil = state.time + RUIN_PROC_REACTION;
 }
 
 function addAuraTime(state: FightState, name: string, dt: number) {
