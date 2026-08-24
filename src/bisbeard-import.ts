@@ -72,15 +72,39 @@ export function bisbeardProxyBase(): string {
   return `${import.meta.env.BASE_URL}bisbeard-api`.replace(/\/$/, "");
 }
 
+async function waitForServiceWorkerControl(timeoutMs = 5000): Promise<boolean> {
+  if (navigator.serviceWorker.controller) return true;
+
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(() => resolve(!!navigator.serviceWorker.controller), timeoutMs);
+    navigator.serviceWorker.addEventListener(
+      "controllerchange",
+      () => {
+        window.clearTimeout(timer);
+        resolve(!!navigator.serviceWorker.controller);
+      },
+      { once: true },
+    );
+  });
+}
+
 export async function ensureBisbeardProxyReady(): Promise<void> {
   if (import.meta.env.DEV) return;
   if (!("serviceWorker" in navigator)) {
     throw new BisbeardImportError("Bisbeard import requires service workers, which this browser does not support.");
   }
-  await navigator.serviceWorker.register(`${import.meta.env.BASE_URL}bisbeard-sw.js`, {
+  const registration = await navigator.serviceWorker.register(`${import.meta.env.BASE_URL}bisbeard-sw.js`, {
     scope: import.meta.env.BASE_URL,
   });
   await navigator.serviceWorker.ready;
+
+  if (!navigator.serviceWorker.controller) {
+    registration.waiting?.postMessage({ type: "SKIP_WAITING" });
+    const controlling = await waitForServiceWorkerControl();
+    if (!controlling) {
+      throw new BisbeardImportError("Import proxy is still starting. Refresh the page once, then try again.");
+    }
+  }
 }
 
 async function fetchBuildJson(buildId: string): Promise<BisbeardBuildResponse> {
@@ -97,8 +121,15 @@ async function fetchBuildJson(buildId: string): Promise<BisbeardBuildResponse> {
     );
   }
 
+  const contentType = response.headers.get("content-type") ?? "";
+
   if (!response.ok) {
-    if (response.status === 404) throw new BisbeardImportError("Build not found — check the share link.");
+    if (response.status === 404 && contentType.includes("text/html")) {
+      throw new BisbeardImportError("Import proxy is not active yet. Refresh the page once, then try again.");
+    }
+    if (response.status === 404) {
+      throw new BisbeardImportError(`Build "${buildId}" was not found on Bisbeard. Check the share link.`);
+    }
     throw new BisbeardImportError(`Bisbeard API returned ${response.status}.`);
   }
 
@@ -106,6 +137,9 @@ async function fetchBuildJson(buildId: string): Promise<BisbeardBuildResponse> {
   try {
     payload = (await response.json()) as BisbeardBuildResponse;
   } catch {
+    if (contentType.includes("text/html")) {
+      throw new BisbeardImportError("Import proxy is not active yet. Refresh the page once, then try again.");
+    }
     throw new BisbeardImportError("Bisbeard returned an invalid response.");
   }
 

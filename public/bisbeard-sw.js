@@ -1,6 +1,18 @@
 const UPSTREAM = "https://gear-planner-api.bisbeard.workers.dev";
 const MARKER = "/bisbeard-api";
 
+self.addEventListener("install", () => {
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
+});
+
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   const idx = url.pathname.indexOf(MARKER);
