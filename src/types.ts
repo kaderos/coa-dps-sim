@@ -186,6 +186,8 @@ export type SimConfig = {
    * even if the talent is taken. Default (undefined) allows the talent effect.
    */
   felshock?: boolean;
+  /** Arcane Artillery weapon enchant on a weapon slot. */
+  arcaneArtillery?: boolean;
 };
 
 export type SetCatalog = {
