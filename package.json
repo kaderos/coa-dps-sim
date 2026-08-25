@@ -13,11 +13,11 @@
     "parse-fight": "node scripts/parse-fight.mjs",
     "ingest": "node scripts/ingest-bisbeard.mjs",
     "fit-spells": "node scripts/fit-spells.mjs",
-    "test": "tsx --test tests/spell-hit.test.ts tests/miss-rate.test.ts tests/salted-duration.test.ts",
+    "test": "tsx --test tests/spell-hit.test.ts tests/miss-rate.test.ts tests/salted-duration.test.ts tests/bisbeard-import.test.ts",
     "analyze-chaotic": "node scripts/analyze-chaotic.mjs",
     "analyze-chaotic-procs": "node scripts/analyze-chaotic-procs.mjs",
     "clone-wowsims": "git clone --depth 1 https://github.com/wowsims/classic.git vendor/wowsims-classic",
-    "deploy:bisbeard-proxy": "wrangler deploy --config workers/bisbeard-build-proxy/wrangler.toml"
+    "deploy:bisbeard-proxy": "npm install --prefix workers/bisbeard-build-proxy && wrangler deploy --config workers/bisbeard-build-proxy/wrangler.toml"
   },
   "devDependencies": {
     "@types/lz-string": "^1.3.34",

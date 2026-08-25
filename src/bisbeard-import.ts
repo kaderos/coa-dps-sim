@@ -1,5 +1,7 @@
-import { decompressFromEncodedURIComponent } from "lz-string";
+import LZString from "lz-string";
 import type { Slot } from "./types";
+
+const { decompressFromEncodedURIComponent } = LZString;
 
 /** Bisbeard gear[] / enchants[] slot order (17 equipment slots). */
 export const BISBEARD_GEAR_SLOTS: Slot[] = [
@@ -30,10 +32,12 @@ export type BisbeardBuildPayload = {
   className?: string;
 };
 
-export type BisbeardBuildResponse = {
-  v: number;
-  data: string;
-  createdAt?: string;
+export type BisbeardImportApiResponse = {
+  buildId?: string;
+  createdAt?: string | null;
+  build?: BisbeardBuildPayload;
+  error?: string;
+  upstreamStatus?: number;
 };
 
 export type BisbeardMappedBuild = {
@@ -45,9 +49,14 @@ export type BisbeardMappedBuild = {
 };
 
 export class BisbeardImportError extends Error {
-  constructor(message: string) {
+  readonly status: number | null;
+  readonly url: string | null;
+
+  constructor(message: string, options: { status?: number | null; url?: string | null } = {}) {
     super(message);
     this.name = "BisbeardImportError";
+    this.status = options.status ?? null;
+    this.url = options.url ?? null;
   }
 }
 
@@ -55,98 +64,44 @@ export class BisbeardImportError extends Error {
 export function parseBisbeardBuildId(input: string): string | null {
   const raw = input.trim();
   if (!raw) return null;
+  const looksLikeId = (value: string) => /^[A-Za-z0-9_-]{6,}$/.test(value);
   try {
     const url = new URL(raw.includes("://") ? raw : `https://coa.bisbeard.com/b/${raw}`);
     const match = url.pathname.match(/\/b\/([^/?#]+)/i);
-    if (match?.[1]) return match[1];
+    if (match?.[1]) {
+      const id = decodeURIComponent(match[1]);
+      if (looksLikeId(id)) return id;
+    }
   } catch {
     /* fall through */
   }
-  if (/^[A-Za-z0-9_-]{6,}$/.test(raw)) return raw;
+  if (looksLikeId(raw)) return raw;
   return null;
 }
 
-/** Same-origin proxy path — dev uses Vite; production uses bisbeard-sw.js. */
-export function bisbeardProxyBase(): string {
-  if (import.meta.env.DEV) return "/bisbeard-api";
-  return `${import.meta.env.BASE_URL}bisbeard-api`.replace(/\/$/, "");
+/**
+ * Resolve the Bisbeard import API endpoint.
+ * - Production: absolute Cloudflare Worker URL from `VITE_BISBEARD_PROXY`
+ *   (Worker origin or full `…/api/bisbeard/import` path).
+ * - Development: same-origin Vite middleware at `/api/bisbeard/import`.
+ */
+export function bisbeardImportEndpoint(env: ImportMetaEnv = import.meta.env): string {
+  const configured = (env.VITE_BISBEARD_PROXY ?? "").trim().replace(/\/$/, "");
+  if (configured) {
+    if (configured.endsWith("/api/bisbeard/import")) return configured;
+    return `${configured}/api/bisbeard/import`;
+  }
+  if (env.DEV) return "/api/bisbeard/import";
+  throw new BisbeardImportError(
+    "Bisbeard import is not configured for this build. Set repository variable BISBEARD_PROXY_URL to the Cloudflare Worker origin and redeploy Pages.",
+  );
 }
 
-async function waitForServiceWorkerControl(timeoutMs = 5000): Promise<boolean> {
-  if (navigator.serviceWorker.controller) return true;
-
-  return new Promise((resolve) => {
-    const timer = window.setTimeout(() => resolve(!!navigator.serviceWorker.controller), timeoutMs);
-    navigator.serviceWorker.addEventListener(
-      "controllerchange",
-      () => {
-        window.clearTimeout(timer);
-        resolve(!!navigator.serviceWorker.controller);
-      },
-      { once: true },
-    );
-  });
-}
-
-export async function ensureBisbeardProxyReady(): Promise<void> {
-  if (import.meta.env.DEV) return;
-  if (!("serviceWorker" in navigator)) {
-    throw new BisbeardImportError("Bisbeard import requires service workers, which this browser does not support.");
-  }
-  const registration = await navigator.serviceWorker.register(`${import.meta.env.BASE_URL}bisbeard-sw.js`, {
-    scope: import.meta.env.BASE_URL,
-  });
-  await navigator.serviceWorker.ready;
-
-  if (!navigator.serviceWorker.controller) {
-    registration.waiting?.postMessage({ type: "SKIP_WAITING" });
-    const controlling = await waitForServiceWorkerControl();
-    if (!controlling) {
-      throw new BisbeardImportError("Import proxy is still starting. Refresh the page once, then try again.");
-    }
-  }
-}
-
-async function fetchBuildJson(buildId: string): Promise<BisbeardBuildResponse> {
-  const proxy = bisbeardProxyBase();
-  const url = `${proxy}/api/builds/${encodeURIComponent(buildId)}`;
-
-  let response: Response;
-  try {
-    response = await fetch(url);
-  } catch (cause) {
-    console.error("[bisbeard-import] proxy fetch failed", url, cause);
-    throw new BisbeardImportError(
-      "Could not reach the Bisbeard import proxy. Hard-refresh the page (Ctrl+F5) and try again.",
-    );
-  }
-
-  const contentType = response.headers.get("content-type") ?? "";
-
-  if (!response.ok) {
-    if (response.status === 404 && contentType.includes("text/html")) {
-      throw new BisbeardImportError("Import proxy is not active yet. Refresh the page once, then try again.");
-    }
-    if (response.status === 404) {
-      throw new BisbeardImportError(`Build "${buildId}" was not found on Bisbeard. Check the share link.`);
-    }
-    throw new BisbeardImportError(`Bisbeard API returned ${response.status}.`);
-  }
-
-  let payload: BisbeardBuildResponse;
-  try {
-    payload = (await response.json()) as BisbeardBuildResponse;
-  } catch {
-    if (contentType.includes("text/html")) {
-      throw new BisbeardImportError("Import proxy is not active yet. Refresh the page once, then try again.");
-    }
-    throw new BisbeardImportError("Bisbeard returned an invalid response.");
-  }
-
-  if (!payload?.data || typeof payload.data !== "string") {
-    throw new BisbeardImportError("Build payload is missing compressed data.");
-  }
-  return payload;
+export function bisbeardImportRequestUrl(shareInput: string, env: ImportMetaEnv = import.meta.env): string {
+  const endpoint = bisbeardImportEndpoint(env);
+  const url = new URL(endpoint, typeof window !== "undefined" ? window.location.origin : "http://localhost");
+  url.searchParams.set("share", shareInput.trim());
+  return url.toString();
 }
 
 export function decodeBisbeardBuild(data: string): BisbeardBuildPayload {
@@ -193,13 +148,151 @@ export function mapBisbeardBuild(build: BisbeardBuildPayload): BisbeardMappedBui
   };
 }
 
+function diagnoseHttpFailure(status: number, contentType: string, url: string): BisbeardImportError {
+  if (status === 404 && contentType.includes("text/html")) {
+    return new BisbeardImportError(
+      "Import request hit static hosting (GitHub Pages) instead of the Cloudflare Worker. Confirm BISBEARD_PROXY_URL is set and Pages was rebuilt.",
+      { status, url },
+    );
+  }
+  if (status === 403) {
+    return new BisbeardImportError(
+      "Bisbeard import proxy rejected this origin (CORS / ALLOWED_ORIGINS). Allowed origin must be exactly https://kaderos.github.io (no repo path).",
+      { status, url },
+    );
+  }
+  if (status === 404) {
+    return new BisbeardImportError("Build was not found on Bisbeard. Check the share link.", { status, url });
+  }
+  if (status === 400) {
+    return new BisbeardImportError("Invalid Bisbeard share link or build id.", { status, url });
+  }
+  if (status >= 500) {
+    return new BisbeardImportError(`Bisbeard import proxy failed (${status}). Try again in a moment.`, {
+      status,
+      url,
+    });
+  }
+  return new BisbeardImportError(`Bisbeard import returned HTTP ${status}.`, { status, url });
+}
+
+async function fetchImportPayload(shareInput: string): Promise<BisbeardBuildPayload> {
+  const buildId = parseBisbeardBuildId(shareInput);
+  if (!buildId) {
+    throw new BisbeardImportError("Paste a Bisbeard share URL (coa.bisbeard.com/b/…) or build id.");
+  }
+
+  const importUrl = bisbeardImportRequestUrl(shareInput);
+  const importResult = await fetchJson(importUrl);
+  if (importResult.ok) {
+    return parseSuccessfulImportBody(importResult, importUrl);
+  }
+
+  // Currently deployed Workers may only expose /api/builds/{id}. Fall back until
+  // `npm run deploy:bisbeard-proxy` publishes /api/bisbeard/import.
+  if (importResult.status === 404) {
+    const buildsUrl = bisbeardBuildsUrl(buildId);
+    const buildsResult = await fetchJson(buildsUrl);
+    if (buildsResult.ok) {
+      return parseSuccessfulImportBody(buildsResult, buildsUrl);
+    }
+    throw diagnoseFetchFailure(buildsResult, buildsUrl);
+  }
+
+  throw diagnoseFetchFailure(importResult, importUrl);
+}
+
+function bisbeardBuildsUrl(buildId: string, env: ImportMetaEnv = import.meta.env): string {
+  const configured = (env.VITE_BISBEARD_PROXY ?? "").trim().replace(/\/$/, "");
+  if (configured) {
+    const origin = configured.endsWith("/api/bisbeard/import")
+      ? configured.slice(0, -"/api/bisbeard/import".length)
+      : configured;
+    return `${origin}/api/builds/${encodeURIComponent(buildId)}`;
+  }
+  if (env.DEV) return `/api/builds/${encodeURIComponent(buildId)}`;
+  throw new BisbeardImportError(
+    "Bisbeard import is not configured for this build. Set repository variable BISBEARD_PROXY_URL to the Cloudflare Worker origin and redeploy Pages.",
+  );
+}
+
+type FetchJsonResult = {
+  ok: boolean;
+  status: number;
+  contentType: string;
+  payload: BisbeardImportApiResponse | { data?: string } | null;
+  rawText: string;
+};
+
+async function fetchJson(url: string): Promise<FetchJsonResult> {
+  let response: Response;
+  try {
+    response = await fetch(url);
+  } catch (cause) {
+    console.error("[bisbeard-import] network failure", { url, cause });
+    throw new BisbeardImportError(
+      "Could not reach the Bisbeard import proxy. Hard-refresh the page (Ctrl+F5) and try again.",
+      { url },
+    );
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  const rawText = await response.text();
+  console.info("[bisbeard-import] response", { url, status: response.status, contentType });
+
+  let payload: FetchJsonResult["payload"] = null;
+  if (contentType.includes("application/json") || rawText.trim().startsWith("{")) {
+    try {
+      payload = JSON.parse(rawText) as FetchJsonResult["payload"];
+    } catch {
+      payload = null;
+    }
+  }
+
+  return {
+    ok: response.ok,
+    status: response.status,
+    contentType,
+    payload,
+    rawText,
+  };
+}
+
+function parseSuccessfulImportBody(result: FetchJsonResult, url: string): BisbeardBuildPayload {
+  const payload = result.payload;
+  if (payload && "build" in payload && payload.build && typeof payload.build === "object") {
+    return payload.build;
+  }
+  if (payload && "data" in payload && typeof payload.data === "string") {
+    return decodeBisbeardBuild(payload.data);
+  }
+  if (result.contentType.includes("text/html")) {
+    throw diagnoseHttpFailure(result.status || 404, result.contentType, url);
+  }
+  throw new BisbeardImportError("Bisbeard import returned an unexpected response.", {
+    status: result.status,
+    url,
+  });
+}
+
+function diagnoseFetchFailure(result: FetchJsonResult, url: string): never {
+  const payload = result.payload as BisbeardImportApiResponse | null;
+  if (payload?.error) {
+    throw new BisbeardImportError(payload.error, { status: result.status, url });
+  }
+  throw diagnoseHttpFailure(result.status, result.contentType, url);
+}
+
+/** @deprecated Service worker proxy is no longer required; kept as a no-op for callers. */
+export async function ensureBisbeardProxyReady(): Promise<void> {
+  /* Production now calls the absolute Cloudflare Worker URL directly. */
+}
+
 export async function loadBisbeardBuild(input: string): Promise<BisbeardMappedBuild> {
   const buildId = parseBisbeardBuildId(input);
   if (!buildId) {
     throw new BisbeardImportError("Paste a Bisbeard share URL (coa.bisbeard.com/b/…) or build id.");
   }
-  await ensureBisbeardProxyReady();
-  const response = await fetchBuildJson(buildId);
-  const build = decodeBisbeardBuild(response.data);
+  const build = await fetchImportPayload(input.trim());
   return mapBisbeardBuild(build);
 }

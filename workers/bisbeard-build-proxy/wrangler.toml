@@ -2,5 +2,10 @@ name = "coa-dps-sim-bisbeard-proxy"
 main = "worker.js"
 compatibility_date = "2024-08-01"
 
+# Exact browser origins only (no path, no trailing slash).
+# Override in the Cloudflare dashboard or via `wrangler secret` / deploy vars if needed.
+[vars]
+ALLOWED_ORIGINS = "https://kaderos.github.io,http://localhost:5173,http://127.0.0.1:5173"
+
 [observability]
 enabled = false

@@ -1,0 +1,8 @@
+{
+  "name": "coa-dps-sim-bisbeard-proxy",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "lz-string": "^1.5.0"
+  }
+}
