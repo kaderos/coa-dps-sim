@@ -148,6 +148,15 @@ const PARTY_BUFFS: ToggleDef[] = [
     stats: {},
   },
   {
+    key: "tailwind",
+    label: "Tailwind — +5% haste while active",
+    hintTitle: "Tailwind",
+    hintBody:
+      "Grants 5% haste for 15 seconds on a repeating proc cycle modeled at ~80% uptime.\n\nWhile active, haste speeds up cast times and the global cooldown (including Fel Fireball). Combines additively with gear haste and Felheart in combat.",
+    defaultOn: false,
+    stats: {},
+  },
+  {
     // Spell 803697. 2s raid area aura; −3% damage taken (defensive).
     key: "frogBones",
     label: "Frog Bones — −3% damage taken (raid)",
@@ -334,6 +343,15 @@ export function procContributionsFromBuffs(config: BuffsConfig): Array<{ name: s
   return out;
 }
 
+/** Combat-modeled party buffs shown in sim result details. */
+export function activeCombatBuffLabels(config: BuffsConfig): string[] {
+  const labels: string[] = [];
+  if (config.tailwind) labels.push("Tailwind (+5% haste, ~80% uptime)");
+  if (config.neptulonsWrath) labels.push("Neptulon's Wrath");
+  if (config.bloodthistle) labels.push("Bloodthistle (~141 DPS proc)");
+  return labels;
+}
+
 /** Primary-stat percent buffs (Whispers of N'zoth) apply after flat gear and consume bonuses. */
 export function applyStatScaleBuffs(stats: CharacterStats, config: BuffsConfig): CharacterStats {
   let scaled: CharacterStats = stats;
@@ -416,8 +434,8 @@ function renderControls(config: BuffsConfig): string {
       `<div class="consume-grid">${[
         `<label class="consume-field" title="6 if you walked in with Felfury from trash. 0 if the pull starts empty.">Felfury at pull<input id="pull-felfury" type="number" value="0" min="0" max="6" /></label>`,
         select("Flask", "flask", FLASKS, config.flask),
-        select("Main-hand oil", "weaponOil", WEAPON_OILS, config.weaponOil),
         select("Food", "food", FOODS, config.food),
+        select("Main-hand oil", "weaponOil", WEAPON_OILS, config.weaponOil),
         select("Scroll", "scroll", SCROLLS, config.scroll),
         select("Off-hand oil", "offhandWeaponOil", WEAPON_OILS, config.offhandWeaponOil, "offhand-oil-field"),
         select("Potion", "potion", POTIONS, config.potion),

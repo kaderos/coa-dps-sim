@@ -26,6 +26,6 @@
     { "name": "Fel Communion", "rank": "1/1", "combat": true, "effect": "+30 maximum Energy." },
     { "name": "Reckoning", "rank": "1/1", "combat": true, "effect": "No GCD. 10s free instant Fireballs and +4% damage / 15s per Fireball, max 4. 2 min CD. Used when Felforged is down and Felfury is below 3." },
     { "name": "Blood of Mannoroth", "rank": "1/1", "combat": true, "effect": "No GCD. Gain 6 Felfury and +100% Energy regen for 20s. 3 min CD. Used after Inner Demon is up." },
-    { "name": "Chaotic", "rank": "1/1", "combat": true, "effect": "8% on dealing damage: +3% damage for 8s, stacks 3." }
+    { "name": "Chaotic", "rank": "1/1", "combat": true, "effect": "8% on player spell damage: +3% all damage for 8s, stacks 3. Refresh duration on proc; at 3 stacks stay at 3. DoT ticks count (log-derived). Secondary proc damage (e.g. Neptulon's Wrath) does not roll." }
   ]
 }

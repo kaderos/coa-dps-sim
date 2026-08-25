@@ -233,6 +233,27 @@ export function spellCritBreakdown(
   };
 }
 
+export type StatHintContent = {
+  body: string;
+  reminders: string[];
+};
+
+function hintRem(text: string): string {
+  return text;
+}
+
+function hintVal(text: string): string {
+  return `<span class="hint-card__value">${escapeHintHtml(text)}</span>`;
+}
+
+function escapeHintHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export function statLayerHintBody(_title: string, breakdown: StatLayerBreakdown, extras: string[] = []): string {
   const lines = [
     `Base: ${formatLayer(breakdown.base)}`,
@@ -242,7 +263,7 @@ export function statLayerHintBody(_title: string, breakdown: StatLayerBreakdown,
     `Buffs & consumes: ${formatLayer(breakdown.buffs)}`,
   ];
   if (breakdown.percentBuffs !== 0) {
-    lines.push(`Primary stat % buffs: ${formatLayer(breakdown.percentBuffs, true)}`);
+    lines.push(`Primary stat % buffs: ${formatLayer(breakdown.percentBuffs)}`);
   }
   lines.push(`Total: ${formatLayer(breakdown.total)}`);
   if (extras.length) lines.push(...extras);
@@ -254,48 +275,40 @@ export function primaryStatHintBody(
   breakdown: PrimaryStatBreakdown,
   stats: CharacterStats,
   selection?: TalentSelection,
-): string {
-  const extras: string[] = [];
+): StatHintContent {
+  const reminders: string[] = [];
   if (key === "intellect" && stats.hiddenPower > 0) {
     const hidden = hiddenPowerSpellBonus(stats, stats.hiddenPower);
-    extras.push(
-      `Hidden Power adds ${(stats.hiddenPower * 100).toFixed(0)}% of Intellect to Spell Power (${formatLayer(
-        hidden.intellect,
-      )} SP), not to this line.`,
+    reminders.push(
+      `${hintRem("Hidden Power adds ")}${hintVal(`${(stats.hiddenPower * 100).toFixed(0)}%`)}${hintRem(" of Intellect to Spell Power ")}${hintVal(`(${formatLayer(hidden.intellect)} SP)`)}${hintRem(", not to this line.")}`,
     );
   }
   if (key === "intellect") {
     const critFromIntellect = intellectCritPercent(stats.intellect);
-    extras.push(
-      `${SPELL_CRIT_INTELLECT_PER_PERCENT} Intellect = 1% spell crit (${formatCrit(critFromIntellect)}), not to this line.`,
+    reminders.push(
+      `${hintVal(`${SPELL_CRIT_INTELLECT_PER_PERCENT} Intellect = 1% spell crit (${formatCrit(critFromIntellect)})`)}${hintRem(", not to this line.")}`,
     );
   }
   if (key === "spirit" && stats.hiddenPower > 0) {
     const hidden = hiddenPowerSpellBonus(stats, stats.hiddenPower);
-    extras.push(
-      `Hidden Power adds ${(stats.hiddenPower * 100).toFixed(0)}% of Spirit to Spell Power (${formatLayer(
-        hidden.spirit,
-      )} SP), not to this line.`,
+    reminders.push(
+      `${hintRem("Hidden Power adds ")}${hintVal(`${(stats.hiddenPower * 100).toFixed(0)}%`)}${hintRem(" of Spirit to Spell Power ")}${hintVal(`(${formatLayer(hidden.spirit)} SP)`)}${hintRem(", not to this line.")}`,
     );
     const critFromSpirit = spiritCritPercent(stats.spirit, INFERNAL.hiddenPowerInnerSpirit);
-    extras.push(
-      `Hidden Power adds ${(INFERNAL.hiddenPowerInnerSpirit * 100).toFixed(0)}% of Spirit as crit rating (${formatCrit(
-        critFromSpirit,
-      )}), not to this line.`,
+    reminders.push(
+      `${hintRem("Hidden Power adds ")}${hintVal(`${(INFERNAL.hiddenPowerInnerSpirit * 100).toFixed(0)}%`)}${hintRem(" of Spirit as crit rating ")}${hintVal(`(${formatCrit(critFromSpirit)})`)}${hintRem(", not to this line.")}`,
     );
   }
   if (key === "spirit" && hasTalent(selection, "infernal", "Nether Spirit")) {
     const critFromNether = spiritCritPercent(stats.spirit, INFERNAL.netherSpiritToCritRating);
-    extras.push(
-      `Nether Spirit adds ${(INFERNAL.netherSpiritToCritRating * 100).toFixed(0)}% of Spirit as crit rating (${formatCrit(
-        critFromNether,
-      )}), not to this line.`,
+    reminders.push(
+      `${hintRem("Nether Spirit adds ")}${hintVal(`${(INFERNAL.netherSpiritToCritRating * 100).toFixed(0)}%`)}${hintRem(" of Spirit as crit rating ")}${hintVal(`(${formatCrit(critFromNether)})`)}${hintRem(", not to this line.")}`,
     );
   }
-  return statLayerHintBody(key, breakdown, extras);
+  return { body: statLayerHintBody(key, breakdown), reminders };
 }
 
-export function spellPowerHintBody(breakdown: SpellPowerBreakdown): string {
+export function spellPowerHintBody(breakdown: SpellPowerBreakdown): StatHintContent {
   const lines = [
     `Gear: ${formatLayer(breakdown.gear)}`,
     `Enchants: ${formatLayer(breakdown.enchants)}`,
@@ -306,8 +319,10 @@ export function spellPowerHintBody(breakdown: SpellPowerBreakdown): string {
     lines.push(`Buffs & consumes: ${formatLayer(breakdown.buffs)}`);
   }
   lines.push(`Total: ${formatLayer(breakdown.total)}`);
-  lines.push("Gear includes set bonuses.");
-  return lines.join("\n\n");
+  return {
+    body: lines.join("\n\n"),
+    reminders: ["Gear includes set bonuses."],
+  };
 }
 
 export function spellCritRatingNote(): string {
@@ -317,7 +332,7 @@ export function spellCritRatingNote(): string {
 export function spellCritHintBody(breakdown: SpellCritBreakdown, critRating = 0): string {
   const lines: string[] = [];
   if (critRating > 0) {
-    lines.push(`${formatRating(critRating)} spell crit rating`);
+    lines.push(`Crit Rating: ${formatRating(critRating)}`);
   }
   lines.push(
     `Gear: ${formatCrit(breakdown.gear)}`,

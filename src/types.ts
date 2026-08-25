@@ -175,6 +175,8 @@ export type SimConfig = {
   procContributions?: Array<{ name: string; dps: number }>;
   /** Shaman party aura: AP×0.35 Froststorm on each direct damage hit while active. */
   neptulonsWrath?: boolean;
+  /** Shaman Tailwind — +5% haste for 15s windows (~80% uptime). */
+  tailwind?: boolean;
   /** Linear 100%→0% boss health — Fel Cannon / Doomsayer taper after ~75% fight time. */
   targetHealthDecays?: boolean;
   /** Demonfire Pact buff — Fel Infusion personal crit is 3% while active, 6% when off. */
@@ -215,6 +217,7 @@ export type BuffsConfig = {
   greaterPrimalInstinct: boolean;
   bloodthistle: boolean;
   neptulonsWrath: boolean;
+  tailwind: boolean;
   frogBones: boolean;
   racialSpellHit: boolean;
   spellHitDebuff: boolean;
@@ -236,15 +239,30 @@ export type SpellBreakdown = {
   share: number;
   hits: number;
   crits: number;
+  hitDamage: number;
+  critDamage: number;
   misses: number;
   hitRate: number | null;
   critRate: number | null;
   missRate: number | null;
 };
 
+export type OffensiveHitSummary = {
+  offensiveCastsAttempted: number;
+  offensiveCastsLanded: number;
+  offensiveCastsMissed: number;
+  overallMissRate: number | null;
+  totalSpellHitPercent: number;
+  calculatedMissChance: number;
+};
+
 export type SimActiveAura = {
   name: string;
   stacks: number;
+  /** Inner Demon — seconds remaining when this event was logged. */
+  remainSec?: number;
+  /** Inner Demon — Felshock extension accumulated this activation. */
+  felshockExtensionSec?: number;
 };
 
 export type SimCastEvent = {
@@ -282,6 +300,9 @@ export type SimResult = {
   logDps: number | null;
   logDeltaPct: number | null;
   logBaseline: LogBaseline | null;
+  /** Selected party buffs modeled in combat (Tailwind, Neptulon's Wrath, etc.). */
+  activeCombatBuffs?: string[];
+  offensiveHit: OffensiveHitSummary;
 };
 
 export type LogAbility = {

@@ -34,7 +34,7 @@
             <span class="sim-progress__label" id="sim-progress-label"></span>
           </div>
           <div class="gear-sidebar__settings">
-            <label title="Each iteration varies this length by ±5% so cooldown breakpoints do not line up.">Duration (s) <input id="duration" type="number" value="180" min="20" max="600" /></label>
+            <label title="Each iteration varies this length by ±5 seconds so cooldown breakpoints do not line up.">Duration (s) <input id="duration" type="number" value="180" min="20" max="600" /></label>
             <label>Iterations <input id="iterations" type="number" value="600" min="10" max="5000" /></label>
           </div>
           <div id="gear-sim-details"></div>
@@ -120,7 +120,6 @@
       </section>
     </div>
     <div id="item-tooltip" class="item-tooltip" role="tooltip" hidden></div>
-    <div id="chance-tooltip" class="chance-tooltip" role="tooltip" hidden></div>
     <div id="hint-tooltip" class="hint-tooltip" role="tooltip" hidden></div>
     <footer>
       Spell math is fitted from combat logs. Item stats come from a Bisbeard. Original sim architecture: <a href="https://github.com/wowsims/classic">wowsims/classic</a> (MIT).
