@@ -49,7 +49,15 @@ export function bindHintTooltips(root: ParentNode, selector = "[data-hint-body]"
     if (!title && !body && !reminders.length) return;
 
     tooltip.replaceChildren();
-    tooltip.className = anchor.dataset.hintCompact != null ? "hint-tooltip hint-tooltip--compact" : "hint-tooltip";
+    const compact = anchor.dataset.hintCompact != null;
+    const formula = anchor.dataset.hintEval != null;
+    tooltip.className = [
+      "hint-tooltip",
+      compact ? "hint-tooltip--compact" : "",
+      formula ? "hint-tooltip--formula" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
     const card = document.createElement("div");
     card.className = "hint-card";
 
@@ -73,6 +81,14 @@ export function bindHintTooltips(root: ParentNode, selector = "[data-hint-body]"
     let rowsGrid: HTMLElement | null = null;
     for (const text of paragraphs) {
       rowsGrid = appendHintBodyLine(card, text, rowsGrid);
+    }
+
+    const evaluated = anchor.dataset.hintEval;
+    if (evaluated) {
+      const evalLine = document.createElement("p");
+      evalLine.className = "hint-card__formula-eval";
+      evalLine.innerHTML = evaluated;
+      card.appendChild(evalLine);
     }
 
     for (const html of reminders) {

@@ -5,9 +5,6 @@ import {
   offhandAcceptsOil,
   ratingsToPercent,
   scalePrimaryStats,
-  SPELL_CRIT_RATING_PER_PERCENT,
-  SPELL_HIT_CAP,
-  SPELL_HIT_RATING_PER_PERCENT,
 } from "./sim/stats";
 import { scaleIntuitionStats, scalePactStats } from "./talents/felsworn";
 import type { TalentSelection } from "./talents/types";
@@ -176,10 +173,10 @@ const HIT_BUFFS: ToggleDef[] = [
   },
   {
     key: "spellHitDebuff",
-    label: "Spell hit debuff on target",
-    note: "+3% spell hit",
+    label: "Felshock",
+    note: "Infernal talent — +3% spell hit on the target for 12s on Felfury-spender crits during Inner Demon; also extends Inner Demon. Requires the Felshock talent.",
     defaultOn: false,
-    stats: { spellHit: 3 },
+    stats: {},
   },
 ];
 
@@ -426,7 +423,7 @@ function renderControls(config: BuffsConfig): string {
     fieldset(
       "Spell hit",
       "buff-hit",
-      `${HIT_BUFFS.map((def) => checkbox(def, config)).join("")}<p class="hint">${SPELL_HIT_CAP}% cap vs +3. ${SPELL_HIT_RATING_PER_PERCENT} hit / ${SPELL_CRIT_RATING_PER_PERCENT} crit rating = 1%.</p>`,
+      HIT_BUFFS.map((def) => checkbox(def, config)).join(""),
     ),
     fieldset(
       "Consumes",

@@ -70,9 +70,10 @@
       "castTime": 2.5,
       "formula": {
         "source": "db.ascension.gg",
-        "min": 2163,
-        "max": 2317,
+        "min": 3159,
+        "max": 3313,
         "perLevel": 12.45,
+        "perLevelScalesWithPlayer": false,
         "coeff": 1.32,
         "fireCoeff": 1,
         "shadowCoeff": 1.32,
@@ -81,11 +82,11 @@
         "gcd": 1
       },
       "fit": {
-        "method": "min-max + perLevel * 60 + COND(GT(FireP,ShaP), FireP*1, ShaP*1.32)",
+        "method": "range(3159, 3313) + COND(GT(FireP,ShaP), FireP*1, ShaP*1.32)",
         "spellPowerUsed": 0,
-        "base": 2240,
+        "base": 3236,
         "coeff": 1.32,
-        "note": "Shadowflame. 30 Energy, 2.5s cast, 2 Felfury. Inner Demon: +30% of direct hit as DoT over 3s."
+        "note": "Rank 8 (501298). School damage at 60 already includes +12.45/lvl. Shadowflame; pierces absorbs. 30 Energy, 2.5s cast, 2 Felfury. Inner Demon: +30% of direct hit as DoT over 3s."
       }
     },
     "501321": {
@@ -231,17 +232,17 @@
         "min": 220,
         "max": 221,
         "perLevel": 0,
-        "coeff": 0.3,
+        "coeff": 0.067,
         "energy": 0,
         "castTime": 0,
         "gcd": 1
       },
       "fit": {
-        "method": "uniform(220, 221) + 0.30 * SP",
+        "method": "uniform(220, 221) + 0.067 * SP",
         "spellPowerUsed": 0,
         "base": 220.5,
-        "coeff": 0.3,
-        "note": "Procs from Ruin/Smite (~46.5%). Sim uses Sargeron Smite hit/crit with Chaos modifiers. db 220+0.3×SP does not match Kadd Kaldros logs (~5k avg)."
+        "coeff": 0.067,
+        "note": "Tooltip: 220-221 Chaos Damage, Spell Power ×0.067. Instant; tooltip GCD 1s but as a Ruin/Smite proc it does not take the player's GCD."
       }
     },
     "802678": {

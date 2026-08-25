@@ -49,7 +49,10 @@
             <a class="bisbeard-import__link" href="https://coa.bisbeard.com/" target="_blank" rel="noopener noreferrer">Bisbeard share link</a>
             <input id="bisbeard-import-url" type="url" inputmode="url" placeholder="https://coa.bisbeard.com/b/…   Paste Share Build link here to import." autocomplete="off" spellcheck="false" />
           </label>
-          <button id="bisbeard-import-run" type="button">Import gear</button>
+          <div class="bisbeard-import__actions">
+            <button id="clear-gear" class="text-button bisbeard-import__clear" type="button">Clear gear</button>
+            <button id="bisbeard-import-run" type="button">Import gear</button>
+          </div>
           <p class="hint bisbeard-import__status" id="bisbeard-import-status" hidden></p>
         </div>
         <div id="gear" class="gear-grid"></div>

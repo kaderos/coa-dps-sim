@@ -121,6 +121,11 @@ export type FightOptions = {
   tailwind?: boolean;
   /** Demonfire Pact buff — Fel Infusion personal crit is 3% while active, 6% when off. */
   demonfirePact?: boolean;
+  /**
+   * Buffs → Felshock checkbox. When false, suppress Felshock combat effects even if
+   * the talent is taken. Undefined defaults to allowed (tests / legacy callers).
+   */
+  felshock?: boolean;
 };
 
 export type Aura = {
@@ -175,6 +180,8 @@ export type FightState = {
   targetStartHealth: number;
   targetHealthDecays: boolean;
   talentSelection?: TalentSelection;
+  /** When false, Felshock talent combat effects are suppressed (Buffs checkbox off). */
+  felshockAllowed: boolean;
   reckoningPower: Aura | null;
   maliceCritRemain: number;
   felshockHitRemain: number;
@@ -199,6 +206,11 @@ const FELFURY_MAX = 6;
 
 function talentTaken(state: FightState, tree: "felsworn" | "infernal", name: string): boolean {
   return !state.talentSelection || isTalentEnabled(state.talentSelection, tree, name);
+}
+
+/** Felshock combat effects require the talent and the Buffs → Felshock checkbox. */
+function felshockEnabled(state: FightState): boolean {
+  return state.felshockAllowed && talentTaken(state, "infernal", "Felshock");
 }
 const EVENT_LOG_LIMIT = 3000;
 export const CAST_EVENT_LOG_LIMIT = EVENT_LOG_LIMIT;
@@ -298,6 +310,7 @@ export function runOnce(
     targetStartHealth: options.targetStartHealth ?? 1,
     targetHealthDecays: options.targetHealthDecays ?? false,
     talentSelection: options.talentSelection,
+    felshockAllowed: options.felshock !== false,
     reckoningPower: null,
     maliceCritRemain: 0,
     felshockHitRemain: 0,
@@ -669,7 +682,7 @@ function onDirectCrit(
   }
   if (talentTaken(state, "felsworn", "Focused Hatred")) addEnergy(state, FELSWORN.focusedHatredEnergy);
   if (
-    talentTaken(state, "infernal", "Felshock") &&
+    felshockEnabled(state) &&
     isFelfurySpender(spell) &&
     state.innerDemon
   ) {
@@ -888,17 +901,12 @@ function cast(
     !roll.isMiss &&
     (isRuin(spell) || isSmite(spell)) &&
     extras.chaos &&
-    extras.smite &&
     rng.chance(INFERNAL.chaosProcChance)
   ) {
     const chaosSpell = extras.chaos;
-    const smiteSpell = extras.smite;
     const chaosCtx = combatContext(chaosSpell, stats, state);
     const chaosAuras = snapshotDamageAuras(state, chaosSpell);
-    const chaosRoll = rollSpellDamage(chaosSpell, stats, rng, true, chaosCtx, {
-      formulaSpell: smiteSpell,
-      critSpell: smiteSpell,
-    });
+    const chaosRoll = rollSpellDamage(chaosSpell, stats, rng, true, chaosCtx);
     trackOffensiveCast(state, !chaosRoll.isMiss);
     deal(state, chaosSpell.name, chaosRoll.amount, true, chaosRoll.isCrit, chaosRoll.isMiss, false, rng, true);
     logCast(

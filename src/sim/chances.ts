@@ -29,6 +29,16 @@ export type ChanceBreakdown = {
   haste: ChanceStat;
 };
 
+/** Fold Felshock into the Gear-page hit total when the Buffs checkbox is on (display only). */
+export function displayHitStat(stat: ChanceStat, felshockEnabled: boolean): ChanceStat {
+  if (!felshockEnabled) return stat;
+  return {
+    ...stat,
+    fromBuffs: stat.fromBuffs + INFERNAL.felshockHit,
+    total: stat.total + INFERNAL.felshockHit,
+  };
+}
+
 export function talentChancePercents(
   _spirit: number,
   selection?: TalentSelection,

@@ -181,6 +181,11 @@ export type SimConfig = {
   targetHealthDecays?: boolean;
   /** Demonfire Pact buff — Fel Infusion personal crit is 3% while active, 6% when off. */
   demonfirePact?: boolean;
+  /**
+   * Buffs checkbox for Felshock. When false, combat never applies Felshock hit/ID extend
+   * even if the talent is taken. Default (undefined) allows the talent effect.
+   */
+  felshock?: boolean;
 };
 
 export type SetCatalog = {

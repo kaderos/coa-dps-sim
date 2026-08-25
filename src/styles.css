@@ -15,6 +15,8 @@
   --quality-epic: #a335ee;
   --quality-legendary: #ff8000;
   --quality-artifact: #e6cc80;
+  --layout-max: 1240px;
+  --layout-padding: 24px;
 }
 * { box-sizing: border-box; }
 html {
@@ -94,7 +96,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   outline-offset: 2px;
 }
 main {
-  padding: 16px 24px 48px;
+  padding: 16px var(--layout-padding) 48px;
 }
 .panel {
   background: var(--panel);
@@ -130,6 +132,26 @@ main {
 }
 .bisbeard-import__field input {
   width: 100%;
+}
+.bisbeard-import__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.bisbeard-import__clear {
+  align-self: flex-end;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--muted);
+  border: none;
+}
+.bisbeard-import__clear:hover {
+  color: #fca5a5;
+  background: transparent;
 }
 .bisbeard-import__status.is-error {
   color: #f87171;
@@ -311,6 +333,22 @@ main {
 .hint-card__body + .hint-card__body {
   margin-top: 8px;
 }
+.hint-card__formula-eval {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #c4b5fd;
+  word-break: break-word;
+}
+.hint-card__formula-base {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.hint-tooltip--formula {
+  width: min(420px, calc(100vw - 24px));
+}
 .hint-card__rows {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
@@ -347,6 +385,7 @@ main {
 .hint-card__rows + .hint-card__reminder-line,
 .hint-card__body + .hint-card__reminder-line,
 .hint-card__lead + .hint-card__reminder-line,
+.hint-card__formula-eval + .hint-card__reminder-line,
 .hint-card__reminder-line + .hint-card__reminder-line {
   margin-top: 8px;
 }
@@ -553,7 +592,9 @@ footer { padding: 0 24px 24px; font-size: 12px; }
 .tabs {
   display: flex;
   gap: 4px;
-  padding: 12px 24px 0;
+  max-width: var(--layout-max);
+  margin: 0 auto;
+  padding: 12px var(--layout-padding) 0;
   border-bottom: 1px solid var(--line);
   background: #17131f;
 }
@@ -573,7 +614,7 @@ footer { padding: 0 24px 24px; font-size: 12px; }
   margin-bottom: -1px;
 }
 .tab-content {
-  max-width: 1240px;
+  max-width: var(--layout-max);
   margin: 0 auto;
 }
 .app-layout {
@@ -1067,7 +1108,8 @@ tr.unmodeled td { color: var(--muted); }
 .uptime-track { height: 9px; overflow: hidden; background: #0f0d16; border-radius: 99px; }
 .uptime-track i { display: block; height: 100%; background: var(--accent); }
 .uptime-row--sub .uptime-track i { background: #dc6ee8; }
-.spell-breakdown .spell-breakdown__avg-hit {
+.spell-breakdown .spell-breakdown__avg-hit,
+.spell-breakdown .spell-breakdown__name {
   cursor: help;
   border-bottom: 1px dotted rgb(221 214 254 / 35%);
 }
@@ -1137,7 +1179,7 @@ tr.unmodeled td { color: var(--muted); }
   .metric-grid { margin-top: 12px; }
 }
 @media (max-width: 600px) {
-  .tabs { padding-inline: 8px; overflow-x: auto; }
+  .tabs { --layout-padding: 8px; overflow-x: auto; }
   .tab { white-space: nowrap; }
   .metric-grid { grid-template-columns: repeat(2, minmax(100px, 1fr)); }
   .item-picker { padding: 0; }

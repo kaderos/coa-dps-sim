@@ -1,7 +1,8 @@
-import type { SimCastEvent, SimResult } from "./types";
+import type { CharacterStats, SimCastEvent, SimResult, SpellFit } from "./types";
 import { renderCastLogAuraItem } from "./cast-log-hints";
 import { bindHintTooltips } from "./hint-tooltip";
 import { CAST_EVENT_LOG_LIMIT } from "./sim/infernal";
+import { spellFormulaHint } from "./spell-formula-hint";
 
 export type SimSnapshot = {
   meanDps: number;
@@ -101,7 +102,10 @@ export function renderResultsEmpty() {
     </div>`;
 }
 
-export function renderResults(result: SimResult) {
+export function renderResults(
+  result: SimResult,
+  options: { spells?: Record<string, SpellFit>; stats?: CharacterStats } = {},
+) {
   const root = document.getElementById("results");
   if (!root) return;
 
@@ -120,18 +124,6 @@ export function renderResults(result: SimResult) {
       ${result.activeCombatBuffs?.length ? `<div class="compare">Active buffs: ${result.activeCombatBuffs.map((label) => escapeHtml(label)).join(" · ")}</div>` : ""}
     </div>
     <section class="result-section">
-      <h3>Spell hit</h3>
-      <div class="metric-grid">
-        ${metric("Total spell hit", result.offensiveHit.totalSpellHitPercent, 1, "%")}
-        ${metric("Calculated miss chance", result.offensiveHit.calculatedMissChance * 100, 1, "%")}
-        ${metric("Offensive casts attempted", result.offensiveHit.offensiveCastsAttempted, 1)}
-        ${metric("Offensive casts landed", result.offensiveHit.offensiveCastsLanded, 1)}
-        ${metric("Offensive casts missed", result.offensiveHit.offensiveCastsMissed, 1)}
-        ${metric("Overall miss rate", result.offensiveHit.overallMissRate != null ? result.offensiveHit.overallMissRate * 100 : null, 1, "%")}
-      </div>
-      <p class="hint">Miss chance is clamp(17% − spell hit, 0%, 17%) vs a level ${result.bossLevel} boss. DoT ticks do not re-roll hit.</p>
-    </section>
-    <section class="result-section">
       <h3>DPS distribution</h3>
       <div class="histogram" role="img" aria-label="DPS per iteration histogram">${histogram(result.dpsSamples, result.meanDps, result.iterations)}</div>
     </section>
@@ -139,7 +131,7 @@ export function renderResults(result: SimResult) {
       <h3>Spell breakdown</h3>
       <div class="table-scroll"><table class="spell-breakdown">
         <thead><tr><th>Spell</th><th>DPS</th><th class="share-bar-col">% Share</th><th>Average Hit</th><th>Casts</th><th>Normal Hit</th><th>Crit Hit</th><th>Miss</th></tr></thead>
-        <tbody>${spellRows(result).join("")}</tbody>
+        <tbody>${spellRows(result, options.spells, options.stats).join("")}</tbody>
       </table></div>
     </section>
     ${result.auraUptimes.length ? `
@@ -184,7 +176,9 @@ export function renderResults(result: SimResult) {
   const castLog = root.querySelector(".cast-log");
   if (castLog) bindHintTooltips(castLog);
   const spellBreakdown = root.querySelector(".spell-breakdown");
-  if (spellBreakdown) bindHintTooltips(spellBreakdown, ".spell-breakdown__avg-hit[data-hint-body]");
+  if (spellBreakdown) {
+    bindHintTooltips(spellBreakdown, ".spell-breakdown__avg-hit[data-hint-body], .spell-breakdown__name[data-hint-body]");
+  }
 }
 
 function setCastLogRowExpanded(row: HTMLTableRowElement, expanded: boolean) {
@@ -281,18 +275,28 @@ function bindCastLogExpanders() {
   });
 }
 
-function spellRows(result: SimResult): string[] {
+function spellRows(
+  result: SimResult,
+  spells?: Record<string, SpellFit>,
+  stats?: CharacterStats,
+): string[] {
   const maxShare = result.breakdown.reduce((peak, row) => Math.max(peak, row.share), 0);
-  return result.breakdown.map((row) => spellRow(row.name, {
-    dps: row.dps,
-    share: row.share,
-    maxShare,
-    averageHit: formatAverageHitCell(row),
-    casts: row.casts.toFixed(1),
-    normalHit: combatPercent(row.hits, row.casts),
-    critHit: combatPercent(row.crits, row.casts),
-    miss: combatPercent(row.misses, row.casts),
-  }));
+  return result.breakdown.map((row) =>
+    spellRow(
+      row.name,
+      {
+        dps: row.dps,
+        share: row.share,
+        maxShare,
+        averageHit: formatAverageHitCell(row),
+        casts: row.casts.toFixed(1),
+        normalHit: combatPercent(row.hits, row.casts),
+        critHit: combatPercent(row.crits, row.casts),
+        miss: combatPercent(row.misses, row.casts),
+      },
+      spells && stats ? spellFormulaHint(row.name, spells, stats) : null,
+    ),
+  );
 }
 
 function formatAverageHitCell(row: SimResult["breakdown"][number]): string {
@@ -311,18 +315,25 @@ function averageHitHintBody(row: SimResult["breakdown"][number]): string | null 
   ].join("\n\n");
 }
 
-function spellRow(name: string, row: {
-  dps: number;
-  share: number;
-  maxShare: number;
-  averageHit: string;
-  casts: string;
-  normalHit: string;
-  critHit: string;
-  miss: string;
-}): string {
+function spellRow(
+  name: string,
+  row: {
+    dps: number;
+    share: number;
+    maxShare: number;
+    averageHit: string;
+    casts: string;
+    normalHit: string;
+    critHit: string;
+    miss: string;
+  },
+  formulaHint: ReturnType<typeof spellFormulaHint>,
+): string {
+  const nameCell = formulaHint
+    ? `<span class="stats__hover spell-breakdown__name" data-hint-title="${escapeAttr(formulaHint.title)}" data-hint-body="${escapeAttr(formulaHint.formula)}" data-hint-eval="${escapeAttr(formulaHint.evaluatedHtml)}" data-hint-reminders="${escapeAttr(formulaHint.reminders.join("\n\n"))}" tabindex="0">${escapeHtml(name)}</span>`
+    : escapeHtml(name);
   return `<tr>
-    <td>${escapeHtml(name)}</td>
+    <td>${nameCell}</td>
     <td>${row.dps.toFixed(0)}</td>
     ${shareBarCell(row.share, row.maxShare)}
     <td>${row.averageHit}</td>
