@@ -1,9 +1,10 @@
 import type { CharacterStats, LogBaseline, SimConfig, SimResult, SpellBreakdown, SpellFit } from "../types";
 import { Rng } from "./rng";
 import { runOnce } from "./infernal";
+import { spellHitSummary } from "./stats";
 
-// Fixed fight length lines CDs up the same way every iteration.
-const DURATION_SALT = 0.05;
+// Each iteration gets an independent fight length jitter so cooldown breakpoints do not line up.
+const DURATION_SALT_SEC = 5;
 const SIM_TICK = 0.05;
 
 export type SimProgress = (completed: number, total: number) => void;
@@ -14,12 +15,16 @@ type MergeRec = {
   dps: number;
   hits: number;
   crits: number;
+  hitDamage: number;
+  critDamage: number;
   misses: number;
   events: number;
 };
 
-export function saltedFightDuration(nominalSec: number, rng: Rng, salt = DURATION_SALT): number {
-  const raw = rng.range(nominalSec * (1 - salt), nominalSec * (1 + salt));
+export function saltedFightDuration(nominalSec: number, rng: Rng, saltSec = DURATION_SALT_SEC): number {
+  const min = Math.max(SIM_TICK, nominalSec - saltSec);
+  const max = nominalSec + saltSec;
+  const raw = rng.range(min, max);
   return Math.max(SIM_TICK, Math.round(raw / SIM_TICK) * SIM_TICK);
 }
 
@@ -75,6 +80,9 @@ function createPartialSim(config: SimConfig) {
     castEvents: [] as SimResult["castEvents"],
     castLogFightSec: config.durationSec,
     castLogTruncated: false,
+    offensiveCastsAttempted: 0,
+    offensiveCastsLanded: 0,
+    offensiveCastsMissed: 0,
   };
 }
 
@@ -108,6 +116,7 @@ function runIterationBatch(
       setDamageAbove75: config.setDamageAbove75,
       talentSelection: config.talentSelection,
       neptulonsWrath: config.neptulonsWrath,
+      tailwind: config.tailwind,
       targetHealthDecays: config.targetHealthDecays,
       demonfirePact: config.demonfirePact,
     });
@@ -125,6 +134,8 @@ function runIterationBatch(
         dps: 0,
         hits: 0,
         crits: 0,
+        hitDamage: 0,
+        critDamage: 0,
         misses: 0,
         events: 0,
       };
@@ -133,6 +144,8 @@ function runIterationBatch(
       cur.dps += rec.damage / fightSec;
       cur.hits += rec.hits;
       cur.crits += rec.crits;
+      cur.hitDamage += rec.hitDamage;
+      cur.critDamage += rec.critDamage;
       cur.misses += rec.misses;
       cur.events += rec.events;
       partial.merge.set(name, cur);
@@ -140,12 +153,15 @@ function runIterationBatch(
     for (const [name, seconds] of once.auraSeconds) {
       partial.auraUptime.set(name, (partial.auraUptime.get(name) || 0) + seconds / fightSec);
     }
+    partial.offensiveCastsAttempted += once.offensiveCastsAttempted;
+    partial.offensiveCastsLanded += once.offensiveCastsLanded;
+    partial.offensiveCastsMissed += once.offensiveCastsMissed;
   }
 }
 
 function finalizeSim(
   _spells: Record<string, SpellFit>,
-  _stats: CharacterStats,
+  stats: CharacterStats,
   config: SimConfig,
   logDps: number | null,
   logBaseline: LogBaseline | null,
@@ -165,12 +181,19 @@ function finalizeSim(
       share: mean > 0 ? rec.dps / n / mean : 0,
       hits: rec.hits / n,
       crits: rec.crits / n,
+      hitDamage: rec.hitDamage / n,
+      critDamage: rec.critDamage / n,
       misses: rec.misses / n,
-      hitRate: rec.events + rec.misses > 0 ? rec.events / (rec.events + rec.misses) : null,
+      hitRate: rec.casts > 0 ? (rec.hits + rec.crits) / rec.casts : null,
       critRate: rec.events > 0 ? rec.crits / rec.events : null,
-      missRate: rec.events + rec.misses > 0 ? rec.misses / (rec.events + rec.misses) : null,
+      missRate: rec.casts > 0 ? rec.misses / rec.casts : null,
     }))
     .sort((a, b) => b.dps - a.dps);
+
+  const hitSummary = spellHitSummary(stats.spellHit);
+  const offensiveCastsAttempted = partial.offensiveCastsAttempted / n;
+  const offensiveCastsLanded = partial.offensiveCastsLanded / n;
+  const offensiveCastsMissed = partial.offensiveCastsMissed / n;
 
   return {
     meanDps: mean,
@@ -195,6 +218,14 @@ function finalizeSim(
     logDps,
     logDeltaPct: logDps ? ((mean - logDps) / logDps) * 100 : null,
     logBaseline,
+    offensiveHit: {
+      offensiveCastsAttempted,
+      offensiveCastsLanded,
+      offensiveCastsMissed,
+      overallMissRate: offensiveCastsAttempted > 0 ? offensiveCastsMissed / offensiveCastsAttempted : null,
+      totalSpellHitPercent: hitSummary.totalSpellHitPercent,
+      calculatedMissChance: hitSummary.calculatedMissChance,
+    },
   };
 }
 
@@ -212,11 +243,14 @@ function applyProcContributions(
       damage: 0,
       hits: 0,
       crits: 0,
+      hitDamage: 0,
+      critDamage: 0,
       misses: 0,
       events: 0,
     };
     rec.damage += damage;
     rec.hits += 1;
+    rec.hitDamage += damage;
     rec.events += 1;
     once.bySpell.set(proc.name, rec);
   }

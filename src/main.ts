@@ -12,11 +12,12 @@ import {
   ratingsFromGear,
   statsFromGear,
 } from "./sim/stats";
-import { buildChanceBreakdown, hasteCardHtml, hitCardHtml } from "./sim/chances";
+import { buildChanceBreakdown, hasteHintContent, hitHintContent } from "./sim/chances";
 import type { ChanceBreakdown } from "./sim/chances";
 import { runSimAsync } from "./sim/engine";
 import {
   applyStatScaleBuffs,
+  activeCombatBuffLabels,
   DEFAULT_BUFFS,
   percentBuffs,
   procContributionsFromBuffs,
@@ -1043,12 +1044,6 @@ function positionTooltip(tooltip: HTMLElement, anchor: HTMLElement) {
 function hideTooltip() {
   const tooltip = document.getElementById("item-tooltip");
   if (tooltip) tooltip.hidden = true;
-  hideChanceTooltip();
-}
-
-function hideChanceTooltip() {
-  const tooltip = document.getElementById("chance-tooltip");
-  if (tooltip) tooltip.hidden = true;
 }
 
 function renderStats() {
@@ -1086,9 +1081,17 @@ function renderStats() {
   root.innerHTML = rows
     .map(([name, value]) => `<div><dt>${name}</dt><dd>${value}</dd></div>`)
     .join("");
-  bindChanceHovers(root, chances);
   bindStatBreakdownHovers(root, stats, duration, chances);
   renderSetSummary();
+}
+
+function applyStatHint(row: HTMLElement, title: string, content: { body: string; reminders: string[] }) {
+  row.classList.add("stats__hover");
+  row.dataset.hintTitle = title;
+  row.dataset.hintBody = content.body;
+  if (content.reminders.length) row.dataset.hintReminders = content.reminders.join("\n\n");
+  else delete row.dataset.hintReminders;
+  row.tabIndex = 0;
 }
 
 function bindStatBreakdownHovers(
@@ -1100,10 +1103,7 @@ function bindStatBreakdownHovers(
   const spellPowerRow = [...root.querySelectorAll("div")].find((el) => el.querySelector("dt")?.textContent === "Spell Power");
   if (spellPowerRow) {
     const breakdown = spellPowerBreakdown(gear, enchants, buffsConfig, durationSec, talentSelection);
-    spellPowerRow.classList.add("stats__hover");
-    spellPowerRow.dataset.hintTitle = "Spell Power";
-    spellPowerRow.dataset.hintBody = spellPowerHintBody(breakdown);
-    spellPowerRow.tabIndex = 0;
+    applyStatHint(spellPowerRow, "Spell Power", spellPowerHintBody(breakdown));
   }
 
   const spellPenRow = [...root.querySelectorAll("div")].find((el) => el.querySelector("dt")?.textContent === "Spell Penetration");
@@ -1120,9 +1120,19 @@ function bindStatBreakdownHovers(
     const breakdown = spellCritBreakdown(gear, enchants, buffsConfig, stats, talentSelection, chances.crit.total);
     spellCritRow.classList.add("stats__hover");
     spellCritRow.dataset.hintTitle = "Spell Crit";
-    spellCritRow.dataset.hintNote = spellCritRatingNote();
     spellCritRow.dataset.hintBody = spellCritHintBody(breakdown, chances.crit.rating);
+    spellCritRow.dataset.hintReminders = spellCritRatingNote();
     spellCritRow.tabIndex = 0;
+  }
+
+  const spellHitRow = [...root.querySelectorAll("div")].find((el) => el.querySelector("dt")?.textContent === "Spell Hit");
+  if (spellHitRow) {
+    applyStatHint(spellHitRow, "Spell Hit", hitHintContent(chances.hit));
+  }
+
+  const spellHasteRow = [...root.querySelectorAll("div")].find((el) => el.querySelector("dt")?.textContent === "Spell Haste");
+  if (spellHasteRow) {
+    applyStatHint(spellHasteRow, "Spell Haste", hasteHintContent(chances.haste, buffsConfig.tailwind));
   }
 
   for (const key of ["Intellect", "Spirit"] as const) {
@@ -1130,10 +1140,7 @@ function bindStatBreakdownHovers(
     if (!row) continue;
     const statKey = key.toLowerCase() as "intellect" | "spirit";
     const breakdown = primaryStatBreakdown(statKey, gear, enchants, buffsConfig, durationSec, talentSelection);
-    row.classList.add("stats__hover");
-    row.dataset.hintTitle = key;
-    row.dataset.hintBody = primaryStatHintBody(statKey, breakdown, stats, talentSelection);
-    row.tabIndex = 0;
+    applyStatHint(row, key, primaryStatHintBody(statKey, breakdown, stats, talentSelection));
   }
   bindHintTooltips(root, ".stats__hover[data-hint-body]");
 }
@@ -1171,37 +1178,6 @@ function renderSetSummary() {
     }
     root.appendChild(block);
   }
-}
-
-function bindChanceHovers(root: HTMLElement | null, chances: ChanceBreakdown) {
-  if (!root) return;
-  for (const row of root.querySelectorAll("div")) {
-    const label = row.querySelector("dt")?.textContent;
-    const html =
-      label === "Spell Hit"
-        ? hitCardHtml(chances.hit)
-        : label === "Spell Haste"
-          ? hasteCardHtml(chances.haste)
-          : null;
-    if (!html) continue;
-    row.classList.add("stats__hover");
-    row.tabIndex = 0;
-    const show = () => showChanceTooltip(row, html);
-    row.addEventListener("mouseenter", show);
-    row.addEventListener("focus", show);
-    row.addEventListener("mouseleave", hideChanceTooltip);
-    row.addEventListener("blur", hideChanceTooltip);
-  }
-}
-
-function showChanceTooltip(anchor: HTMLElement, html: string) {
-  const tooltip = document.getElementById("chance-tooltip");
-  const itemTip = document.getElementById("item-tooltip");
-  if (!tooltip) return;
-  if (itemTip) itemTip.hidden = true;
-  tooltip.innerHTML = html;
-  tooltip.hidden = false;
-  positionTooltip(tooltip, anchor);
 }
 
 function readPullFelfury() {
@@ -1252,6 +1228,7 @@ async function runSimulation() {
         talentSelection,
         procContributions: procContributionsFromBuffs(buffsConfig),
         neptulonsWrath: buffsConfig.neptulonsWrath,
+        tailwind: buffsConfig.tailwind,
         targetHealthDecays: buffsConfig.targetHealthDecays,
         demonfirePact: buffsConfig.demonfirePact,
       },
@@ -1260,7 +1237,7 @@ async function runSimulation() {
       (completed, total) => setSimProgress(completed, total),
     );
     lastSim = toSnapshot(result);
-    renderResults(result);
+    renderResults({ ...result, activeCombatBuffs: activeCombatBuffLabels(buffsConfig) });
     refreshGearSim();
   } finally {
     setSimRunning(false);

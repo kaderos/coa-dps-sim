@@ -1,6 +1,6 @@
 import type { CharacterStats, PotionMode, SimActiveAura, SimCastEvent, SpellFit } from "../types";
 import { Rng } from "./rng";
-import { hasteMultiplier, rollSpellDamage } from "./spells";
+import { hasteMultiplier, rollOffensiveHit, rollSpellDamage } from "./spells";
 import { isTalentEnabled } from "../talents/baseline";
 import type { TalentSelection } from "../talents/types";
 import {
@@ -96,6 +96,16 @@ const NEPTULONS_WRATH = {
   apCoeff: 0.35,
 } as const;
 
+/** Shaman party buff — +5% haste for 15s; modeled at 80% uptime (15s on / 3.75s off). */
+const TAILWIND = {
+  name: "Tailwind",
+  duration: 15,
+  targetUptime: 0.8,
+  hastePct: 5,
+} as const;
+const TAILWIND_DOWNTIME = (TAILWIND.duration * (1 - TAILWIND.targetUptime)) / TAILWIND.targetUptime;
+const TAILWIND_CYCLE = TAILWIND.duration + TAILWIND_DOWNTIME;
+
 export type FightOptions = {
   potionSpellPower?: number;
   potionDuration?: number;
@@ -107,6 +117,8 @@ export type FightOptions = {
   targetStartHealth?: number;
   /** Allied Shaman aura — AP×0.35 on each direct damage hit while active. */
   neptulonsWrath?: boolean;
+  /** Shaman Tailwind — +5% haste for 15s windows (~80% uptime). */
+  tailwind?: boolean;
   /** Demonfire Pact buff — Fel Infusion personal crit is 3% while active, 6% when off. */
   demonfirePact?: boolean;
 };
@@ -131,6 +143,10 @@ export type FightState = {
   /** Earliest time the player reacts and casts proc Ruin. */
   ruinReactUntil: number;
   innerDemon: Aura | null;
+  /** Absolute fight time when the current Inner Demon window ends. */
+  innerDemonExpiresAt: number;
+  /** Cumulative +1s Felshock extensions during the current Inner Demon window. */
+  innerDemonFelshockExtension: number;
   baneOfFire: Aura | null;
   felstrike: Aura | null;
   ruinDot: Aura | null;
@@ -165,11 +181,18 @@ export type FightState = {
   neptulonsWrath: boolean;
   neptulonRemain: number;
   neptulonNextCastAt: number;
+  tailwind: boolean;
+  /** Random phase offset so uptime converges to ~80% across iterations. */
+  tailwindPhaseOffset: number;
   playerStats: CharacterStats;
   damage: number;
-  bySpell: Map<string, { casts: number; damage: number; hits: number; crits: number; misses: number; events: number }>;
+  bySpell: Map<string, { casts: number; damage: number; hits: number; crits: number; hitDamage: number; critDamage: number; misses: number; events: number }>;
   auraSeconds: Map<string, number>;
   castEvents: SimCastEvent[];
+  /** Offensive casts that rolled spell hit (excludes DoT ticks and zero-hit utility casts). */
+  offensiveCastsAttempted: number;
+  offensiveCastsLanded: number;
+  offensiveCastsMissed: number;
 };
 
 const FELFURY_MAX = 6;
@@ -194,6 +217,17 @@ function addFelfury(state: FightState, amount: number) {
   state.felfury = Math.min(FELFURY_MAX, state.felfury + amount);
 }
 
+function innerDemonRemaining(state: FightState): number {
+  if (!state.innerDemon) return 0;
+  return Math.max(0, state.innerDemonExpiresAt - state.time);
+}
+
+function clearInnerDemon(state: FightState) {
+  state.innerDemon = null;
+  state.innerDemonExpiresAt = 0;
+  state.innerDemonFelshockExtension = 0;
+}
+
 export function runOnce(
   spells: Record<string, SpellFit>,
   stats: CharacterStats,
@@ -202,11 +236,14 @@ export function runOnce(
   options: FightOptions = {},
 ): {
   damage: number;
-  bySpell: Map<string, { casts: number; damage: number; hits: number; crits: number; misses: number; events: number }>;
+  bySpell: Map<string, { casts: number; damage: number; hits: number; crits: number; hitDamage: number; critDamage: number; misses: number; events: number }>;
   auraSeconds: Map<string, number>;
   castEvents: SimCastEvent[];
   fightSec: number;
   castLogTruncated: boolean;
+  offensiveCastsAttempted: number;
+  offensiveCastsLanded: number;
+  offensiveCastsMissed: number;
 } {
   const specStats = applyTakenTalents(stats, options.talentSelection, {
     demonfirePact: options.demonfirePact !== false,
@@ -231,6 +268,8 @@ export function runOnce(
     ruinProcRemain: 0,
     ruinReactUntil: 0,
     innerDemon: null,
+    innerDemonExpiresAt: 0,
+    innerDemonFelshockExtension: 0,
     baneOfFire: null,
     felstrike: null,
     ruinDot: null,
@@ -265,11 +304,16 @@ export function runOnce(
     neptulonsWrath: options.neptulonsWrath ?? false,
     neptulonRemain: options.neptulonsWrath ? NEPTULONS_WRATH.duration : 0,
     neptulonNextCastAt: options.neptulonsWrath ? NEPTULONS_WRATH.cooldown : 0,
+    tailwind: options.tailwind ?? false,
+    tailwindPhaseOffset: options.tailwind ? rng.range(0, TAILWIND_CYCLE) : 0,
     playerStats: specStats,
     damage: 0,
     bySpell: new Map(),
     auraSeconds: new Map(),
     castEvents: [],
+    offensiveCastsAttempted: 0,
+    offensiveCastsLanded: 0,
+    offensiveCastsMissed: 0,
   };
 
   if (state.potionMode === "prepot-and-second" && state.potionSpellPower > 0) {
@@ -305,6 +349,9 @@ export function runOnce(
     castEvents: state.castEvents,
     fightSec: duration,
     castLogTruncated: state.castEvents.length >= EVENT_LOG_LIMIT,
+    offensiveCastsAttempted: state.offensiveCastsAttempted,
+    offensiveCastsLanded: state.offensiveCastsLanded,
+    offensiveCastsMissed: state.offensiveCastsMissed,
   };
 }
 
@@ -324,6 +371,7 @@ function tickAuras(
   rng: Rng,
 ) {
   tickNeptulonsWrath(state, dt);
+  tickTailwind(state, dt);
   if (state.ruinProc) {
     state.ruinProcRemain -= dt;
     if (state.ruinProcRemain <= 0) {
@@ -346,7 +394,9 @@ function tickAuras(
     if (state.felforged.remain <= 0 || state.felforged.stacks <= 0) state.felforged = null;
   }
   if (state.chaotic) {
+    const stacks = state.chaotic.stacks;
     addAuraTime(state, "Chaotic", dt);
+    addAuraTime(state, `Chaotic (${stacks} stack${stacks === 1 ? "" : "s"})`, dt);
     state.chaotic.remain -= dt;
     if (state.chaotic.remain <= 0) state.chaotic = null;
   }
@@ -361,7 +411,8 @@ function tickAuras(
     if (state.reckoning.remain <= 0) state.reckoning = null;
   }
   if (state.reckoningPower) {
-    addAuraTime(state, "Reckoning (damage)", dt);
+    const stacks = state.reckoningPower.stacks;
+    addAuraTime(state, `Reckoning (${stacks} stack${stacks === 1 ? "" : "s"})`, dt);
     state.reckoningPower.remain -= dt;
     if (state.reckoningPower.remain <= 0) state.reckoningPower = null;
   }
@@ -386,8 +437,9 @@ function tickAuras(
   }
   if (state.innerDemon) {
     addAuraTime(state, "Inner Demon", dt);
-    state.innerDemon.remain -= dt;
-    if (state.innerDemon.remain <= 0) state.innerDemon = null;
+    const remain = innerDemonRemaining(state);
+    if (remain <= 0) clearInnerDemon(state);
+    else state.innerDemon.remain = remain;
   }
   if (state.baneOfFire) {
     addAuraTime(state, "Bane of Fire", dt);
@@ -402,8 +454,8 @@ function tickAuras(
       const roll = rollSpellDamage(spell, stats, rng, false, combatContext(spell, stats, state));
       const amount = roll.amount * state.felstrike!.stacks;
       const auras = snapshotTickAuras(state, spell, state.felstrike!.stacks);
-      deal(state, spell.name, amount, false, roll.isCrit, roll.isMiss, false, rng);
-      logTick(state, spell.name, amount, auras);
+      deal(state, "Felstrike (DoT)", amount, false, roll.isCrit, roll.isMiss, false, rng);
+      logTick(state, "Felstrike (DoT)", amount, auras);
       onPeriodic(state, rng);
     });
   }
@@ -438,7 +490,7 @@ function chooseAction(
   onGcdOk: boolean,
 ): SpellFit | null {
   const ruinCost = ruin?.felfuryCost ?? 2;
-  const innerRemain = state.innerDemon?.remain ?? 0;
+  const innerRemain = innerDemonRemaining(state);
   const innerUp = innerRemain > 0.25;
   const expiring = Boolean(state.innerDemon) && innerRemain <= 0.25;
   const fullFelfury = state.felfury >= FELFURY_MAX;
@@ -529,10 +581,18 @@ function snapshotDamageAuras(
     if (stacks > 0) auras.push({ name, stacks });
   };
 
-  if (state.innerDemon) push("Inner Demon", state.innerDemon.stacks);
+  if (state.innerDemon) {
+    auras.push({
+      name: "Inner Demon",
+      stacks: state.innerDemon.stacks,
+      remainSec: innerDemonRemaining(state),
+      felshockExtensionSec: state.innerDemonFelshockExtension,
+    });
+  }
   if (state.baneOfFire && spellAffectsFire(spell)) push("Bane of Fire");
   if (state.maliceCritRemain > 0) push("Fragment of Malice");
   if (state.felshockHitRemain > 0) push("Felshock");
+  if (isTailwindActive(state)) push(TAILWIND.name);
   if (state.chaotic?.stacks) push("Chaotic", state.chaotic.stacks);
   if (state.reckoningPower?.stacks) push("Reckoning", state.reckoningPower.stacks);
   if (state.annihilation?.stacks) push("Annihilation", state.annihilation.stacks);
@@ -608,8 +668,14 @@ function onDirectCrit(
     addFelfury(state, INFERNAL.doomsayerSmiteRefund);
   }
   if (talentTaken(state, "felsworn", "Focused Hatred")) addEnergy(state, FELSWORN.focusedHatredEnergy);
-  if (isFelfurySpender(spell) && state.innerDemon) {
-    state.innerDemon.remain += INFERNAL.felshockInnerExtend;
+  if (
+    talentTaken(state, "infernal", "Felshock") &&
+    isFelfurySpender(spell) &&
+    state.innerDemon
+  ) {
+    state.innerDemonExpiresAt += INFERNAL.felshockInnerExtend;
+    state.innerDemonFelshockExtension += INFERNAL.felshockInnerExtend;
+    state.innerDemon.remain = innerDemonRemaining(state);
     state.felshockHitRemain = INFERNAL.felshockDuration;
   }
   if (talentTaken(state, "infernal", "Malice of Gul'dan") && rng.chance(INFERNAL.maliceChance)) {
@@ -626,7 +692,7 @@ function spellGcd(spell: SpellFit): number {
 
 function currentHaste(stats: CharacterStats, state: FightState) {
   const felheart = talentTaken(state, "felsworn", "Felheart") ? felheartHaste(state.felfury) : 0;
-  return hasteMultiplier(stats) + felheart;
+  return hasteMultiplier(stats) + felheart + tailwindHasteBonus(state);
 }
 
 function noteFireball(state: FightState) {
@@ -641,6 +707,12 @@ function noteFireball(state: FightState) {
     state.fireballStreak = 0;
     state.fireballStreakStart = 0;
   }
+}
+
+function trackOffensiveCast(state: FightState, landed: boolean) {
+  state.offensiveCastsAttempted += 1;
+  if (landed) state.offensiveCastsLanded += 1;
+  else state.offensiveCastsMissed += 1;
 }
 
 function cast(
@@ -707,7 +779,10 @@ function cast(
       addEnergy(state, FELSWORN.demonicEmbraceEnergy);
     }
     state.felfury = Math.max(0, state.felfury - consumed);
-    state.innerDemon = { remain: innerDemonDuration(consumed), stacks: Math.max(1, consumed) };
+    const duration = innerDemonDuration(consumed);
+    state.innerDemon = { remain: duration, stacks: Math.max(1, consumed) };
+    state.innerDemonExpiresAt = state.time + duration;
+    state.innerDemonFelshockExtension = 0;
     deal(state, spell.name, 0, true, false, false);
     logCast(state, spell.name, "applied", 0, undefined, logResources);
     return;
@@ -728,12 +803,17 @@ function cast(
     return;
   }
   if (spell.id === 707901) {
-    const duration = talentTaken(state, "felsworn", "Embracing Evil")
-      ? baneDuration(spell.duration ?? 21)
-      : (spell.duration ?? 21);
-    state.baneOfFire = { remain: duration, stacks: 1 };
-    deal(state, spell.name, 0, true, false, false);
-    logCast(state, spell.name, "applied", 0, undefined, logResources);
+    const ctx = combatContext(spell, stats, state, logEnergy);
+    const hitRoll = rollOffensiveHit(stats, rng, true, ctx);
+    trackOffensiveCast(state, !hitRoll.isMiss);
+    deal(state, spell.name, 0, true, false, hitRoll.isMiss);
+    logCast(state, spell.name, hitRoll.isMiss ? "miss" : "applied", 0, undefined, logResources);
+    if (!hitRoll.isMiss) {
+      const duration = talentTaken(state, "felsworn", "Embracing Evil")
+        ? baneDuration(spell.duration ?? 21)
+        : (spell.duration ?? 21);
+      state.baneOfFire = { remain: duration, stacks: 1 };
+    }
     return;
   }
   if (spell.id === SKULL.id) {
@@ -769,6 +849,7 @@ function cast(
   const ctx = combatContext(spell, stats, state, logEnergy);
   const activeAuras = snapshotDamageAuras(state, spell, { sculptorProc: isProcRuin, energyAtCast: logEnergy });
   const roll = rollSpellDamage(spell, stats, rng, true, ctx);
+  trackOffensiveCast(state, !roll.isMiss);
   deal(state, spell.name, roll.amount, true, roll.isCrit, roll.isMiss, true, rng, true);
   logCast(state, spell.name, roll.isMiss ? "miss" : roll.isCrit ? "crit" : "hit", roll.amount, activeAuras, logResources);
   if (!roll.isMiss && spell.energyGain) addEnergy(state, spell.energyGain);
@@ -795,6 +876,7 @@ function cast(
   }
 
   if (
+    !roll.isMiss &&
     isFireball(spell) &&
     state.innerDemon &&
     extras.felstrike &&
@@ -802,7 +884,13 @@ function cast(
   ) {
     applyFelstrike(state, extras.felstrike);
   }
-  if ((isRuin(spell) || isSmite(spell)) && extras.chaos && extras.smite && rng.chance(INFERNAL.chaosProcChance)) {
+  if (
+    !roll.isMiss &&
+    (isRuin(spell) || isSmite(spell)) &&
+    extras.chaos &&
+    extras.smite &&
+    rng.chance(INFERNAL.chaosProcChance)
+  ) {
     const chaosSpell = extras.chaos;
     const smiteSpell = extras.smite;
     const chaosCtx = combatContext(chaosSpell, stats, state);
@@ -811,6 +899,7 @@ function cast(
       formulaSpell: smiteSpell,
       critSpell: smiteSpell,
     });
+    trackOffensiveCast(state, !chaosRoll.isMiss);
     deal(state, chaosSpell.name, chaosRoll.amount, true, chaosRoll.isCrit, chaosRoll.isMiss, false, rng, true);
     logCast(
       state,
@@ -876,6 +965,9 @@ function logTick(
   state.castEvents.push(event);
 }
 
+/** Secondary/proc hits that do not roll Chaotic in Kadd logs (e.g. Neptulon's Wrath). */
+const CHAOTIC_INELIGIBLE = new Set<string>([NEPTULONS_WRATH.name]);
+
 function tryChaotic(state: FightState, rng: Rng) {
   if (!talentTaken(state, "felsworn", "Chaotic") || !rng.chance(FELSWORN.chaoticChance)) return;
   const stacks = Math.min(FELSWORN.chaoticStacks, (state.chaotic?.stacks ?? 0) + 1);
@@ -892,6 +984,23 @@ function tickNeptulonsWrath(state: FightState, dt: number) {
     state.neptulonRemain = NEPTULONS_WRATH.duration;
     state.neptulonNextCastAt = state.time + NEPTULONS_WRATH.cooldown;
   }
+}
+
+function tailwindCycleTime(state: FightState): number {
+  return (state.time + state.tailwindPhaseOffset) % TAILWIND_CYCLE;
+}
+
+function isTailwindActive(state: FightState): boolean {
+  return state.tailwind && tailwindCycleTime(state) < TAILWIND.duration;
+}
+
+function tailwindHasteBonus(state: FightState): number {
+  return isTailwindActive(state) ? TAILWIND.hastePct / 100 : 0;
+}
+
+function tickTailwind(state: FightState, dt: number) {
+  if (!state.tailwind) return;
+  if (isTailwindActive(state)) addAuraTime(state, TAILWIND.name, dt);
 }
 
 function applyNeptulonsWrath(state: FightState, rng: Rng) {
@@ -915,17 +1024,23 @@ function deal(
   countsTowardRuin = false,
   rng?: Rng,
   direct = false,
+  chaoticEligible = true,
 ) {
   state.damage += amount;
-  const rec = state.bySpell.get(name) || { casts: 0, damage: 0, hits: 0, crits: 0, misses: 0, events: 0 };
+  const rec = state.bySpell.get(name) || { casts: 0, damage: 0, hits: 0, crits: 0, hitDamage: 0, critDamage: 0, misses: 0, events: 0 };
   if (isCast) rec.casts += 1;
   if (isMiss) {
     rec.misses += 1;
   } else if (amount > 0) {
     rec.events += 1;
-    if (isCrit) rec.crits += 1;
-    else rec.hits += 1;
-    if (rng) tryChaotic(state, rng);
+    if (isCrit) {
+      rec.crits += 1;
+      rec.critDamage += amount;
+    } else {
+      rec.hits += 1;
+      rec.hitDamage += amount;
+    }
+    if (rng && chaoticEligible && !CHAOTIC_INELIGIBLE.has(name)) tryChaotic(state, rng);
   }
   rec.damage += amount;
   state.bySpell.set(name, rec);

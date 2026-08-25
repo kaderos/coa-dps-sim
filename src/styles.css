@@ -265,13 +265,6 @@ main {
 .stats__hover:focus-visible {
   background: var(--panel-raised);
 }
-.chance-tooltip[hidden] { display: none; }
-.chance-tooltip {
-  position: fixed;
-  z-index: 200;
-  width: min(280px, calc(100vw - 24px));
-  pointer-events: none;
-}
 .hint-tooltip[hidden] { display: none; }
 .hint-tooltip {
   position: fixed;
@@ -279,15 +272,24 @@ main {
   width: min(320px, calc(100vw - 24px));
   pointer-events: none;
 }
+.hint-tooltip--compact {
+  width: max-content;
+  max-width: min(240px, calc(100vw - 24px));
+}
+.hint-tooltip--compact .hint-card__rows {
+  grid-template-columns: max-content max-content;
+}
 .hint-card {
   background: var(--panel-raised);
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 12px 14px;
   box-shadow: 0 8px 24px rgb(0 0 0 / 55%);
+  font-size: 13px;
+  line-height: 1.45;
 }
 .hint-card__title {
-  margin: 0 0 4px;
+  margin: 0 0 8px;
   font-size: 13px;
   font-weight: 700;
   color: #ddd6fe;
@@ -298,31 +300,60 @@ main {
   line-height: 1.45;
   color: var(--muted);
 }
+.hint-card__lead,
 .hint-card__body {
   margin: 0;
   font-size: 13px;
   line-height: 1.45;
   color: var(--text);
 }
-.hint-card__body + .hint-card__body { margin-top: 8px; }
+.hint-card__lead + .hint-card__body,
+.hint-card__body + .hint-card__body {
+  margin-top: 8px;
+}
+.hint-card__rows {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 0.35em;
+  row-gap: 4px;
+  margin: 0;
+  justify-items: start;
+}
+.hint-card__label {
+  color: var(--text);
+}
+.hint-card__rows .hint-card__value {
+  color: var(--text);
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.hint-card__value--total,
+.hint-card__label--total {
+  margin-top: 4px;
+  font-weight: 700;
+  color: #ddd6fe;
+}
+.hint-card__reminder-line {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.hint-card__reminder-line .hint-card__value {
+  color: var(--text);
+}
+.hint-card__row--total + .hint-card__reminder-line,
+.hint-card__rows + .hint-card__reminder-line,
+.hint-card__body + .hint-card__reminder-line,
+.hint-card__lead + .hint-card__reminder-line,
+.hint-card__reminder-line + .hint-card__reminder-line {
+  margin-top: 8px;
+}
 .check-option--hint { cursor: help; }
 .check-option--hint span {
   border-bottom: 1px dotted rgb(221 214 254 / 35%);
 }
-.chance-tooltip .chance-card {
-  margin: 0;
-}
-.chance-card {
-  background: var(--panel-raised);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 12px;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 55%);
-}
-.chance-card h4 { margin: 0 0 4px; }
-.chance-card .stats { grid-template-columns: 1fr; margin-top: 8px; }
-.chance-card__total { font-weight: 700; }
-.chance-card__total dd { color: #ddd6fe; }
 .results .dps {
   font-size: 42px;
   font-weight: 700;
@@ -987,14 +1018,59 @@ tr.unmodeled td { color: var(--muted); }
 }
 .cast-log-buffs .hint-anchor:hover { color: var(--text); }
 .uptime-list { display: grid; gap: 9px; }
-.uptime-list > div {
+.uptime-list > .uptime-row,
+.uptime-group > summary.uptime-row {
   display: grid;
   grid-template-columns: 130px minmax(100px, 1fr) 55px;
   gap: 10px;
   align-items: center;
 }
+.uptime-group > summary.uptime-row {
+  cursor: pointer;
+  list-style: none;
+}
+.uptime-group > summary.uptime-row::-webkit-details-marker { display: none; }
+.uptime-row__lead {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.uptime-row__lead .uptime-row__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.uptime-row__chevron {
+  flex: 0 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+.uptime-group[open] > summary .uptime-row__chevron { transform: rotate(90deg); }
+.uptime-sublist {
+  display: grid;
+  gap: 6px;
+  margin: 6px 0 0 26px;
+  padding-left: 10px;
+  border-left: 1px solid #2a2438;
+}
+.uptime-row--sub {
+  display: grid;
+  grid-template-columns: 98px minmax(100px, 1fr) 55px;
+  gap: 10px;
+  align-items: center;
+}
+.uptime-row__label--sub { color: var(--muted); font-size: 13px; }
 .uptime-track { height: 9px; overflow: hidden; background: #0f0d16; border-radius: 99px; }
 .uptime-track i { display: block; height: 100%; background: var(--accent); }
+.uptime-row--sub .uptime-track i { background: #dc6ee8; }
+.spell-breakdown .spell-breakdown__avg-hit {
+  cursor: help;
+  border-bottom: 1px dotted rgb(221 214 254 / 35%);
+}
 .spell-breakdown .share-bar-col {
   width: 140px;
   min-width: 140px;

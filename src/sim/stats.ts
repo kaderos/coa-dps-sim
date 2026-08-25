@@ -53,10 +53,35 @@ export function scalePrimaryStats(stats: ItemStats, factor: number): ItemStats {
   return out;
 }
 
-/** `spellHit` is percentage points after rating conversion. Base miss is 17% vs a +3 raid boss. */
-export function spellMissChance(spellHitPercent: number, canMiss = true): number {
+/** Total spell hit percentage after flat bonuses (rating, talents, buffs, debuffs, etc.). */
+export function totalSpellHitPercent(spellHitPercent: number, extraHit = 0): number {
+  return Math.max(0, spellHitPercent + extraHit);
+}
+
+/**
+ * Miss chance vs a level +3 boss: clamp(17% − totalSpellHit, 0%, 17%).
+ * `spellHitPercent` is the character's spell hit in percentage points.
+ */
+export function spellMissChance(spellHitPercent: number, canMiss = true, extraHit = 0): number {
   if (!canMiss) return 0;
-  return Math.max(0, SPELL_HIT_CAP / 100 - Math.max(0, spellHitPercent) / 100);
+  const missPercent = Math.min(
+    SPELL_HIT_CAP,
+    Math.max(0, SPELL_HIT_CAP - totalSpellHitPercent(spellHitPercent, extraHit)),
+  );
+  return missPercent / 100;
+}
+
+export type SpellHitSummary = {
+  totalSpellHitPercent: number;
+  calculatedMissChance: number;
+};
+
+export function spellHitSummary(spellHitPercent: number, extraHit = 0): SpellHitSummary {
+  const total = totalSpellHitPercent(spellHitPercent, extraHit);
+  return {
+    totalSpellHitPercent: total,
+    calculatedMissChance: spellMissChance(spellHitPercent, true, extraHit),
+  };
 }
 
 export function addStats(a: ItemStats, b: ItemStats): ItemStats {

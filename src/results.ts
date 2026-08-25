@@ -116,8 +116,21 @@ export function renderResults(result: SimResult) {
         ${metric("Std. deviation", result.stdev)}
         ${metric("Iterations", result.iterations, 0)}
       </div>
-      <div class="compare">Level ${result.bossLevel} raid boss · stationary fight (no movement, no cleave) · ${result.durationSec}s ±5%.</div>
+      <div class="compare">Level ${result.bossLevel} raid boss · stationary fight (no movement, no cleave) · ${result.durationSec}s ±5s.</div>
+      ${result.activeCombatBuffs?.length ? `<div class="compare">Active buffs: ${result.activeCombatBuffs.map((label) => escapeHtml(label)).join(" · ")}</div>` : ""}
     </div>
+    <section class="result-section">
+      <h3>Spell hit</h3>
+      <div class="metric-grid">
+        ${metric("Total spell hit", result.offensiveHit.totalSpellHitPercent, 1, "%")}
+        ${metric("Calculated miss chance", result.offensiveHit.calculatedMissChance * 100, 1, "%")}
+        ${metric("Offensive casts attempted", result.offensiveHit.offensiveCastsAttempted, 1)}
+        ${metric("Offensive casts landed", result.offensiveHit.offensiveCastsLanded, 1)}
+        ${metric("Offensive casts missed", result.offensiveHit.offensiveCastsMissed, 1)}
+        ${metric("Overall miss rate", result.offensiveHit.overallMissRate != null ? result.offensiveHit.overallMissRate * 100 : null, 1, "%")}
+      </div>
+      <p class="hint">Miss chance is clamp(17% − spell hit, 0%, 17%) vs a level ${result.bossLevel} boss. DoT ticks do not re-roll hit.</p>
+    </section>
     <section class="result-section">
       <h3>DPS distribution</h3>
       <div class="histogram" role="img" aria-label="DPS per iteration histogram">${histogram(result.dpsSamples, result.meanDps, result.iterations)}</div>
@@ -125,16 +138,14 @@ export function renderResults(result: SimResult) {
     <section class="result-section">
       <h3>Spell breakdown</h3>
       <div class="table-scroll"><table class="spell-breakdown">
-        <thead><tr><th>Spell</th><th>Casts</th><th>DPS</th><th class="share-bar-col">Share</th><th>Normal</th><th>Critical</th><th>Misses</th></tr></thead>
+        <thead><tr><th>Spell</th><th>DPS</th><th class="share-bar-col">% Share</th><th>Average Hit</th><th>Casts</th><th>Normal Hit</th><th>Crit Hit</th><th>Miss</th></tr></thead>
         <tbody>${spellRows(result).join("")}</tbody>
       </table></div>
     </section>
     ${result.auraUptimes.length ? `
       <section class="result-section">
         <h3>Aura uptime</h3>
-        <div class="uptime-list">${result.auraUptimes.map((aura) => `
-          <div><span>${escapeHtml(aura.name)}</span><div class="uptime-track"><i style="width:${Math.min(100, aura.uptime * 100)}%"></i></div><strong>${(aura.uptime * 100).toFixed(1)}%</strong></div>
-        `).join("")}</div>
+        <div class="uptime-list">${renderAuraUptimes(result.auraUptimes)}</div>
       </section>` : ""}
     <section class="result-section">
       <div class="result-section__heading">
@@ -172,6 +183,8 @@ export function renderResults(result: SimResult) {
   bindCastLogBulkExpand();
   const castLog = root.querySelector(".cast-log");
   if (castLog) bindHintTooltips(castLog);
+  const spellBreakdown = root.querySelector(".spell-breakdown");
+  if (spellBreakdown) bindHintTooltips(spellBreakdown, ".spell-breakdown__avg-hit[data-hint-body]");
 }
 
 function setCastLogRowExpanded(row: HTMLTableRowElement, expanded: boolean) {
@@ -271,33 +284,52 @@ function bindCastLogExpanders() {
 function spellRows(result: SimResult): string[] {
   const maxShare = result.breakdown.reduce((peak, row) => Math.max(peak, row.share), 0);
   return result.breakdown.map((row) => spellRow(row.name, {
-    casts: row.casts.toFixed(1),
     dps: row.dps,
     share: row.share,
     maxShare,
-    hits: combatCount(row.hits, row.hits + row.crits + row.misses),
-    crits: combatCount(row.crits, row.hits + row.crits + row.misses),
-    misses: combatCount(row.misses, row.hits + row.crits + row.misses),
+    averageHit: formatAverageHitCell(row),
+    casts: row.casts.toFixed(1),
+    normalHit: combatPercent(row.hits, row.casts),
+    critHit: combatPercent(row.crits, row.casts),
+    miss: combatPercent(row.misses, row.casts),
   }));
 }
 
+function formatAverageHitCell(row: SimResult["breakdown"][number]): string {
+  const averageHit = formatAverageHit(row.damage, row.hits, row.crits);
+  const body = averageHitHintBody(row);
+  if (!body) return averageHit;
+  return `<span class="stats__hover spell-breakdown__avg-hit" data-hint-title="Average hit" data-hint-body="${escapeAttr(body)}" data-hint-compact tabindex="0">${averageHit}</span>`;
+}
+
+function averageHitHintBody(row: SimResult["breakdown"][number]): string | null {
+  const landed = row.hits + row.crits;
+  if (landed <= 0) return null;
+  return [
+    `Normal hit: ${formatAverageHitAmount(row.hitDamage, row.hits)}`,
+    `Crit hit: ${formatAverageHitAmount(row.critDamage, row.crits)}`,
+  ].join("\n\n");
+}
+
 function spellRow(name: string, row: {
-  casts: string;
   dps: number;
   share: number;
   maxShare: number;
-  hits: string;
-  crits: string;
-  misses: string;
+  averageHit: string;
+  casts: string;
+  normalHit: string;
+  critHit: string;
+  miss: string;
 }): string {
   return `<tr>
     <td>${escapeHtml(name)}</td>
-    <td>${row.casts}</td>
     <td>${row.dps.toFixed(0)}</td>
     ${shareBarCell(row.share, row.maxShare)}
-    <td>${row.hits}</td>
-    <td>${row.crits}</td>
-    <td>${row.misses}</td>
+    <td>${row.averageHit}</td>
+    <td>${row.casts}</td>
+    <td>${row.normalHit}</td>
+    <td>${row.critHit}</td>
+    <td>${row.miss}</td>
   </tr>`;
 }
 
@@ -390,16 +422,105 @@ function escapeAttr(value: string): string {
   return escapeHtml(value).replace(/"/g, "&quot;");
 }
 
-function metric(label: string, value: number, digits = 0): string {
-  return `<div><span>${label}</span><strong>${value.toFixed(digits)}</strong></div>`;
+function metric(label: string, value: number | null, digits = 0, suffix = ""): string {
+  const text = value == null ? "—" : `${value.toFixed(digits)}${suffix}`;
+  return `<div><span>${label}</span><strong>${text}</strong></div>`;
 }
 
 function signed(value: number, digits = 1): string {
   return `${value >= 0 ? "+" : ""}${value.toFixed(digits)}`;
 }
 
-function combatCount(count: number, total: number): string {
-  return total > 0 ? `${count.toFixed(1)} (${(count / total * 100).toFixed(1)}%)` : "—";
+function combatPercent(count: number, total: number): string {
+  return total > 0 ? `${(count / total * 100).toFixed(1)}%` : "—";
+}
+
+function formatAverageHit(damage: number, hits: number, crits: number): string {
+  const landed = hits + crits;
+  return landed > 0 ? Math.round(damage / landed).toLocaleString() : "—";
+}
+
+function formatAverageHitAmount(damage: number, count: number): string {
+  return count > 0 ? Math.round(damage / count).toLocaleString() : "—";
+}
+
+const EXPANDABLE_AURA_GROUPS: Array<{ name: string; stackCount: number }> = [
+  { name: "Chaotic", stackCount: 3 },
+  { name: "Reckoning", stackCount: 4 },
+];
+
+function stackUptimeKeys(name: string, stackCount: number): string[] {
+  return Array.from({ length: stackCount }, (_, index) => {
+    const stacks = index + 1;
+    return `${name} (${stacks} stack${stacks === 1 ? "" : "s"})`;
+  });
+}
+
+function stackUptimeLabels(stackCount: number): string[] {
+  return Array.from({ length: stackCount }, (_, index) => {
+    const stacks = index + 1;
+    return `${stacks} stack${stacks === 1 ? "" : "s"}`;
+  });
+}
+
+function isNestedAuraUptime(name: string): boolean {
+  if (name === "Chaotic (avg stacks)" || name === "Reckoning (damage)") return true;
+  return EXPANDABLE_AURA_GROUPS.some((group) => stackUptimeKeys(group.name, group.stackCount).includes(name));
+}
+
+function renderAuraUptimes(auras: SimResult["auraUptimes"]): string {
+  const byName = new Map(auras.map((aura) => [aura.name, aura]));
+
+  return auras
+    .filter((aura) => !isNestedAuraUptime(aura.name))
+    .map((aura) => {
+      const group = EXPANDABLE_AURA_GROUPS.find((entry) => entry.name === aura.name);
+      if (!group) return renderAuraUptimeRow(aura.name, aura.uptime);
+
+      const stackRows: { label: string; uptime: number }[] = [];
+      for (let index = 0; index < group.stackCount; index++) {
+        const key = stackUptimeKeys(group.name, group.stackCount)[index];
+        const stackAura = byName.get(key);
+        if (stackAura) stackRows.push({ label: stackUptimeLabels(group.stackCount)[index], uptime: stackAura.uptime });
+      }
+      if (!stackRows.length) return renderAuraUptimeRow(aura.name, aura.uptime);
+      return renderExpandableUptimeGroup(aura.name, aura.uptime, stackRows);
+    })
+    .join("");
+}
+
+function renderExpandableUptimeGroup(
+  name: string,
+  uptime: number,
+  stacks: { label: string; uptime: number }[],
+): string {
+  return `<details class="uptime-group">
+    <summary class="uptime-row uptime-row--expandable">
+      <span class="uptime-row__lead">
+        <span class="uptime-row__chevron" aria-hidden="true">▸</span>
+        <span class="uptime-row__label">${escapeHtml(name)}</span>
+      </span>
+      ${renderAuraUptimeBar(uptime)}
+    </summary>
+    <div class="uptime-sublist">
+      ${stacks.map((row) => renderAuraUptimeRow(row.label, row.uptime, true)).join("")}
+    </div>
+  </details>`;
+}
+
+function renderAuraUptimeRow(name: string, uptime: number, nested = false): string {
+  const className = nested ? "uptime-row uptime-row--sub" : "uptime-row";
+  return `<div class="${className}">${renderAuraUptimeCells(name, uptime, nested)}</div>`;
+}
+
+function renderAuraUptimeCells(name: string, uptime: number, nested = false): string {
+  const labelClass = nested ? "uptime-row__label uptime-row__label--sub" : "uptime-row__label";
+  return `<span class="${labelClass}">${escapeHtml(name)}</span>${renderAuraUptimeBar(uptime)}`;
+}
+
+function renderAuraUptimeBar(uptime: number): string {
+  const width = Math.min(100, uptime * 100);
+  return `<div class="uptime-track"><i style="width:${width.toFixed(1)}%"></i></div><strong>${(uptime * 100).toFixed(1)}%</strong>`;
 }
 
 function escapeHtml(value: string): string {

@@ -1,10 +1,12 @@
 import type { BuffsConfig, ItemStats } from "../types";
+import type { StatHintContent } from "../stat-breakdown";
 import { isTalentEnabled } from "../talents/baseline";
 import { FELSWORN } from "../talents/felsworn";
 import { felInfusionCritPercent, INFERNAL } from "../talents/infernal";
 import type { TalentSelection } from "../talents/types";
 import {
   intellectCritPercent,
+  spellMissChance,
   SPELL_CRIT_RATING_PER_PERCENT,
   SPELL_HASTE_RATING_PER_PERCENT,
   SPELL_HIT_CAP,
@@ -84,28 +86,35 @@ export function buildChanceBreakdown(
   };
 }
 
-export function hitCardHtml(stat: ChanceStat): string {
-  return chanceCard("Spell Hit", stat, {
-    ratingPerPercent: SPELL_HIT_RATING_PER_PERCENT,
-    cap: SPELL_HIT_CAP,
-  });
+export function hitHintContent(stat: ChanceStat): StatHintContent {
+  const missChance = spellMissChance(stat.total);
+  const remaining = SPELL_HIT_CAP - stat.total;
+  const capReminder =
+    remaining > 0
+      ? `${fmt(stat.total)}% of the ${SPELL_HIT_CAP}% cap — ${fmt(remaining)}% short.`
+      : `${fmt(stat.total)}% — at or over the ${SPELL_HIT_CAP}% cap.`;
+  return {
+    body: chanceHintBody(stat, "Hit Rating"),
+    reminders: [
+      capReminder,
+      `Calculated miss chance vs a +3 boss: ${fmt(missChance * 100)}%.`,
+      `${SPELL_HIT_RATING_PER_PERCENT} hit rating = 1%.`,
+    ],
+  };
 }
 
-export function critCardHtml(stat: ChanceStat): string {
-  return chanceCard("Spell Crit", stat, {
-    ratingPerPercent: SPELL_CRIT_RATING_PER_PERCENT,
-    note:
-      stat.fromInnerDemon > 0
-        ? "Inner Demon (Hidden Power) is 20% of Spirit as crit rating and is included in this total."
-        : undefined,
-  });
-}
-
-export function hasteCardHtml(stat: ChanceStat): string {
-  return chanceCard("Spell Haste", stat, {
-    ratingPerPercent: SPELL_HASTE_RATING_PER_PERCENT,
-    note: "Felheart is +1% haste per Felfury in combat and is not in this total.",
-  });
+export function hasteHintContent(stat: ChanceStat, tailwindEnabled = false): StatHintContent {
+  const reminders = [
+    "Felheart is +1% haste per Felfury in combat and is not in this total.",
+    `${SPELL_HASTE_RATING_PER_PERCENT} haste rating = 1%.`,
+  ];
+  if (tailwindEnabled) {
+    reminders.splice(1, 0, "Tailwind (+5% haste) is modeled in combat windows and is not in this total.");
+  }
+  return {
+    body: chanceHintBody(stat, "Haste Rating"),
+    reminders,
+  };
 }
 
 function layer(
@@ -127,36 +136,15 @@ function layer(
   };
 }
 
-function chanceCard(
-  title: string,
-  stat: ChanceStat,
-  extra: { ratingPerPercent: number; cap?: number; note?: string },
-): string {
-  const remaining = extra.cap != null ? extra.cap - stat.total : null;
-  const capLine =
-    remaining == null
-      ? ""
-      : remaining > 0
-        ? `${fmt(stat.total)}% of the ${extra.cap}% cap — ${fmt(remaining)}% short.`
-        : `${fmt(stat.total)}% — at or over the ${extra.cap}% cap.`;
-  const extraHint = [capLine, extra.note].filter(Boolean).join(" ");
-  return `<section class="chance-card">
-    <h4>${title}</h4>
-    <p class="hint">${extra.ratingPerPercent} rating = 1%</p>
-    <dl class="stats chance-card__rows">
-      <div><dt>${fmt(stat.rating)} rating</dt><dd>${fmt(stat.fromRating)}%</dd></div>
-      <div><dt>Talents</dt><dd>+${fmt(stat.fromTalents)}%</dd></div>
-      ${stat.fromInnerDemon
-        ? `<div><dt>Inner Demon</dt><dd>+${fmt(stat.fromInnerDemon)}%</dd></div>`
-        : ""}
-      ${stat.fromIntellect
-        ? `<div><dt>Intellect</dt><dd>+${fmt(stat.fromIntellect)}%</dd></div>`
-        : ""}
-      <div><dt>Buffs &amp; debuffs</dt><dd>+${fmt(stat.fromBuffs)}%</dd></div>
-      <div class="chance-card__total"><dt>Total</dt><dd>${fmt(stat.total)}%</dd></div>
-    </dl>
-    ${extraHint ? `<p class="hint">${extraHint}</p>` : ""}
-  </section>`;
+function chanceHintBody(stat: ChanceStat, ratingLabel: string): string {
+  const lines: string[] = [];
+  if (stat.rating > 0) lines.push(`${ratingLabel}: ${fmt(stat.rating)}`);
+  lines.push(`Talents: ${fmt(stat.fromTalents)}%`);
+  if (stat.fromInnerDemon) lines.push(`Inner Demon: ${fmt(stat.fromInnerDemon)}%`);
+  if (stat.fromIntellect) lines.push(`Intellect: ${fmt(stat.fromIntellect)}%`);
+  lines.push(`Buffs & debuffs: ${fmt(stat.fromBuffs)}%`);
+  lines.push(`Total: ${fmt(stat.total)}%`);
+  return lines.join("\n\n");
 }
 
 function fmt(value: number): string {

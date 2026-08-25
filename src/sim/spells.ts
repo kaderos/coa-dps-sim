@@ -72,6 +72,16 @@ export type RollSpellDamageOptions = {
   critSpell?: SpellFit;
 };
 
+export function rollOffensiveHit(
+  stats: CharacterStats,
+  rng: Rng,
+  canMiss = true,
+  ctx: DamageContext = {},
+): { isMiss: boolean } {
+  const missChance = spellMissChance(stats.spellHit, canMiss, ctx.extraHit ?? 0);
+  return { isMiss: rng.chance(missChance) };
+}
+
 export function rollSpellDamage(
   spell: SpellFit,
   stats: CharacterStats,
@@ -84,10 +94,10 @@ export function rollSpellDamage(
   const critSpell = options.critSpell ?? spell;
   const extraSp = ctx.extraSpellPower ?? 0;
   const observed = critSpell.observed;
+  const missChance = spellMissChance(stats.spellHit, canMiss, ctx.extraHit ?? 0);
+  if (rng.chance(missChance)) return { amount: 0, isCrit: false, isMiss: true };
   const hit = rollHit(formulaSpell, stats, extraSp, stats.attackPower ?? 0, rng);
   if (hit <= 0) return { amount: 0, isCrit: false, isMiss: false };
-  const missChance = spellMissChance(stats.spellHit + (ctx.extraHit ?? 0), canMiss);
-  if (rng.chance(missChance)) return { amount: 0, isCrit: false, isMiss: true };
   const fireCrit = spellAffectsFire(critSpell) ? ctx.extraFireCrit ?? 0 : 0;
   const logCrit = ctx.ignoreLogCrit ? 0 : (observed?.critRate ?? 0);
   const critRate =
