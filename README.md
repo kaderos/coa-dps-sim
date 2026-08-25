@@ -29,9 +29,23 @@ Open http://localhost:5173 and click **Simulate**. Mean DPS is compared to the p
 
 On the **Gear** tab, paste a Bisbeard share link (`https://coa.bisbeard.com/b/…`) and click **Import gear**. The sim loads item IDs and enchants from Bisbeard’s build API and applies them to the paper doll (phase filter updates when the build includes a phase).
 
-Local dev proxies Bisbeard through Vite (`/bisbeard-api`). GitHub Pages registers a same-origin service worker at `/coa-dps-sim/bisbeard-api/…` so import works without cross-origin requests (ad blockers often block `*.workers.dev`).
+**Local dev:** Vite serves `GET /api/bisbeard/import?share=…` and fetches Bisbeard server-side (no CORS issues).
 
-Optional: deploy `workers/bisbeard-build-proxy` for non-Pages hosting (`npm run deploy:bisbeard-proxy`).
+**GitHub Pages:** the production build calls the absolute Cloudflare Worker URL baked in at build time via `VITE_BISBEARD_PROXY` (Worker origin, no trailing slash). The frontend requests:
+
+```text
+{VITE_BISBEARD_PROXY}/api/bisbeard/import?share={ENCODED_SHARE_LINK}
+```
+
+Deploy / refresh the Worker:
+
+```bash
+npm run deploy:bisbeard-proxy
+```
+
+Then set repository variable **`BISBEARD_PROXY_URL`** to the Worker origin printed by Wrangler (example shape: `https://coa-dps-sim-bisbeard-proxy.<account>.workers.dev` — **not** a GitHub Pages path). Pages builds fail closed if this value is missing.
+
+Worker `ALLOWED_ORIGINS` (see `workers/bisbeard-build-proxy/wrangler.toml`) must include the exact browser origin `https://kaderos.github.io` (no `/coa-dps-sim` path, no trailing slash), plus localhost for local testing against a deployed Worker.
 
 ## GitHub Pages
 

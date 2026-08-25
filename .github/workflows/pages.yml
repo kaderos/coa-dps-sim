@@ -26,6 +26,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm install --prefix workers/bisbeard-build-proxy
       - name: Deploy Bisbeard CORS proxy
         id: deploy
         env:
@@ -38,18 +39,23 @@ jobs:
           fi
           output=$(npx wrangler deploy --config workers/bisbeard-build-proxy/wrangler.toml 2>&1)
           echo "$output"
-          url=$(echo "$output" | grep -Eo 'https://[a-zA-Z0-9.-]+\.workers\.dev' | tail -1)
+          url=$(echo "$output" | grep -Eo 'https://[a-zA-Z0-9.-]+\.workers\.dev' | tail -1 | sed 's:/*$::')
           echo "deployed_url=$url" >> "$GITHUB_OUTPUT"
       - name: Resolve proxy URL
         id: proxy-url
+        env:
+          VAR_URL: ${{ vars.BISBEARD_PROXY_URL }}
+          DEPLOYED_URL: ${{ steps.deploy.outputs.deployed_url }}
         run: |
-          if [ -n "${{ vars.BISBEARD_PROXY_URL }}" ]; then
-            echo "url=${{ vars.BISBEARD_PROXY_URL }}" >> "$GITHUB_OUTPUT"
-          elif [ -n "${{ steps.deploy.outputs.deployed_url }}" ]; then
-            echo "url=${{ steps.deploy.outputs.deployed_url }}" >> "$GITHUB_OUTPUT"
+          if [ -n "$VAR_URL" ]; then
+            url="${VAR_URL%/}"
+          elif [ -n "$DEPLOYED_URL" ]; then
+            url="${DEPLOYED_URL%/}"
           else
-            echo "No Bisbeard proxy URL (set vars.BISBEARD_PROXY_URL or secrets.CLOUDFLARE_API_TOKEN)."
+            echo "::error::No Bisbeard proxy URL. Set repository variable BISBEARD_PROXY_URL to the Worker origin (e.g. https://coa-dps-sim-bisbeard-proxy.<account>.workers.dev), or provide CLOUDFLARE_API_TOKEN so the workflow can deploy it."
+            exit 1
           fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
 
   build:
     needs: bisbeard-proxy
@@ -61,9 +67,44 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run build
+      - name: Build site
+        run: npm run build
         env:
-          VITE_BISBEARD_PROXY: ${{ vars.BISBEARD_PROXY_URL != '' && vars.BISBEARD_PROXY_URL || needs.bisbeard-proxy.outputs.url }}
+          # Worker origin only (no /coa-dps-sim path). Frontend appends /api/bisbeard/import.
+          VITE_BISBEARD_PROXY: ${{ needs.bisbeard-proxy.outputs.url }}
+      - name: Verify production Bisbeard proxy URL is absolute
+        env:
+          PROXY: ${{ needs.bisbeard-proxy.outputs.url }}
+        run: |
+          echo "VITE_BISBEARD_PROXY=$PROXY"
+          if [ -z "$PROXY" ]; then
+            echo "::error::Missing Worker origin."
+            exit 1
+          fi
+          case "$PROXY" in
+            http://localhost*|https://localhost*|http://127.0.0.1*)
+              echo "::error::Production proxy must not be localhost."
+              exit 1
+              ;;
+            https://*)
+              ;;
+            *)
+              echo "::error::Expected an https Worker origin, got: $PROXY"
+              exit 1
+              ;;
+          esac
+          if ! grep -R --fixed-strings "$PROXY" dist >/dev/null; then
+            echo "::error::Built assets do not contain the configured Worker origin."
+            exit 1
+          fi
+          if grep -R --fixed-strings "localhost:5173" dist >/dev/null; then
+            echo "::error::Built assets unexpectedly contain localhost:5173."
+            exit 1
+          fi
+          if grep -R --fixed-strings "/coa-dps-sim/bisbeard-api" dist >/dev/null; then
+            echo "::error::Built assets still reference the old same-origin bisbeard-api path."
+            exit 1
+          fi
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
