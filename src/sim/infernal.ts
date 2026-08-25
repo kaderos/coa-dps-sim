@@ -28,6 +28,11 @@ import {
   skullCooldown,
   skullEnergyBonus,
 } from "../talents/felsworn";
+import {
+  ARCANE_ARTILLERY,
+  arcaneArtillerySpellPower,
+  tryArcaneArtilleryProc,
+} from "./arcane-artillery";
 
 const ANNIHILATION: SpellFit = {
   id: 803904,
@@ -126,6 +131,8 @@ export type FightOptions = {
    * the talent is taken. Undefined defaults to allowed (tests / legacy callers).
    */
   felshock?: boolean;
+  /** Arcane Artillery weapon enchant (+80 SP proc). */
+  arcaneArtillery?: boolean;
 };
 
 export type Aura = {
@@ -191,6 +198,10 @@ export type FightState = {
   tailwind: boolean;
   /** Random phase offset so uptime converges to ~80% across iterations. */
   tailwindPhaseOffset: number;
+  /** Shared weapon-proc ICD pool (High Risk Weapons Enchant). */
+  weaponProcIcdReadyAt: number;
+  arcaneArtilleryEnabled: boolean;
+  arcaneArtillery: Aura | null;
   playerStats: CharacterStats;
   damage: number;
   bySpell: Map<string, { casts: number; damage: number; hits: number; crits: number; hitDamage: number; critDamage: number; misses: number; events: number }>;
@@ -319,6 +330,9 @@ export function runOnce(
     neptulonNextCastAt: options.neptulonsWrath ? NEPTULONS_WRATH.cooldown : 0,
     tailwind: options.tailwind ?? false,
     tailwindPhaseOffset: options.tailwind ? rng.range(0, TAILWIND_CYCLE) : 0,
+    weaponProcIcdReadyAt: 0,
+    arcaneArtilleryEnabled: options.arcaneArtillery ?? false,
+    arcaneArtillery: null,
     playerStats: specStats,
     damage: 0,
     bySpell: new Map(),
@@ -448,6 +462,11 @@ function tickAuras(
     state.potion.remain -= dt;
     if (state.potion.remain <= 0) state.potion = null;
   }
+  if (state.arcaneArtillery) {
+    addAuraTime(state, ARCANE_ARTILLERY.name, dt);
+    state.arcaneArtillery.remain -= dt;
+    if (state.arcaneArtillery.remain <= 0) state.arcaneArtillery = null;
+  }
   if (state.innerDemon) {
     addAuraTime(state, "Inner Demon", dt);
     const remain = innerDemonRemaining(state);
@@ -574,6 +593,7 @@ function combatContext(spell: SpellFit, stats: CharacterStats, state: FightState
     reckoningStacks: state.reckoningPower?.stacks ?? 0,
     guaranteedCrit: Boolean(state.annihilation && state.annihilation.stacks > 0),
     potionSpellPower: state.potion ? state.potionSpellPower : 0,
+    arcaneArtillerySpellPower: arcaneArtillerySpellPower(state),
     targetStartHealth: state.targetStartHealth,
     targetHealthDecays: state.targetHealthDecays,
     fightTime: state.time,
@@ -610,6 +630,7 @@ function snapshotDamageAuras(
   if (state.reckoningPower?.stacks) push("Reckoning", state.reckoningPower.stacks);
   if (state.annihilation?.stacks) push("Annihilation", state.annihilation.stacks);
   if (state.potion) push("Potion of Spell Power");
+  if (state.arcaneArtillery) push(ARCANE_ARTILLERY.name);
   if (
     state.setDamageAbove75 > 0 &&
     felCannonCritActive(state.time, state.fightDuration, state.targetStartHealth, state.targetHealthDecays)
@@ -782,6 +803,7 @@ function cast(
     state.ruinProcRemain = 0;
     state.ruinReactUntil = 0;
   }
+  tryArcaneArtilleryProc(state, rng);
 
   if (spell.id === 804216) {
     const consumed = Math.min(FELFURY_MAX, Math.max(0, Math.floor(state.felfury)));

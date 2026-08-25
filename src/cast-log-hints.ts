@@ -21,6 +21,7 @@ const CAST_LOG_AURA_HINTS: Record<string, string> = {
   Reckoning: "Reckoning window — free instant Fireballs for 10s. Fireballs during this add +4% damage stacks (max 4, 15s each).",
   Annihilation: "Annihilation — next direct hits are guaranteed crits (ability deals no damage).",
   "Potion of Spell Power": "+75 Spell Power while the potion is active.",
+  "Arcane Artillery": "+80 Spell Power for 15s (weapon enchant proc).",
   "Felheart Raiment (6pc)": "Set bonus — +10% damage vs targets above 75% health.",
   "Fel Cannon": "+20% Fel Fireball and Ruin crit while the target is above 75% health.",
   "Sculptor of Doom": "Sculptor proc — next Ruin within 8s is instant (still costs 2 Felfury).",

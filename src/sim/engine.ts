@@ -120,6 +120,7 @@ function runIterationBatch(
       targetHealthDecays: config.targetHealthDecays,
       demonfirePact: config.demonfirePact,
       felshock: config.felshock,
+      arcaneArtillery: config.arcaneArtillery,
     });
     applyProcContributions(once, fightSec, config.procContributions);
     if (i === 0) {

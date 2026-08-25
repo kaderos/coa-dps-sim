@@ -15,6 +15,7 @@ import {
 import { buildChanceBreakdown, displayHitStat, hasteHintContent, hitHintContent } from "./sim/chances";
 import type { ChanceBreakdown } from "./sim/chances";
 import { runSimAsync } from "./sim/engine";
+import { arcaneArtilleryEquipped } from "./sim/arcane-artillery";
 import {
   applyStatScaleBuffs,
   activeCombatBuffLabels,
@@ -1276,6 +1277,7 @@ async function runSimulation() {
         targetHealthDecays: buffsConfig.targetHealthDecays,
         demonfirePact: buffsConfig.demonfirePact,
         felshock: buffsConfig.spellHitDebuff,
+        arcaneArtillery: arcaneArtilleryEquipped(gear, enchants),
       },
       null,
       null,

@@ -198,6 +198,7 @@ export type InfernalAuras = {
   reckoningStacks: number;
   guaranteedCrit: boolean;
   potionSpellPower: number;
+  arcaneArtillerySpellPower?: number;
   /** Target health at pull (dummy = 1). */
   targetStartHealth: number;
   /** When true, health falls linearly to 0 over the fight (Fel Cannon tapers off). */
@@ -263,7 +264,7 @@ export function infernalContext(
     damageTakenFromCaster: auras.baneOfFire ? 1.2 : 1,
     extraCrit,
     damageDone,
-    extraSpellPower: (auras.potionSpellPower || 0),
+    extraSpellPower: (auras.potionSpellPower || 0) + (auras.arcaneArtillerySpellPower || 0),
     extraHit: auras.felshockHitRemain > 0 ? INFERNAL.felshockHit : 0,
     ignoreLogCrit: true,
     guaranteedCrit: auras.guaranteedCrit,
