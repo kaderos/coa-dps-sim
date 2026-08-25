@@ -12,7 +12,7 @@ import {
   ratingsFromGear,
   statsFromGear,
 } from "./sim/stats";
-import { buildChanceBreakdown, hasteHintContent, hitHintContent } from "./sim/chances";
+import { buildChanceBreakdown, displayHitStat, hasteHintContent, hitHintContent } from "./sim/chances";
 import type { ChanceBreakdown } from "./sim/chances";
 import { runSimAsync } from "./sim/engine";
 import {
@@ -47,6 +47,26 @@ import { primaryStatBreakdown, primaryStatHintBody, spellCritBreakdown, spellCri
 import { hydrateEnchantEffectStats, hydrateItemEffectStats } from "./effect-stats";
 
 (window as Window & { __coaModuleStarted?: boolean }).__coaModuleStarted = true;
+
+/** Drop leftover Bisbeard service workers from older Pages deploys. */
+function unregisterLegacyBisbeardServiceWorkers(): void {
+  if (!("serviceWorker" in navigator)) return;
+  void navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const registration of registrations) {
+      const script =
+        registration.active?.scriptURL ??
+        registration.waiting?.scriptURL ??
+        registration.installing?.scriptURL ??
+        "";
+      if (script.includes("bisbeard-sw.js") || registration.scope.includes("/coa-dps-sim/")) {
+        void registration.unregister();
+      }
+    }
+  });
+}
+
+unregisterLegacyBisbeardServiceWorkers();
+
 
 type ItemDb = {
   source: string;
@@ -391,6 +411,7 @@ function renderGearSlot(slot: Slot) {
 function setupBisbeardImport() {
   const input = document.getElementById("bisbeard-import-url") as HTMLInputElement | null;
   const button = document.getElementById("bisbeard-import-run") as HTMLButtonElement | null;
+  const clearButton = document.getElementById("clear-gear") as HTMLButtonElement | null;
   const status = document.getElementById("bisbeard-import-status");
   if (!input || !button || !status) return;
 
@@ -420,9 +441,26 @@ function setupBisbeardImport() {
   };
 
   button.addEventListener("click", () => void run());
+  clearButton?.addEventListener("click", () => {
+    clearAllGear();
+    setStatus("Cleared all gear and enchants.");
+  });
   input.addEventListener("keydown", (event) => {
     if (event.key === "Enter") void run();
   });
+}
+
+function clearAllGear() {
+  for (const slot of SLOTS) {
+    gear[slot] = null;
+    enchants[slot] = null;
+  }
+  itemCache.clear();
+  saveGearSet(gear);
+  saveEnchantSet(enchants);
+  syncOffhandOilField(gear);
+  renderGear();
+  renderStats();
 }
 
 function applyBisbeardBuild(mapped: BisbeardMappedBuild, setStatus: (text: string, isError?: boolean) => void) {
@@ -1069,6 +1107,7 @@ function renderStats() {
     talentSelection,
     buffsConfig,
   );
+  const hitDisplay = displayHitStat(chances.hit, buffsConfig.spellHitDebuff);
   const sp = displaySpellPower(stats, stats.hiddenPower);
   const spellPen = stats.spellPenetration || 0;
   const root = document.getElementById("stats");
@@ -1079,13 +1118,13 @@ function renderStats() {
     ["Intellect", floorStat(stats.intellect)],
     ["Spirit", floorStat(stats.spirit)],
     ["Spell Crit", `${chances.crit.total.toFixed(2)}%`],
-    ["Spell Hit", `${chances.hit.total.toFixed(1)}%`],
+    ["Spell Hit", `${hitDisplay.total.toFixed(1)}%`],
     ["Spell Haste", `${chances.haste.total.toFixed(1)}%`],
   ];
   root.innerHTML = rows
     .map(([name, value]) => `<div><dt>${name}</dt><dd>${value}</dd></div>`)
     .join("");
-  bindStatBreakdownHovers(root, stats, duration, chances);
+  bindStatBreakdownHovers(root, stats, duration, { ...chances, hit: hitDisplay });
   renderSetSummary();
 }
 
@@ -1210,6 +1249,7 @@ async function runSimulation() {
     ),
     buffsConfig,
   );
+  const displayStats = applyTakenTalents(stats, talentSelection, buffsConfig);
 
   setSimRunning(true, 0, iterations);
   try {
@@ -1235,13 +1275,17 @@ async function runSimulation() {
         tailwind: buffsConfig.tailwind,
         targetHealthDecays: buffsConfig.targetHealthDecays,
         demonfirePact: buffsConfig.demonfirePact,
+        felshock: buffsConfig.spellHitDebuff,
       },
       null,
       null,
       (completed, total) => setSimProgress(completed, total),
     );
     lastSim = toSnapshot(result);
-    renderResults({ ...result, activeCombatBuffs: activeCombatBuffLabels(buffsConfig) });
+    renderResults(
+      { ...result, activeCombatBuffs: activeCombatBuffLabels(buffsConfig) },
+      { spells: spells.spells, stats: displayStats },
+    );
     refreshGearSim();
   } finally {
     setSimRunning(false);

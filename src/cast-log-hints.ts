@@ -15,7 +15,7 @@ const CAST_LOG_AURA_HINTS: Record<string, string> = {
     "Spend Felfury to activate. +10% damage, Ruin leaves its DoT, and Felfury spenders extend the window.",
   "Bane of Fire": "Target takes 20% more damage from you; Fire spells gain +20% crit.",
   "Fragment of Malice": "Malice of Gul'dan proc — +10% crit for 5s.",
-  Felshock: "Felshock talent — +3% spell hit on the target for 12s; Felfury spenders extend Inner Demon.",
+  Felshock: "Felshock — +3% spell hit on the target for 12s; Felfury spenders extend Inner Demon. Enabled via Buffs → Felshock when the talent is taken.",
   Tailwind: "Shaman party buff — +5% haste for 15s windows (~80% uptime in sim).",
   Chaotic: "Chaotic talent — 8% on player spell damage: +3% damage per stack (max 3, 8s, refresh on proc).",
   Reckoning: "Reckoning window — free instant Fireballs for 10s. Fireballs during this add +4% damage stacks (max 4, 15s each).",

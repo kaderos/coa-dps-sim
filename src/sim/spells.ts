@@ -66,9 +66,9 @@ function rollHit(spell: SpellFit, stats: CharacterStats, extraSp: number, ap: nu
 }
 
 export type RollSpellDamageOptions = {
-  /** Use another spell's db formula for the hit roll (Chaos uses Smite scaling). */
+  /** Use another spell's db formula for the hit roll. */
   formulaSpell?: SpellFit;
-  /** Use another spell's crit rules / multiplier (Chaos matches Smite). */
+  /** Use another spell's crit rules / multiplier. */
   critSpell?: SpellFit;
 };
 

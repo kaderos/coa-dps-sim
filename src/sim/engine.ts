@@ -119,6 +119,7 @@ function runIterationBatch(
       tailwind: config.tailwind,
       targetHealthDecays: config.targetHealthDecays,
       demonfirePact: config.demonfirePact,
+      felshock: config.felshock,
     });
     applyProcContributions(once, fightSec, config.procContributions);
     if (i === 0) {
