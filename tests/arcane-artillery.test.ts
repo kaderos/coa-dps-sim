@@ -24,6 +24,38 @@ test("arcaneArtilleryEquipped matches enchant on mainhand", () => {
   assert.equal(arcaneArtilleryEquipped({}, {}), false);
 });
 
+test("arcaneArtilleryEquipped matches enchant on staff / two-hand mainhand", () => {
+  const enchant = {
+    id: 96869812,
+    name: "Arcane Artillery",
+    slots: ["mainhand", "offhand"],
+    weapon: null,
+    stats: { spellPower: 0 } as never,
+  };
+  const staff = {
+    id: 2,
+    name: "Staff of Fire",
+    slot: "mainhand" as const,
+    armorType: "Staves",
+    stats: {} as never,
+  };
+  const twoHand = {
+    id: 3,
+    name: "Greatsword",
+    slot: "mainhand" as const,
+    equipSlot: "Two-Hand",
+    stats: {} as never,
+  };
+  assert.equal(
+    arcaneArtilleryEquipped({ mainhand: staff }, { mainhand: enchant }),
+    true,
+  );
+  assert.equal(
+    arcaneArtilleryEquipped({ mainhand: twoHand }, { mainhand: enchant }),
+    true,
+  );
+});
+
 test("Arcane Artillery proc respects 19s weapon ICD", () => {
   const state = {
     time: 0,

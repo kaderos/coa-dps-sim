@@ -125,10 +125,11 @@ const RAID_BUFFS: ToggleDef[] = [
 
 const PARTY_BUFFS: ToggleDef[] = [
   {
-    // Shaman party CD. 15s aura, 1 min CD — AP×0.35 Froststorm on each direct damage hit.
     key: "neptulonsWrath",
-    label: "Neptulon's Wrath — AP×0.35 on direct damage",
-    note: "15s aura · 1 min CD · Kaldros log ~780 DPS (39 hits / 112s)",
+    label: "Neptulon's Wrath — Froststorm on direct damage",
+    hintTitle: "Neptulon's Wrath",
+    hintBody:
+      "15s raid aura, 1 min cooldown. Each direct damage hit during the window also deals Froststorm damage equal to 35% attack power plus 35% spell power (includes Hidden Power).\n\nCrits use your sheet spell crit chance at ~2.45× (log-derived for spell 537252).",
     defaultOn: false,
     stats: {},
   },
