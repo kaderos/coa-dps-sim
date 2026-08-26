@@ -70,10 +70,9 @@
       "castTime": 2.5,
       "formula": {
         "source": "db.ascension.gg",
-        "min": 3159,
-        "max": 3313,
+        "min": 2163,
+        "max": 2317,
         "perLevel": 12.45,
-        "perLevelScalesWithPlayer": false,
         "coeff": 1.32,
         "fireCoeff": 1,
         "shadowCoeff": 1.32,
@@ -82,11 +81,11 @@
         "gcd": 1
       },
       "fit": {
-        "method": "range(3159, 3313) + COND(GT(FireP,ShaP), FireP*1, ShaP*1.32)",
+        "method": "range(2163, 2317) + 12.45 × level + COND(GT(FireP,ShaP), FireP*1, ShaP*1.32)",
         "spellPowerUsed": 0,
-        "base": 3236,
+        "base": 2987,
         "coeff": 1.32,
-        "note": "Rank 8 (501298). School damage at 60 already includes +12.45/lvl. Shadowflame; pierces absorbs. 30 Energy, 2.5s cast, 2 Felfury. Inner Demon: +30% of direct hit as DoT over 3s."
+        "note": "Rank 8 (501298). Effect #1: 2163–2317 + 12.45/lvl. COND FireP×1 / ShaP×1.32. Shadowflame; pierces absorbs. 30 Energy, 2.5s cast, 2 Felfury. Inner Demon: +30% of direct hit as DoT over 3s."
       }
     },
     "501321": {

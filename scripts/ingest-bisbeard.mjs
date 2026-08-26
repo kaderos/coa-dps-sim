@@ -164,9 +164,9 @@ const PRIMARY_STAT_LABELS = {
   spirit: "Spirit",
 };
 
-// The browser payload is committed to the repo, so it only carries items with
-// caster-relevant stats and drops zeroed stats. Keep every matching item so name
-// and phase searches never silently omit lower-level gear.
+// The browser payload is committed to the repo, so it is trimmed hard for size:
+// cloth/misc/weapons with caster (or stamina/resist-only) value, Rare+.
+// Phase tags and casterScore ranking are preserved for the UI filters/sort.
 
 function main() {
   fs.mkdirSync(DUMP_DIR, { recursive: true });
@@ -259,16 +259,69 @@ function buildWebPayload(payload, bySlot) {
   };
 }
 
+const KEEP_QUALITIES = new Set(["rare", "epic", "legendary", "heirloom"]);
+const DROP_ARMOR_TYPES = new Set(["plate", "mail"]);
+
 function isBloodforged(item) {
   return /bloodforged/i.test(`${item.subtitle || ""} ${item.name || ""}`);
 }
 
+function hasResilience(item) {
+  const stats = item.stats || {};
+  if (stats.resilience || stats.resilienceRating) return true;
+  const blob = `${(item.effects || []).join(" ")} ${(item.baseStats || []).join(" ")} ${item.description || ""}`;
+  return /resilience/i.test(blob);
+}
+
+/** Physical primary strictly beats caster primary (SP / Intellect). */
+function physicalDominatesCaster(item) {
+  const s = item.stats || {};
+  const physical = Math.max(s.strength || 0, s.agility || 0);
+  const caster = Math.max(s.spellPower || 0, s.intellect || 0);
+  return physical > caster;
+}
+
+function hasCasterValue(item) {
+  if ((item.casterScore || 0) > 0) return true;
+  const s = item.stats || {};
+  if ((s.firePower || 0) > 0 || (s.shadowPower || 0) > 0 || (s.spellPenetration || 0) > 0) return true;
+  return (item.effects || []).some((line) =>
+    /spell (power|damage|hit|crit|haste)|increase your spell|damaging spells|spell penetration|critical strike rating|hit rating|haste rating/i.test(
+      line,
+    ),
+  );
+}
+
+/** Stamina and/or resistance gear with no other offensive/caster stats. */
+function isStaminaOrResistOnly(item) {
+  const s = item.stats || {};
+  const offensive =
+    (s.strength || 0) +
+    (s.agility || 0) +
+    (s.intellect || 0) +
+    (s.spirit || 0) +
+    (s.spellPower || 0) +
+    (s.firePower || 0) +
+    (s.shadowPower || 0) +
+    (s.attackPower || 0) +
+    (s.spellCrit || 0) +
+    (s.spellHit || 0) +
+    (s.spellHaste || 0) +
+    (s.spellPenetration || 0) +
+    (s.mp5 || 0);
+  if (offensive > 0) return false;
+  const text = `${(item.effects || []).join(" ")} ${(item.baseStats || []).join(" ")}`;
+  const hasResist = /resistance/i.test(text);
+  return (s.stamina || 0) > 0 || hasResist;
+}
+
 function isCasterRelevant(item) {
   if (isBloodforged(item)) return false;
-  if (item.casterScore > 0) return true;
-  return (item.effects || []).some((line) =>
-    /spell (power|damage|hit|crit|haste)|increase your spell|damaging spells/i.test(line),
-  );
+  if (!KEEP_QUALITIES.has(String(item.quality || "").toLowerCase())) return false;
+  if (DROP_ARMOR_TYPES.has(String(item.armorType || "").toLowerCase())) return false;
+  if (hasResilience(item)) return false;
+  if (physicalDominatesCaster(item)) return false;
+  return hasCasterValue(item) || isStaminaOrResistOnly(item);
 }
 
 function slimItem(item) {

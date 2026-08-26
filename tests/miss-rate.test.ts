@@ -76,8 +76,8 @@ describe("simulated offensive miss rates", () => {
     );
   });
 
-  it("Buffs Felshock checkbox off suppresses talent Felshock even when taken", () => {
-    const selection = { felsworn: {}, infernal: { "Wrath of Sargeras": false } } as const;
+  it("Felshock talent off suppresses combat Felshock even at high sheet hit", () => {
+    const selection = { felsworn: {}, infernal: { "Wrath of Sargeras": false, Felshock: false } } as const;
     const stats = applyTakenTalents(
       buildCharacter({}, 0.15, { ...felswornBaseStats(), spellPower: 644, spellHit: 16.9 }),
       selection,
@@ -89,7 +89,6 @@ describe("simulated offensive miss rates", () => {
       const once = runOnce(spells, stats, 180, new Rng(seed + 5000 + i * 7919), {
         demonfirePact: true,
         talentSelection: selection,
-        felshock: false,
       });
       attempted += once.offensiveCastsAttempted;
       missed += once.offensiveCastsMissed;
@@ -98,7 +97,7 @@ describe("simulated offensive miss rates", () => {
     const rate = attempted > 0 ? missed / attempted : 0;
     assert.ok(
       Math.abs(rate - expected) < 0.006,
-      `expected ~${(expected * 100).toFixed(2)}% misses with Felshock checkbox off, got ${(rate * 100).toFixed(3)}%`,
+      `expected ~${(expected * 100).toFixed(2)}% misses with Felshock talent off, got ${(rate * 100).toFixed(3)}%`,
     );
   });
 

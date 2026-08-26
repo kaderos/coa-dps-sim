@@ -13,7 +13,7 @@
     "parse-fight": "node scripts/parse-fight.mjs",
     "ingest": "node scripts/ingest-bisbeard.mjs",
     "fit-spells": "node scripts/fit-spells.mjs",
-    "test": "tsx --test tests/spell-hit.test.ts tests/miss-rate.test.ts tests/salted-duration.test.ts tests/bisbeard-import.test.ts tests/arcane-artillery.test.ts",
+    "test": "tsx --test tests/spell-hit.test.ts tests/miss-rate.test.ts tests/salted-duration.test.ts tests/bisbeard-import.test.ts tests/arcane-artillery.test.ts tests/on-use-trinkets.test.ts tests/proc-trinkets.test.ts",
     "analyze-chaotic": "node scripts/analyze-chaotic.mjs",
     "analyze-chaotic-procs": "node scripts/analyze-chaotic-procs.mjs",
     "clone-wowsims": "git clone --depth 1 https://github.com/wowsims/classic.git vendor/wowsims-classic",

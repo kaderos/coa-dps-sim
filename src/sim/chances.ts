@@ -29,9 +29,13 @@ export type ChanceBreakdown = {
   haste: ChanceStat;
 };
 
-/** Fold Felshock into the Gear-page hit total when the Buffs checkbox is on (display only). */
-export function displayHitStat(stat: ChanceStat, felshockEnabled: boolean): ChanceStat {
-  if (!felshockEnabled) return stat;
+/** Fold Felshock +3% into Spell Hit display when the talent is taken (combat uptime not modeled). */
+export function displayHitStat(
+  stat: ChanceStat,
+  felshockTalent: boolean,
+  primalistHitDebuff: boolean,
+): ChanceStat {
+  if (primalistHitDebuff || !felshockTalent) return stat;
   return {
     ...stat,
     fromBuffs: stat.fromBuffs + INFERNAL.felshockHit,
@@ -113,13 +117,24 @@ export function hitHintContent(stat: ChanceStat): StatHintContent {
   };
 }
 
-export function hasteHintContent(stat: ChanceStat, tailwindEnabled = false): StatHintContent {
+export function hasteHintContent(
+  stat: ChanceStat,
+  tailwindEnabled = false,
+  tempestsCallEnabled = false,
+): StatHintContent {
   const reminders = [
     "Felheart is +1% haste per Felfury in combat and is not in this total.",
     `${SPELL_HASTE_RATING_PER_PERCENT} haste rating = 1%.`,
   ];
   if (tailwindEnabled) {
     reminders.splice(1, 0, "Tailwind (+5% haste) is modeled in combat windows and is not in this total.");
+  }
+  if (tempestsCallEnabled) {
+    reminders.splice(
+      tailwindEnabled ? 2 : 1,
+      0,
+      "Tempest's Call (+30% haste for 20s at pull and every 5 min) is modeled in combat and is not in this total.",
+    );
   }
   return {
     body: chanceHintBody(stat, "Haste Rating"),

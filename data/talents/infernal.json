@@ -120,7 +120,7 @@
       "name": "Unphased",
       "rank": "passive",
       "combat": false,
-      "effect": "Spell penetration and Inner Demon pushback reduction. Unused at 0 boss resist / no pushback."
+      "effect": "+60 spell penetration. Inner Demon pushback reduction (unused with no pushback)."
     },
     {
       "name": "Felshock",

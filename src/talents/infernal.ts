@@ -48,6 +48,7 @@ export const INFERNAL = {
   ruinDotDuration: 3,
   executeHealth: 0.75,
   innerDemonSecPerFelfury: 5,
+  unphasedSpellPenetration: 60,
 };
 
 export function innerDemonDuration(felfury: number) {
@@ -167,6 +168,7 @@ export function applyInfernalPassives(
 ): CharacterStats {
   let spellHit = stats.spellHit;
   let spellCrit = stats.spellCrit;
+  let spellPenetration = stats.spellPenetration;
   if (!selection || isTalentEnabled(selection, "infernal", "Wrath of Sargeras")) {
     spellHit += INFERNAL.wrathSpellHit;
   }
@@ -176,6 +178,9 @@ export function applyInfernalPassives(
   if (!selection || isTalentEnabled(selection, "infernal", "Nether Spirit")) {
     spellCrit += critFromSpiritRating(stats.spirit, INFERNAL.netherSpiritToCritRating);
   }
+  if (!selection || isTalentEnabled(selection, "infernal", "Unphased")) {
+    spellPenetration += INFERNAL.unphasedSpellPenetration;
+  }
   const hiddenPower =
     !selection || isTalentEnabled(selection, "infernal", "Hidden Power")
       ? INFERNAL.hiddenPowerFromPrimary
@@ -184,6 +189,7 @@ export function applyInfernalPassives(
     ...stats,
     spellHit,
     spellCrit,
+    spellPenetration,
     hiddenPower,
   };
 }
@@ -199,6 +205,12 @@ export type InfernalAuras = {
   guaranteedCrit: boolean;
   potionSpellPower: number;
   arcaneArtillerySpellPower?: number;
+  trinketSpellPower?: number;
+  trinketDamageDone?: number;
+  trinketExtraCrit?: number;
+  procTrinketSpellPower?: number;
+  procTrinketExtraCrit?: number;
+  primalistHitDebuff?: boolean;
   /** Target health at pull (dummy = 1). */
   targetStartHealth: number;
   /** When true, health falls linearly to 0 over the fight (Fel Cannon tapers off). */
@@ -259,13 +271,21 @@ export function infernalContext(
   if ((auras.setDamageAbove75 || 0) > 0 && execute) {
     damageDone *= 1 + (auras.setDamageAbove75 || 0);
   }
+  if (auras.trinketDamageDone) damageDone *= 1 + auras.trinketDamageDone;
+  extraCrit += auras.trinketExtraCrit ?? 0;
+  extraCrit += auras.procTrinketExtraCrit ?? 0;
 
   return {
     damageTakenFromCaster: auras.baneOfFire ? 1.2 : 1,
     extraCrit,
     damageDone,
-    extraSpellPower: (auras.potionSpellPower || 0) + (auras.arcaneArtillerySpellPower || 0),
-    extraHit: auras.felshockHitRemain > 0 ? INFERNAL.felshockHit : 0,
+    extraSpellPower:
+      (auras.potionSpellPower || 0) +
+      (auras.arcaneArtillerySpellPower || 0) +
+      (auras.trinketSpellPower || 0) +
+      (auras.procTrinketSpellPower || 0),
+    extraHit:
+      auras.primalistHitDebuff || auras.felshockHitRemain <= 0 ? 0 : INFERNAL.felshockHit,
     ignoreLogCrit: true,
     guaranteedCrit: auras.guaranteedCrit,
   };

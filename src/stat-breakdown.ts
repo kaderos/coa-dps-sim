@@ -136,8 +136,12 @@ export function statLayerBreakdown(
 
   const gearItems = sumGearItems(gear, key);
   const gearAndEnchants = pick(bare, key) - basePart;
+  const unphased =
+    key === "spellPenetration" && hasTalent(selection, "infernal", "Unphased")
+      ? INFERNAL.unphasedSpellPenetration
+      : 0;
   return {
-    base: basePart,
+    base: basePart + unphased,
     gear: gearItems,
     enchants: gearAndEnchants - gearItems,
     setBonuses: pick(withSets, key) - pick(bare, key),
