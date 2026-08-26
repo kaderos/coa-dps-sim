@@ -11,6 +11,7 @@ const CAST_LOG_AURA_HINTS: Record<string, string> = {
   Tailwind: "Shaman party buff — +5% haste for 15s windows (~80% uptime in sim).",
   "Tempest's Call":
     "Heroism/Bloodlust — +30% spell haste for 20s. Used at pull and every 5 min while enabled.",
+  Vulnerable: "Venomancer debuff — +10% spell damage taken for 15s (~95% uptime in sim).",
   Chaotic: "Chaotic talent — 8% on player spell damage: +3% damage per stack (max 3, 8s, refresh on proc).",
   Reckoning: "Reckoning window — free instant Fireballs for 10s. Fireballs during this add +4% damage stacks (max 4, 15s each).",
   Annihilation: "Annihilation — next direct hits are guaranteed crits (ability deals no damage).",
@@ -21,6 +22,7 @@ const CAST_LOG_AURA_HINTS: Record<string, string> = {
   "Sculptor of Doom": "Sculptor proc — next Ruin within 8s is instant (still costs 2 Felfury).",
   "Archimonde's Wrath": "Felfury spenders — +1% crit per 10 Energy at cast.",
   Felstrike: "Periodic Fire damage on the target; stacks from Fel Fireball during Inner Demon.",
+  "Cursed Flames": "+20% Fel Fireball crit on the next Fel Fireball within 10s after a Fel Fireball crit.",
 };
 
 const STACK_NOTES: Partial<Record<string, (aura: SimActiveAura) => string>> = {

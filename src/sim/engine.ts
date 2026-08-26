@@ -118,6 +118,7 @@ function runIterationBatch(
       neptulonsWrath: config.neptulonsWrath,
       tailwind: config.tailwind,
       tempestsCall: config.tempestsCall,
+      vulnerable: config.vulnerable,
       targetHealthDecays: config.targetHealthDecays,
       demonfirePact: config.demonfirePact,
       arcaneArtillery: config.arcaneArtillery,

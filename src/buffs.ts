@@ -150,6 +150,15 @@ const PARTY_BUFFS: ToggleDef[] = [
     defaultOn: false,
     stats: {},
   },
+  {
+    key: "vulnerable",
+    label: "Vulnerable — +10% spell damage taken",
+    hintTitle: "Vulnerable",
+    hintBody:
+      "Venomancer debuff (Spell 572056). Increases spell damage taken by 10% for 15 seconds.\n\nModeled at ~95% uptime in combat.",
+    defaultOn: false,
+    stats: {},
+  },
 ];
 
 const HIT_BUFFS: ToggleDef[] = [
@@ -205,6 +214,11 @@ const FOODS: Array<SelectOption<BuffsConfig["food"]>> = [
     value: "fused-wizard-wontons",
     label: "Well Fed - Fused Wizard Wontons (+10 Spell Power, +15 Intellect)",
     stats: { spellPower: 10, intellect: 15 },
+  },
+  {
+    value: "fused-living-soup",
+    label: "Well Fed - Fused Living Soup (+23 Spirit)",
+    stats: { spirit: 23 },
   },
 ];
 

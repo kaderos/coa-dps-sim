@@ -244,6 +244,8 @@ export type SimConfig = {
   tailwind?: boolean;
   /** Shaman Tempest's Call — +30% haste for 20s at pull and every 5 min. */
   tempestsCall?: boolean;
+  /** Venomancer Vulnerable — +10% spell damage taken for 15s windows (~95% uptime). */
+  vulnerable?: boolean;
   /** Linear 100%→0% boss health — Fel Cannon / Doomsayer taper after ~75% fight time. */
   targetHealthDecays?: boolean;
   /** Demonfire Pact buff — Fel Infusion personal crit is 3% while active, 6% when off. */
@@ -293,11 +295,12 @@ export type BuffsConfig = {
   neptulonsWrath: boolean;
   tailwind: boolean;
   tempestsCall: boolean;
+  vulnerable: boolean;
   racialSpellHit: boolean;
   raidSpellHit: boolean;
   primalistHitDebuff: boolean;
   flask: "none" | "manifesting-power" | "kirin-tor";
-  food: "none" | "well-fed" | "fused-wizard-wontons";
+  food: "none" | "well-fed" | "fused-wizard-wontons" | "fused-living-soup";
   scroll: "none" | "spirit-iv";
   weaponOil: "none" | "brilliant-wizard-oil";
   offhandWeaponOil: "none" | "brilliant-wizard-oil";

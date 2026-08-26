@@ -157,6 +157,12 @@
       "rank": "1/1",
       "combat": true,
       "effect": "Direct crits 60% chance: apply Felstrike and Fragment of Malice (5 Energy, +10% crit for 5s)."
+    },
+    {
+      "name": "Cursed Flames",
+      "rank": "1/1",
+      "combat": true,
+      "effect": "Fel Fireball crits grant +20% crit on your next Fel Fireball within 10 sec."
     }
   ]
 }
