@@ -238,7 +238,7 @@ export type SimConfig = {
   talentSelection?: TalentSelection;
   /** Flat DPS from party/raid procs — added each iteration. */
   procContributions?: Array<{ name: string; dps: number }>;
-  /** Shaman party aura: AP×0.35 Froststorm on each direct damage hit while active. */
+  /** Shaman party aura: 35% AP + 35% SP Froststorm on each direct damage hit while active. */
   neptulonsWrath?: boolean;
   /** Shaman Tailwind — +5% haste for 15s windows (~80% uptime). */
   tailwind?: boolean;

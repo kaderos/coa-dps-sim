@@ -924,7 +924,7 @@
           "mainhand",
           "offhand"
         ],
-        "weapon": "onehand",
+        "weapon": null,
         "stats": {
           "strength": 0,
           "agility": 0,
@@ -1438,7 +1438,7 @@
           "mainhand",
           "offhand"
         ],
-        "weapon": "onehand",
+        "weapon": null,
         "stats": {
           "strength": 0,
           "agility": 0,
@@ -6753,7 +6753,7 @@
         "mainhand",
         "offhand"
       ],
-      "weapon": "onehand",
+      "weapon": null,
       "stats": {
         "strength": 0,
         "agility": 0,

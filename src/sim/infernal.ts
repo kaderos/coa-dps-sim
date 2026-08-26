@@ -1,6 +1,7 @@
 import type { CharacterStats, PotionMode, SimActiveAura, SimCastEvent, SpellFit } from "../types";
 import { Rng } from "./rng";
 import { hasteMultiplier, rollOffensiveHit, rollSpellDamage } from "./spells";
+import { effectiveSpellPower } from "./stats";
 import { isTalentEnabled } from "../talents/baseline";
 import type { TalentSelection } from "../talents/types";
 import {
@@ -113,12 +114,16 @@ const INSTANT_LATENCY_MAX = 0.02;
 /** Reaction time after Sculptor / True Blessing Ruin proc before the cast fires. */
 const RUIN_PROC_REACTION = 0.02;
 
-/** Shaman party buff — tooltip: AP×0.35 Froststorm on direct damage, 15s aura, 1 min CD. */
+/** Shaman party buff — 35% AP + 35% SP Froststorm on direct damage, 15s aura, 1 min CD. */
 const NEPTULONS_WRATH = {
   name: "Neptulon's Wrath",
   duration: 15,
   cooldown: 60,
   apCoeff: 0.35,
+  /** Proc spell 537252 — Froststorm damage scales with spell power. */
+  spCoeff: 0.35,
+  /** Kadd log observed crit multiplier for spell 537252. */
+  critMultiplier: 2.454364267263334,
 } as const;
 
 /** Shaman party buff — +5% haste for 15s; modeled at 80% uptime (15s on / 3.75s off). */
@@ -158,7 +163,7 @@ export type FightOptions = {
   /** Linear 100%→0% health over the fight (Fel Cannon / Doomsayer taper). Default off for dummy. */
   targetHealthDecays?: boolean;
   targetStartHealth?: number;
-  /** Allied Shaman aura — AP×0.35 on each direct damage hit while active. */
+  /** Allied Shaman aura — 35% AP + 35% SP Froststorm on each direct damage hit while active. */
   neptulonsWrath?: boolean;
   /** Shaman Tailwind — +5% haste for 15s windows (~80% uptime). */
   tailwind?: boolean;
@@ -1221,12 +1226,14 @@ function tickCursedFlames(state: FightState, dt: number) {
 
 function applyNeptulonsWrath(state: FightState, rng: Rng) {
   if (!state.neptulonsWrath || state.neptulonRemain <= 0) return;
-  const ap = state.playerStats.attackPower ?? 0;
-  const base = ap * NEPTULONS_WRATH.apCoeff;
+  const { playerStats } = state;
+  const ap = playerStats.attackPower ?? 0;
+  const sp = effectiveSpellPower(playerStats, playerStats.hiddenPower);
+  const base = ap * NEPTULONS_WRATH.apCoeff + sp * NEPTULONS_WRATH.spCoeff;
   if (base <= 0) return;
-  const critRate = Math.min(1, Math.max(0, state.playerStats.spellCrit / 100));
+  const critRate = Math.min(1, Math.max(0, playerStats.spellCrit / 100));
   const isCrit = rng.chance(critRate);
-  const amount = isCrit ? base * 2 : base;
+  const amount = isCrit ? base * NEPTULONS_WRATH.critMultiplier : base;
   deal(state, NEPTULONS_WRATH.name, amount, false, isCrit, false, false, rng, false);
 }
 
