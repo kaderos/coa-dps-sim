@@ -1,13 +1,13 @@
 # CoA Infernal DPS Sim
 
-Browser DPS simulator for **Felsworn Infernal** on Project Ascension Conquest of Azeroth. Architecture is inspired by [wowsims/classic](https://github.com/wowsims/classic) (MIT — link back required). It is a new TypeScript project, not a fork: wowsims does not have Felsworn, Felfury, or CoA items.
+Browser DPS simulator for **Felsworn Infernal** on Project Ascension Conquest of Azeroth. Architecture is inspired by [wowsims/classic](https://github.com/wowsims/classic) (MIT — link back required). It is a TypeScript based project.
 
 ## What this repo contains
 
 - `userscripts/bisbeard-dump.user.js` — script that probes/dumps [coa.bisbeard.com](https://coa.bisbeard.com/)
 - `scripts/parse-logs.mjs` — parses local `WoWCombatLog.txt` for Kadd and ALC combatant packets.
 - `scripts/ingest-bisbeard.mjs` — turns a Bisbeard dump into a slot-indexed item DB.
-- `scripts/fit-spells.mjs` — fits Infernal spell averages from combat logs (not CoA Tavern).
+- `scripts/fit-spells.mjs` — fits Infernal spell averages from combat logs.
 - `src/` — stationary single-target event sim + gear picker UI.
 - `vendor/wowsims-classic/` — local shallow clone of wowsims for reference (gitignored).
 
