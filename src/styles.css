@@ -793,6 +793,25 @@ legend { padding: 0 6px; font-weight: 700; }
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
+.talent-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.talent-card.is-fixed { opacity: 1; }
+.talent-card.is-fixed input { cursor: default; }
+.talent-card.is-ranked { cursor: default; }
+.talent-card__rank-select {
+  margin-top: 2px;
+  padding: 2px 4px;
+  min-width: 52px;
+  background: #251f34;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: #f4f0ff;
+  font-size: 12px;
+}
 .talent-tree {
   background: var(--panel-raised);
   border: 1px solid var(--line);

@@ -1281,6 +1281,7 @@ async function runSimulation() {
         neptulonsWrath: buffsConfig.neptulonsWrath,
         tailwind: buffsConfig.tailwind,
         tempestsCall: buffsConfig.tempestsCall,
+        vulnerable: buffsConfig.vulnerable,
         targetHealthDecays: buffsConfig.targetHealthDecays,
         demonfirePact: buffsConfig.demonfirePact,
         arcaneArtillery: arcaneArtilleryEquipped(gear, enchants),

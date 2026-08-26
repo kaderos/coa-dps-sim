@@ -26,8 +26,8 @@ export type TalentTrees = {
   infernal: InfernalTalentDoc;
 };
 
-/** Per-talent on/off flags keyed by talent name within each tree. */
+/** Per-talent on/off or rank (0–max for multi-point talents). */
 export type TalentSelection = {
-  felsworn: Record<string, boolean>;
-  infernal: Record<string, boolean>;
+  felsworn: Record<string, boolean | number>;
+  infernal: Record<string, boolean | number>;
 };

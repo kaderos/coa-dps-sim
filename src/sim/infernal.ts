@@ -139,6 +139,16 @@ const TEMPESTS_CALL = {
   hastePct: 30,
 } as const;
 
+/** Venomancer debuff — +10% spell damage taken for 15s; modeled at ~95% uptime. */
+const VULNERABLE = {
+  name: "Vulnerable",
+  duration: 15,
+  targetUptime: 0.95,
+  damageTakenPct: 10,
+} as const;
+const VULNERABLE_DOWNTIME = (VULNERABLE.duration * (1 - VULNERABLE.targetUptime)) / VULNERABLE.targetUptime;
+const VULNERABLE_CYCLE = VULNERABLE.duration + VULNERABLE_DOWNTIME;
+
 export type FightOptions = {
   potionSpellPower?: number;
   potionDuration?: number;
@@ -154,6 +164,8 @@ export type FightOptions = {
   tailwind?: boolean;
   /** Shaman Tempest's Call — +30% haste for 20s at pull and every 5 min. */
   tempestsCall?: boolean;
+  /** Venomancer Vulnerable — +10% spell damage taken for 15s windows (~95% uptime). */
+  vulnerable?: boolean;
   /** Demonfire Pact buff — Fel Infusion personal crit is 3% while active, 6% when off. */
   demonfirePact?: boolean;
   /** Arcane Artillery weapon enchant (+80 SP proc). */
@@ -230,6 +242,9 @@ export type FightState = {
   tempestsCall: boolean;
   tempestsCallRemain: number;
   tempestsCallNextCastAt: number;
+  vulnerable: boolean;
+  /** Random phase offset so uptime converges to ~95% across iterations. */
+  vulnerablePhaseOffset: number;
   /** Primalist hit debuff active — Felshock hit debuff does not apply. */
   primalistHitDebuff: boolean;
   /** Shared weapon-proc ICD pool (High Risk Weapons Enchant). */
@@ -238,6 +253,8 @@ export type FightState = {
   arcaneArtillery: Aura | null;
   onUseTrinkets: OnUseTrinketState;
   procTrinkets: ProcTrinketState;
+  cursedFlamesReady: boolean;
+  cursedFlamesExpireAt: number;
   playerStats: CharacterStats;
   damage: number;
   bySpell: Map<string, { casts: number; damage: number; hits: number; crits: number; hitDamage: number; critDamage: number; misses: number; events: number }>;
@@ -253,6 +270,25 @@ const FELFURY_MAX = 6;
 
 function talentTaken(state: FightState, tree: "felsworn" | "infernal", name: string): boolean {
   return !state.talentSelection || isTalentEnabled(state.talentSelection, tree, name);
+}
+
+function isCursedFlamesActive(state: FightState): boolean {
+  return (
+    state.cursedFlamesReady &&
+    state.time <= state.cursedFlamesExpireAt &&
+    talentTaken(state, "infernal", "Cursed Flames")
+  );
+}
+
+function grantCursedFlames(state: FightState): void {
+  if (!talentTaken(state, "infernal", "Cursed Flames")) return;
+  if (isCursedFlamesActive(state)) return;
+  state.cursedFlamesReady = true;
+  state.cursedFlamesExpireAt = state.time + INFERNAL.cursedFlamesWindow;
+}
+
+function consumeCursedFlames(state: FightState): void {
+  state.cursedFlamesReady = false;
 }
 
 /** Felshock combat effects follow the Infernal talent toggle. */
@@ -368,12 +404,16 @@ export function runOnce(
     tempestsCall: options.tempestsCall ?? false,
     tempestsCallRemain: options.tempestsCall ? TEMPESTS_CALL.duration : 0,
     tempestsCallNextCastAt: options.tempestsCall ? TEMPESTS_CALL.cooldown : 0,
+    vulnerable: options.vulnerable ?? false,
+    vulnerablePhaseOffset: options.vulnerable ? rng.range(0, VULNERABLE_CYCLE) : 0,
     primalistHitDebuff: options.primalistHitDebuff ?? false,
     weaponProcIcdReadyAt: 0,
     arcaneArtilleryEnabled: options.arcaneArtillery ?? false,
     arcaneArtillery: null,
     onUseTrinkets: createOnUseTrinketState(options.onUseTrinkets ?? []),
     procTrinkets: createProcTrinketState(options.procTrinkets ?? []),
+    cursedFlamesReady: false,
+    cursedFlamesExpireAt: 0,
     playerStats: specStats,
     damage: 0,
     bySpell: new Map(),
@@ -441,6 +481,8 @@ function tickAuras(
   tickNeptulonsWrath(state, dt);
   tickTailwind(state, dt);
   tickTempestsCall(state, dt);
+  tickVulnerable(state, dt);
+  tickCursedFlames(state, dt);
   if (state.ruinProc) {
     state.ruinProcRemain -= dt;
     if (state.ruinProcRemain <= 0) {
@@ -661,6 +703,8 @@ function combatContext(spell: SpellFit, stats: CharacterStats, state: FightState
     fightDuration: state.fightDuration,
     setDamageAbove75: state.setDamageAbove75,
     primalistHitDebuff: state.primalistHitDebuff,
+    cursedFlamesReady: isCursedFlamesActive(state),
+    vulnerable: isVulnerableActive(state),
   }, state.talentSelection);
 }
 
@@ -689,6 +733,7 @@ function snapshotDamageAuras(
   if (state.felshockHitRemain > 0) push("Felshock");
   if (isTailwindActive(state)) push(TAILWIND.name);
   if (isTempestsCallActive(state)) push(TEMPESTS_CALL.name);
+  if (isVulnerableActive(state)) push(VULNERABLE.name);
   if (state.chaotic?.stacks) push("Chaotic", state.chaotic.stacks);
   if (state.reckoningPower?.stacks) push("Reckoning", state.reckoningPower.stacks);
   if (state.annihilation?.stacks) push("Annihilation", state.annihilation.stacks);
@@ -714,6 +759,7 @@ function snapshotDamageAuras(
     push("Fel Cannon");
   }
   if (isRuin(spell) && (state.ruinProc || sculptorProc)) push("Sculptor of Doom");
+  if (isFireball(spell) && isCursedFlamesActive(state)) push("Cursed Flames");
   if (energyAtCast != null && archimondesWrathApplies(spell, state.talentSelection)) {
     const stacks = Math.floor(Math.max(0, energyAtCast) / 10);
     if (stacks > 0) push("Archimonde's Wrath", stacks);
@@ -961,9 +1007,11 @@ function cast(
   const procActivations = tryProcTrinketProcs(state.procTrinkets, "direct-spell", state.time, rng, spell);
   logProcTrinketActivations(state, procActivations, logResources);
 
+  const usingCursedFlames = isFireball(spell) && isCursedFlamesActive(state);
   const ctx = combatContext(spell, stats, state, logEnergy);
   const activeAuras = snapshotDamageAuras(state, spell, { sculptorProc: isProcRuin, energyAtCast: logEnergy });
   const roll = rollSpellDamage(spell, stats, rng, true, ctx);
+  if (usingCursedFlames) consumeCursedFlames(state);
   trackOffensiveCast(state, !roll.isMiss);
   deal(state, spell.name, roll.amount, true, roll.isCrit, roll.isMiss, true, rng, true);
   logCast(state, spell.name, roll.isMiss ? "miss" : roll.isCrit ? "crit" : "hit", roll.amount, activeAuras, logResources);
@@ -1035,6 +1083,7 @@ function cast(
     logCast(state, extras.smiteInner.name, "hit", roll.amount, riderAuras);
   }
   if (roll.isCrit) onDirectCrit(state, spell, extras, rng);
+  if (isFireball(spell) && roll.isCrit && !usingCursedFlames) grantCursedFlames(state);
 }
 
 function logProcTrinketActivations(
@@ -1145,6 +1194,29 @@ function tickTempestsCall(state: FightState, dt: number) {
     state.tempestsCallRemain = TEMPESTS_CALL.duration;
     state.tempestsCallNextCastAt = state.time + TEMPESTS_CALL.cooldown;
   }
+}
+
+function vulnerableCycleTime(state: FightState): number {
+  return (state.time + state.vulnerablePhaseOffset) % VULNERABLE_CYCLE;
+}
+
+function isVulnerableActive(state: FightState): boolean {
+  return state.vulnerable && vulnerableCycleTime(state) < VULNERABLE.duration;
+}
+
+function tickVulnerable(state: FightState, dt: number) {
+  if (!state.vulnerable) return;
+  if (isVulnerableActive(state)) addAuraTime(state, VULNERABLE.name, dt);
+}
+
+function tickCursedFlames(state: FightState, dt: number) {
+  if (!isCursedFlamesActive(state)) {
+    if (state.cursedFlamesReady && state.time > state.cursedFlamesExpireAt) {
+      state.cursedFlamesReady = false;
+    }
+    return;
+  }
+  addAuraTime(state, "Cursed Flames", dt);
 }
 
 function applyNeptulonsWrath(state: FightState, rng: Rng) {

@@ -1,6 +1,6 @@
 import type { BuffsConfig, ItemStats } from "../types";
 import type { StatHintContent } from "../stat-breakdown";
-import { isTalentEnabled } from "../talents/baseline";
+import { isTalentEnabled, talentRankFraction } from "../talents/baseline";
 import { FELSWORN } from "../talents/felsworn";
 import { felInfusionCritPercent, INFERNAL } from "../talents/infernal";
 import type { TalentSelection } from "../talents/types";
@@ -51,7 +51,7 @@ export function talentChancePercents(
   const has = (tree: "felsworn" | "infernal", name: string) => !selection || isTalentEnabled(selection, tree, name);
   const demonfirePactActive = buffs?.demonfirePact !== false;
   return {
-    spellHit: has("infernal", "Wrath of Sargeras") ? INFERNAL.wrathSpellHit : 0,
+    spellHit: talentRankFraction(selection, "infernal", "Wrath of Sargeras") * INFERNAL.wrathSpellHit,
     spellCrit:
       (has("felsworn", "Cruelty") ? FELSWORN.crueltyCrit : 0) +
       (has("infernal", "Fel Infusion") ? felInfusionCritPercent(demonfirePactActive) : 0),

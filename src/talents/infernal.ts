@@ -1,7 +1,7 @@
 import type { CharacterStats, SpellFit } from "../types";
 import type { DamageContext } from "../sim/spells";
 import { SPELL_CRIT_RATING_PER_PERCENT } from "../sim/stats";
-import { isTalentEnabled } from "./baseline";
+import { isTalentEnabled, talentRankFraction } from "./baseline";
 import { FELSWORN } from "./felsworn";
 import type { TalentSelection, TalentTreeId } from "./types";
 
@@ -44,6 +44,9 @@ export const INFERNAL = {
   maliceEnergy: 5,
   maliceCrit: 0.1,
   maliceDuration: 5,
+  cursedFlamesCrit: 0.2,
+  cursedFlamesWindow: 10,
+  vulnerableDamageTaken: 0.1,
   ruinDotFraction: 0.3,
   ruinDotDuration: 3,
   executeHealth: 0.75,
@@ -169,9 +172,7 @@ export function applyInfernalPassives(
   let spellHit = stats.spellHit;
   let spellCrit = stats.spellCrit;
   let spellPenetration = stats.spellPenetration;
-  if (!selection || isTalentEnabled(selection, "infernal", "Wrath of Sargeras")) {
-    spellHit += INFERNAL.wrathSpellHit;
-  }
+  spellHit += INFERNAL.wrathSpellHit * talentRankFraction(selection, "infernal", "Wrath of Sargeras");
   if (!selection || isTalentEnabled(selection, "infernal", "Fel Infusion")) {
     spellCrit += felInfusionCritPercent(demonfirePactActive);
   }
@@ -211,6 +212,8 @@ export type InfernalAuras = {
   procTrinketSpellPower?: number;
   procTrinketExtraCrit?: number;
   primalistHitDebuff?: boolean;
+  cursedFlamesReady?: boolean;
+  vulnerable?: boolean;
   /** Target health at pull (dummy = 1). */
   targetStartHealth: number;
   /** When true, health falls linearly to 0 over the fight (Fel Cannon tapers off). */
@@ -237,11 +240,17 @@ export function infernalContext(
   const fire = spellAffectsFire(spell);
   let extraCrit = 0;
   let damageDone = 1;
-  if (has("infernal", "Wrath of Sargeras")) damageDone *= 1 + INFERNAL.wrathMagicDamage;
+  const wrathFraction = talentRankFraction(selection, "infernal", "Wrath of Sargeras");
+  const adeptFraction = talentRankFraction(selection, "infernal", "Felfire Adept");
+  const blackFraction = talentRankFraction(selection, "infernal", "Black Magic");
+  if (wrathFraction > 0) damageDone *= 1 + INFERNAL.wrathMagicDamage * wrathFraction;
   if (auras.innerDemon) damageDone *= 1.1;
   if (auras.baneOfFire && fire) extraCrit += 0.2;
-  if ((isSmite(spell) || isChaos(spell)) && has("infernal", "Felfire Adept")) {
-    extraCrit += INFERNAL.adeptSmiteCrit;
+  if (isFireball(spell) && auras.cursedFlamesReady) {
+    extraCrit += INFERNAL.cursedFlamesCrit;
+  }
+  if ((isSmite(spell) || isChaos(spell)) && adeptFraction > 0) {
+    extraCrit += INFERNAL.adeptSmiteCrit * adeptFraction;
   }
   if (
     (isFireball(spell) || isRuin(spell)) &&
@@ -257,8 +266,8 @@ export function infernalContext(
   if (auras.innerDemon && has("infernal", "Hidden Power")) {
     extraCrit += critFromSpiritRating(stats.spirit, INFERNAL.hiddenPowerInnerSpirit) / 100;
   }
-  if (isRuin(spell) && has("infernal", "Black Magic")) damageDone *= 1 + INFERNAL.blackMagicRuin;
-  if (isChaos(spell) && has("infernal", "Black Magic")) damageDone *= 1 + INFERNAL.blackMagicChaos;
+  if (isRuin(spell) && blackFraction > 0) damageDone *= 1 + INFERNAL.blackMagicRuin * blackFraction;
+  if (isChaos(spell) && blackFraction > 0) damageDone *= 1 + INFERNAL.blackMagicChaos * blackFraction;
   if ((isSmite(spell) || isChaos(spell)) && execute && has("infernal", "Doomsayer")) {
     damageDone *= 1 + INFERNAL.doomsayerSmiteDamage;
   }
@@ -275,8 +284,12 @@ export function infernalContext(
   extraCrit += auras.trinketExtraCrit ?? 0;
   extraCrit += auras.procTrinketExtraCrit ?? 0;
 
+  let damageTakenFromCaster = 1;
+  if (auras.baneOfFire) damageTakenFromCaster *= 1.2;
+  if (auras.vulnerable) damageTakenFromCaster *= 1 + INFERNAL.vulnerableDamageTaken;
+
   return {
-    damageTakenFromCaster: auras.baneOfFire ? 1.2 : 1,
+    damageTakenFromCaster,
     extraCrit,
     damageDone,
     extraSpellPower:
