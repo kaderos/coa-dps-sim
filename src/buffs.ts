@@ -33,8 +33,6 @@ type ToggleDef = {
   statScaleKeys?: (keyof ItemStats)[];
 };
 
-const UNKNOWN_BONUS = "bonus unknown";
-
 // Buff values come from CoA spell tooltips. Effects outside ItemStats (resists,
 // armor, agility, and reactive damage) remain informational and do not change DPS.
 const RAID_BUFFS: ToggleDef[] = [
@@ -127,16 +125,6 @@ const RAID_BUFFS: ToggleDef[] = [
 
 const PARTY_BUFFS: ToggleDef[] = [
   {
-    // Spell 802771 / proc 803287. Kaldros log: 15,738 dmg → ~141 DPS over 112s.
-    key: "bloodthistle",
-    label: "Bloodthistle — ~141 DPS (Kaldros log)",
-    note: "Alchemist party proc; also heals the caster",
-    defaultOn: false,
-    stats: {},
-    procDps: 141,
-    procName: "Bloodthistle",
-  },
-  {
     // Shaman party CD. 15s aura, 1 min CD — AP×0.35 Froststorm on each direct damage hit.
     key: "neptulonsWrath",
     label: "Neptulon's Wrath — AP×0.35 on direct damage",
@@ -154,10 +142,11 @@ const PARTY_BUFFS: ToggleDef[] = [
     stats: {},
   },
   {
-    // Spell 803697. 2s raid area aura; −3% damage taken (defensive).
-    key: "frogBones",
-    label: "Frog Bones — −3% damage taken (raid)",
-    note: "2s alchemist splash; defensive, not included in DPS",
+    key: "tempestsCall",
+    label: "Tempest's Call (Heroism/Bloodlust) — +30% haste for 20 sec",
+    hintTitle: "Tempest's Call",
+    hintBody:
+      "Used immediately at the start of the encounter and again every 5 minutes.\n\n+30% spell haste for 20 seconds while active. Speeds up cast times and the global cooldown. Combines additively with gear haste, Felheart, and Tailwind in combat.",
     defaultOn: false,
     stats: {},
   },
@@ -172,11 +161,18 @@ const HIT_BUFFS: ToggleDef[] = [
     stats: { spellHit: 1 },
   },
   {
-    key: "spellHitDebuff",
-    label: "Felshock",
-    note: "Infernal talent — +3% spell hit on the target for 12s on Felfury-spender crits during Inner Demon; also extends Inner Demon. Requires the Felshock talent.",
+    key: "raidSpellHit",
+    label: "Primalist/Starcaller Aura — +1% spell hit",
+    note: "+1% spell hit",
     defaultOn: false,
-    stats: {},
+    stats: { spellHit: 1 },
+  },
+  {
+    key: "primalistHitDebuff",
+    label: "Primalist hit debuff — +3% spell hit",
+    note: "+3% spell hit; 100% fight uptime. Does not stack with Felshock.",
+    defaultOn: false,
+    stats: { spellHit: 3 },
   },
 ];
 
@@ -197,8 +193,8 @@ const FLASKS: Array<SelectOption<BuffsConfig["flask"]>> = [
   },
   {
     value: "kirin-tor",
-    label: `Dilluted Flask of the Kirin Tor (${UNKNOWN_BONUS})`,
-    stats: {},
+    label: "Distilled Flask of Kirin Tor (+50 Spell Power, +20 Intellect)",
+    stats: { spellPower: 50, intellect: 20 },
   },
 ];
 
@@ -207,8 +203,8 @@ const FOODS: Array<SelectOption<BuffsConfig["food"]>> = [
   { value: "well-fed", label: "Well Fed (+20 Spell Power)", stats: { spellPower: 20 } },
   {
     value: "fused-wizard-wontons",
-    label: `Well Fed - Fused Wizard Wontons (${UNKNOWN_BONUS})`,
-    stats: {},
+    label: "Well Fed - Fused Wizard Wontons (+10 Spell Power, +15 Intellect)",
+    stats: { spellPower: 10, intellect: 15 },
   },
 ];
 
@@ -338,15 +334,6 @@ export function procContributionsFromBuffs(config: BuffsConfig): Array<{ name: s
     out.push({ name: def.procName ?? def.label.split(" — ")[0] ?? def.key, dps: def.procDps });
   }
   return out;
-}
-
-/** Combat-modeled party buffs shown in sim result details. */
-export function activeCombatBuffLabels(config: BuffsConfig): string[] {
-  const labels: string[] = [];
-  if (config.tailwind) labels.push("Tailwind (+5% haste, ~80% uptime)");
-  if (config.neptulonsWrath) labels.push("Neptulon's Wrath");
-  if (config.bloodthistle) labels.push("Bloodthistle (~141 DPS proc)");
-  return labels;
 }
 
 /** Primary-stat percent buffs (Whispers of N'zoth) apply after flat gear and consume bonuses. */

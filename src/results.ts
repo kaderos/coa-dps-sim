@@ -1,5 +1,5 @@
-import type { CharacterStats, SimCastEvent, SimResult, SpellFit } from "./types";
-import { renderCastLogAuraItem } from "./cast-log-hints";
+import type { CharacterStats, AuraUptime, SimCastEvent, SimResult, SpellFit } from "./types";
+import { castLogExpandAuras, renderCastLogAuraItem } from "./cast-log-hints";
 import { bindHintTooltips } from "./hint-tooltip";
 import { CAST_EVENT_LOG_LIMIT } from "./sim/infernal";
 import { spellFormulaHint } from "./spell-formula-hint";
@@ -104,7 +104,10 @@ export function renderResultsEmpty() {
 
 export function renderResults(
   result: SimResult,
-  options: { spells?: Record<string, SpellFit>; stats?: CharacterStats } = {},
+  options: {
+    spells?: Record<string, SpellFit>;
+    stats?: CharacterStats;
+  } = {},
 ) {
   const root = document.getElementById("results");
   if (!root) return;
@@ -121,7 +124,6 @@ export function renderResults(
         ${metric("Iterations", result.iterations, 0)}
       </div>
       <div class="compare">Level ${result.bossLevel} raid boss · stationary fight (no movement, no cleave) · ${result.durationSec}s ±5s.</div>
-      ${result.activeCombatBuffs?.length ? `<div class="compare">Active buffs: ${result.activeCombatBuffs.map((label) => escapeHtml(label)).join(" · ")}</div>` : ""}
     </div>
     <section class="result-section">
       <h3>DPS distribution</h3>
@@ -226,7 +228,7 @@ function castLogHint(result: SimResult): string {
 
 function castLogRows(events: SimCastEvent[]): string[] {
   return events.flatMap((event, index) => {
-    const auras = event.activeAuras ?? [];
+    const auras = castLogExpandAuras(event);
     const expandable = auras.length > 0;
     const isTick = event.kind === "tick" || event.result === "tick";
     const rowClass = [
@@ -479,7 +481,7 @@ function isNestedAuraUptime(name: string): boolean {
   return EXPANDABLE_AURA_GROUPS.some((group) => stackUptimeKeys(group.name, group.stackCount).includes(name));
 }
 
-function renderAuraUptimes(auras: SimResult["auraUptimes"]): string {
+function renderAuraUptimes(auras: AuraUptime[]): string {
   const byName = new Map(auras.map((aura) => [aura.name, aura]));
 
   return auras

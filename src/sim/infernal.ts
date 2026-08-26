@@ -33,6 +33,26 @@ import {
   arcaneArtillerySpellPower,
   tryArcaneArtilleryProc,
 } from "./arcane-artillery";
+import {
+  consumeTrinketStacksOnDirectHit,
+  createOnUseTrinketState,
+  describeTrinketBuff,
+  tickOnUseTrinketBuffs,
+  trinketContextModifiers,
+  tryUseOnUseTrinketsWithAnnihilation,
+  type EquippedOnUseTrinket,
+  type OnUseTrinketState,
+} from "./on-use-trinkets";
+import {
+  createProcTrinketState,
+  describeProcTrinketBuff,
+  procTrinketContextModifiers,
+  tickProcTrinketBuffs,
+  tryProcTrinketProcs,
+  type EquippedProcTrinket,
+  type ProcTrinketDef,
+  type ProcTrinketState,
+} from "./proc-trinkets";
 
 const ANNIHILATION: SpellFit = {
   id: 803904,
@@ -111,6 +131,14 @@ const TAILWIND = {
 const TAILWIND_DOWNTIME = (TAILWIND.duration * (1 - TAILWIND.targetUptime)) / TAILWIND.targetUptime;
 const TAILWIND_CYCLE = TAILWIND.duration + TAILWIND_DOWNTIME;
 
+/** Shaman party CD — +30% haste for 20s; cast at pull and every 5 min. */
+const TEMPESTS_CALL = {
+  name: "Tempest's Call",
+  duration: 20,
+  cooldown: 300,
+  hastePct: 30,
+} as const;
+
 export type FightOptions = {
   potionSpellPower?: number;
   potionDuration?: number;
@@ -124,15 +152,18 @@ export type FightOptions = {
   neptulonsWrath?: boolean;
   /** Shaman Tailwind — +5% haste for 15s windows (~80% uptime). */
   tailwind?: boolean;
+  /** Shaman Tempest's Call — +30% haste for 20s at pull and every 5 min. */
+  tempestsCall?: boolean;
   /** Demonfire Pact buff — Fel Infusion personal crit is 3% while active, 6% when off. */
   demonfirePact?: boolean;
-  /**
-   * Buffs → Felshock checkbox. When false, suppress Felshock combat effects even if
-   * the talent is taken. Undefined defaults to allowed (tests / legacy callers).
-   */
-  felshock?: boolean;
   /** Arcane Artillery weapon enchant (+80 SP proc). */
   arcaneArtillery?: boolean;
+  /** Equipped on-use trinkets with modeled combat effects. */
+  onUseTrinkets?: EquippedOnUseTrinket[];
+  /** Equipped epic proc trinkets (on-hit / on-cast). */
+  procTrinkets?: EquippedProcTrinket[];
+  /** Primalist hit debuff — flat +3% hit; overrides Felshock hit debuff. */
+  primalistHitDebuff?: boolean;
 };
 
 export type Aura = {
@@ -187,8 +218,6 @@ export type FightState = {
   targetStartHealth: number;
   targetHealthDecays: boolean;
   talentSelection?: TalentSelection;
-  /** When false, Felshock talent combat effects are suppressed (Buffs checkbox off). */
-  felshockAllowed: boolean;
   reckoningPower: Aura | null;
   maliceCritRemain: number;
   felshockHitRemain: number;
@@ -198,10 +227,17 @@ export type FightState = {
   tailwind: boolean;
   /** Random phase offset so uptime converges to ~80% across iterations. */
   tailwindPhaseOffset: number;
+  tempestsCall: boolean;
+  tempestsCallRemain: number;
+  tempestsCallNextCastAt: number;
+  /** Primalist hit debuff active — Felshock hit debuff does not apply. */
+  primalistHitDebuff: boolean;
   /** Shared weapon-proc ICD pool (High Risk Weapons Enchant). */
   weaponProcIcdReadyAt: number;
   arcaneArtilleryEnabled: boolean;
   arcaneArtillery: Aura | null;
+  onUseTrinkets: OnUseTrinketState;
+  procTrinkets: ProcTrinketState;
   playerStats: CharacterStats;
   damage: number;
   bySpell: Map<string, { casts: number; damage: number; hits: number; crits: number; hitDamage: number; critDamage: number; misses: number; events: number }>;
@@ -219,9 +255,9 @@ function talentTaken(state: FightState, tree: "felsworn" | "infernal", name: str
   return !state.talentSelection || isTalentEnabled(state.talentSelection, tree, name);
 }
 
-/** Felshock combat effects require the talent and the Buffs → Felshock checkbox. */
+/** Felshock combat effects follow the Infernal talent toggle. */
 function felshockEnabled(state: FightState): boolean {
-  return state.felshockAllowed && talentTaken(state, "infernal", "Felshock");
+  return talentTaken(state, "infernal", "Felshock");
 }
 const EVENT_LOG_LIMIT = 3000;
 export const CAST_EVENT_LOG_LIMIT = EVENT_LOG_LIMIT;
@@ -321,7 +357,6 @@ export function runOnce(
     targetStartHealth: options.targetStartHealth ?? 1,
     targetHealthDecays: options.targetHealthDecays ?? false,
     talentSelection: options.talentSelection,
-    felshockAllowed: options.felshock !== false,
     reckoningPower: null,
     maliceCritRemain: 0,
     felshockHitRemain: 0,
@@ -330,9 +365,15 @@ export function runOnce(
     neptulonNextCastAt: options.neptulonsWrath ? NEPTULONS_WRATH.cooldown : 0,
     tailwind: options.tailwind ?? false,
     tailwindPhaseOffset: options.tailwind ? rng.range(0, TAILWIND_CYCLE) : 0,
+    tempestsCall: options.tempestsCall ?? false,
+    tempestsCallRemain: options.tempestsCall ? TEMPESTS_CALL.duration : 0,
+    tempestsCallNextCastAt: options.tempestsCall ? TEMPESTS_CALL.cooldown : 0,
+    primalistHitDebuff: options.primalistHitDebuff ?? false,
     weaponProcIcdReadyAt: 0,
     arcaneArtilleryEnabled: options.arcaneArtillery ?? false,
     arcaneArtillery: null,
+    onUseTrinkets: createOnUseTrinketState(options.onUseTrinkets ?? []),
+    procTrinkets: createProcTrinketState(options.procTrinkets ?? []),
     playerStats: specStats,
     damage: 0,
     bySpell: new Map(),
@@ -399,6 +440,7 @@ function tickAuras(
 ) {
   tickNeptulonsWrath(state, dt);
   tickTailwind(state, dt);
+  tickTempestsCall(state, dt);
   if (state.ruinProc) {
     state.ruinProcRemain -= dt;
     if (state.ruinProcRemain <= 0) {
@@ -467,6 +509,14 @@ function tickAuras(
     state.arcaneArtillery.remain -= dt;
     if (state.arcaneArtillery.remain <= 0) state.arcaneArtillery = null;
   }
+  for (const buff of state.onUseTrinkets.activeBuffs) {
+    addAuraTime(state, buff.def.name, dt);
+  }
+  tickOnUseTrinketBuffs(state.onUseTrinkets, dt);
+  for (const buff of state.procTrinkets.activeBuffs) {
+    addAuraTime(state, buff.def.name, dt);
+  }
+  tickProcTrinketBuffs(state.procTrinkets, dt);
   if (state.innerDemon) {
     addAuraTime(state, "Inner Demon", dt);
     const remain = innerDemonRemaining(state);
@@ -483,6 +533,8 @@ function tickAuras(
     const spell = spells["802678"];
     state.felstrike = tickDotAura(state, state.felstrike, dt, () => {
       if (!spell) return;
+      const procActivations = tryProcTrinketProcs(state.procTrinkets, "periodic-spell", state.time, rng, spell);
+      logProcTrinketActivations(state, procActivations);
       const roll = rollSpellDamage(spell, stats, rng, false, combatContext(spell, stats, state));
       const amount = roll.amount * state.felstrike!.stacks;
       const auras = snapshotTickAuras(state, spell, state.felstrike!.stacks);
@@ -495,6 +547,8 @@ function tickAuras(
     addAuraTime(state, "Ruin (DoT)", dt);
     const ruin = spells["501298"];
     state.ruinDot = tickDotAura(state, state.ruinDot, dt, () => {
+      const procActivations = tryProcTrinketProcs(state.procTrinkets, "periodic-spell", state.time, rng, ruin);
+      logProcTrinketActivations(state, procActivations);
       const tickDamage = state.ruinDot!.tick ?? 0;
       const auras = ruin ? snapshotDamageAuras(state, ruin) : [];
       deal(state, "Ruin (DoT)", tickDamage, false, false, false, false, rng);
@@ -583,6 +637,8 @@ function chooseAction(
 }
 
 function combatContext(spell: SpellFit, stats: CharacterStats, state: FightState, energyAtCast?: number) {
+  const trinketMods = trinketContextModifiers(state.onUseTrinkets);
+  const procMods = procTrinketContextModifiers(state.procTrinkets);
   return infernalContext(spell, stats, {
     innerDemon: Boolean(state.innerDemon),
     baneOfFire: Boolean(state.baneOfFire),
@@ -594,11 +650,17 @@ function combatContext(spell: SpellFit, stats: CharacterStats, state: FightState
     guaranteedCrit: Boolean(state.annihilation && state.annihilation.stacks > 0),
     potionSpellPower: state.potion ? state.potionSpellPower : 0,
     arcaneArtillerySpellPower: arcaneArtillerySpellPower(state),
+    trinketSpellPower: trinketMods.spellPower,
+    trinketDamageDone: trinketMods.damageDone,
+    trinketExtraCrit: trinketMods.extraCrit,
+    procTrinketSpellPower: procMods.spellPower,
+    procTrinketExtraCrit: procMods.extraCrit,
     targetStartHealth: state.targetStartHealth,
     targetHealthDecays: state.targetHealthDecays,
     fightTime: state.time,
     fightDuration: state.fightDuration,
     setDamageAbove75: state.setDamageAbove75,
+    primalistHitDebuff: state.primalistHitDebuff,
   }, state.talentSelection);
 }
 
@@ -610,8 +672,8 @@ function snapshotDamageAuras(
 ): SimActiveAura[] {
   const { sculptorProc = false, energyAtCast } = options;
   const auras: SimActiveAura[] = [];
-  const push = (name: string, stacks = 1) => {
-    if (stacks > 0) auras.push({ name, stacks });
+  const push = (name: string, stacks = 1, hint?: string) => {
+    if (stacks > 0) auras.push({ name, stacks, hint });
   };
 
   if (state.innerDemon) {
@@ -626,11 +688,18 @@ function snapshotDamageAuras(
   if (state.maliceCritRemain > 0) push("Fragment of Malice");
   if (state.felshockHitRemain > 0) push("Felshock");
   if (isTailwindActive(state)) push(TAILWIND.name);
+  if (isTempestsCallActive(state)) push(TEMPESTS_CALL.name);
   if (state.chaotic?.stacks) push("Chaotic", state.chaotic.stacks);
   if (state.reckoningPower?.stacks) push("Reckoning", state.reckoningPower.stacks);
   if (state.annihilation?.stacks) push("Annihilation", state.annihilation.stacks);
   if (state.potion) push("Potion of Spell Power");
   if (state.arcaneArtillery) push(ARCANE_ARTILLERY.name);
+  for (const buff of state.onUseTrinkets.activeBuffs) {
+    push(buff.def.name, buff.stacks, describeTrinketBuff(buff.def, buff.stacks));
+  }
+  for (const buff of state.procTrinkets.activeBuffs) {
+    push(buff.def.name, buff.stacks, describeProcTrinketBuff(buff.def, buff.stacks));
+  }
   if (
     state.setDamageAbove75 > 0 &&
     felCannonCritActive(state.time, state.fightDuration, state.targetStartHealth, state.targetHealthDecays)
@@ -710,7 +779,9 @@ function onDirectCrit(
     state.innerDemonExpiresAt += INFERNAL.felshockInnerExtend;
     state.innerDemonFelshockExtension += INFERNAL.felshockInnerExtend;
     state.innerDemon.remain = innerDemonRemaining(state);
-    state.felshockHitRemain = INFERNAL.felshockDuration;
+    if (!state.primalistHitDebuff) {
+      state.felshockHitRemain = INFERNAL.felshockDuration;
+    }
   }
   if (talentTaken(state, "infernal", "Malice of Gul'dan") && rng.chance(INFERNAL.maliceChance)) {
     if (extras.felstrike) applyFelstrike(state, extras.felstrike);
@@ -726,7 +797,8 @@ function spellGcd(spell: SpellFit): number {
 
 function currentHaste(stats: CharacterStats, state: FightState) {
   const felheart = talentTaken(state, "felsworn", "Felheart") ? felheartHaste(state.felfury) : 0;
-  return hasteMultiplier(stats) + felheart + tailwindHasteBonus(state);
+  const procHaste = procTrinketContextModifiers(state.procTrinkets).hastePct;
+  return hasteMultiplier(stats) + felheart + tailwindHasteBonus(state) + tempestsCallHasteBonus(state) + procHaste;
 }
 
 function noteFireball(state: FightState) {
@@ -863,6 +935,7 @@ function cast(
     return;
   }
   if (spell.id === ANNIHILATION.id) {
+    const usedTrinket = tryUseOnUseTrinketsWithAnnihilation(state.onUseTrinkets, state.time);
     state.annihilation = { remain: FELSWORN.annihilationDuration, stacks: FELSWORN.annihilationCrits };
     state.anniReadyAt = state.time + FELSWORN.annihilationCd;
     if (talentTaken(state, "infernal", "The True Blessing")) {
@@ -871,6 +944,10 @@ function cast(
     }
     deal(state, spell.name, 0, true, false, false);
     logCast(state, spell.name, "applied", 0, undefined, logResources);
+    if (usedTrinket) {
+      deal(state, usedTrinket.name, 0, true, false, false);
+      logCast(state, `${usedTrinket.name} (Use)`, "applied", 0, undefined, logResources);
+    }
     return;
   }
   if (spell.id === RECKONING.id) {
@@ -880,6 +957,9 @@ function cast(
     logCast(state, spell.name, "applied", 0, undefined, logResources);
     return;
   }
+
+  const procActivations = tryProcTrinketProcs(state.procTrinkets, "direct-spell", state.time, rng, spell);
+  logProcTrinketActivations(state, procActivations, logResources);
 
   const ctx = combatContext(spell, stats, state, logEnergy);
   const activeAuras = snapshotDamageAuras(state, spell, { sculptorProc: isProcRuin, energyAtCast: logEnergy });
@@ -892,6 +972,7 @@ function cast(
     state.annihilation.stacks -= 1;
     if (state.annihilation.stacks <= 0) state.annihilation = null;
   }
+  if (!roll.isMiss) consumeTrinketStacksOnDirectHit(state.onUseTrinkets);
   if (isFireball(spell) && !roll.isMiss && state.reckoning) {
     const stacks = Math.min(FELSWORN.reckoningBuffStacks, (state.reckoningPower?.stacks ?? 0) + 1);
     state.reckoningPower = { remain: FELSWORN.reckoningBuffDuration, stacks };
@@ -926,6 +1007,8 @@ function cast(
     rng.chance(INFERNAL.chaosProcChance)
   ) {
     const chaosSpell = extras.chaos;
+    const procActivations = tryProcTrinketProcs(state.procTrinkets, "direct-spell", state.time, rng, chaosSpell);
+    logProcTrinketActivations(state, procActivations);
     const chaosCtx = combatContext(chaosSpell, stats, state);
     const chaosAuras = snapshotDamageAuras(state, chaosSpell);
     const chaosRoll = rollSpellDamage(chaosSpell, stats, rng, true, chaosCtx);
@@ -942,6 +1025,7 @@ function cast(
       state.annihilation.stacks -= 1;
       if (state.annihilation.stacks <= 0) state.annihilation = null;
     }
+    if (!chaosRoll.isMiss) consumeTrinketStacksOnDirectHit(state.onUseTrinkets);
     if (chaosRoll.isCrit) onDirectCrit(state, extras.chaos, extras, rng);
   }
   if (isSmite(spell) && state.innerDemon && extras.smiteInner && !roll.isMiss) {
@@ -951,6 +1035,16 @@ function cast(
     logCast(state, extras.smiteInner.name, "hit", roll.amount, riderAuras);
   }
   if (roll.isCrit) onDirectCrit(state, spell, extras, rng);
+}
+
+function logProcTrinketActivations(
+  state: FightState,
+  activated: ProcTrinketDef[],
+  resources?: { energy: number; felfury: number },
+) {
+  for (const def of activated) {
+    logCast(state, `${def.name} (Proc)`, "applied", 0, undefined, resources);
+  }
 }
 
 function logCast(
@@ -1031,6 +1125,26 @@ function tailwindHasteBonus(state: FightState): number {
 function tickTailwind(state: FightState, dt: number) {
   if (!state.tailwind) return;
   if (isTailwindActive(state)) addAuraTime(state, TAILWIND.name, dt);
+}
+
+function isTempestsCallActive(state: FightState): boolean {
+  return state.tempestsCall && state.tempestsCallRemain > 0;
+}
+
+function tempestsCallHasteBonus(state: FightState): number {
+  return isTempestsCallActive(state) ? TEMPESTS_CALL.hastePct / 100 : 0;
+}
+
+function tickTempestsCall(state: FightState, dt: number) {
+  if (!state.tempestsCall) return;
+  if (state.tempestsCallRemain > 0) {
+    state.tempestsCallRemain = Math.max(0, state.tempestsCallRemain - dt);
+    addAuraTime(state, TEMPESTS_CALL.name, dt);
+  }
+  if (state.tempestsCallNextCastAt > 0 && state.time >= state.tempestsCallNextCastAt) {
+    state.tempestsCallRemain = TEMPESTS_CALL.duration;
+    state.tempestsCallNextCastAt = state.time + TEMPESTS_CALL.cooldown;
+  }
 }
 
 function applyNeptulonsWrath(state: FightState, rng: Rng) {

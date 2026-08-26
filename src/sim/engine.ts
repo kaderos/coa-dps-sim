@@ -117,10 +117,13 @@ function runIterationBatch(
       talentSelection: config.talentSelection,
       neptulonsWrath: config.neptulonsWrath,
       tailwind: config.tailwind,
+      tempestsCall: config.tempestsCall,
       targetHealthDecays: config.targetHealthDecays,
       demonfirePact: config.demonfirePact,
-      felshock: config.felshock,
       arcaneArtillery: config.arcaneArtillery,
+      primalistHitDebuff: config.primalistHitDebuff,
+      procTrinkets: config.procTrinkets,
+      onUseTrinkets: config.onUseTrinkets,
     });
     applyProcContributions(once, fightSec, config.procContributions);
     if (i === 0) {

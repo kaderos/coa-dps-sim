@@ -1,13 +1,5 @@
-import type { SimActiveAura } from "./types";
-
-const STACKED_AURAS = new Set([
-  "Chaotic",
-  "Reckoning",
-  "Annihilation",
-  "Inner Demon",
-  "Felstrike",
-  "Archimonde's Wrath",
-]);
+import type { SimActiveAura, SimCastEvent } from "./types";
+import { trinketAuraHint } from "./sim/on-use-trinkets";
 
 /** Short hover text for procs/buffs listed in expanded cast-log rows. */
 const CAST_LOG_AURA_HINTS: Record<string, string> = {
@@ -15,8 +7,10 @@ const CAST_LOG_AURA_HINTS: Record<string, string> = {
     "Spend Felfury to activate. +10% damage, Ruin leaves its DoT, and Felfury spenders extend the window.",
   "Bane of Fire": "Target takes 20% more damage from you; Fire spells gain +20% crit.",
   "Fragment of Malice": "Malice of Gul'dan proc — +10% crit for 5s.",
-  Felshock: "Felshock — +3% spell hit on the target for 12s; Felfury spenders extend Inner Demon. Enabled via Buffs → Felshock when the talent is taken.",
+  Felshock: "Felshock — +3% spell hit on the target for 12s; Felfury spenders extend Inner Demon.",
   Tailwind: "Shaman party buff — +5% haste for 15s windows (~80% uptime in sim).",
+  "Tempest's Call":
+    "Heroism/Bloodlust — +30% spell haste for 20s. Used at pull and every 5 min while enabled.",
   Chaotic: "Chaotic talent — 8% on player spell damage: +3% damage per stack (max 3, 8s, refresh on proc).",
   Reckoning: "Reckoning window — free instant Fireballs for 10s. Fireballs during this add +4% damage stacks (max 4, 15s each).",
   Annihilation: "Annihilation — next direct hits are guaranteed crits (ability deals no damage).",
@@ -44,12 +38,22 @@ const STACK_NOTES: Partial<Record<string, (aura: SimActiveAura) => string>> = {
 };
 
 export function formatCastLogAuraLabel(aura: SimActiveAura): string {
-  if (STACKED_AURAS.has(aura.name) && aura.stacks > 1) return `${aura.name} x${aura.stacks}`;
+  if (aura.stacks > 1) return `${aura.name} x${aura.stacks}`;
   return aura.name;
 }
 
+/** Buffs shown in cast-log expand rows; trinket (Proc)/(Use) lines themselves do not expand. */
+export function castLogExpandAuras(event: SimCastEvent): SimActiveAura[] {
+  if (/\(Proc\)$|\(Use\)$/.test(event.spell)) return [];
+  return event.activeAuras ?? [];
+}
+
 function castLogAuraHintBody(aura: SimActiveAura): string {
-  const base = CAST_LOG_AURA_HINTS[aura.name] ?? "Active proc or buff affecting this hit.";
+  const base =
+    aura.hint ??
+    CAST_LOG_AURA_HINTS[aura.name] ??
+    trinketAuraHint(aura.name, aura.stacks) ??
+    "Active proc or buff affecting this hit.";
   const stackNote =
     aura.name === "Inner Demon" ||
     aura.stacks > 1 ||
@@ -63,7 +67,7 @@ export function renderCastLogAuraItem(aura: SimActiveAura): string {
   const label = formatCastLogAuraLabel(aura);
   const title = aura.name;
   const body = castLogAuraHintBody(aura);
-  return `<li><span class="hint-anchor" data-hint-title="${escapeAttr(title)}" data-hint-body="${escapeAttr(body)}">${escapeHtml(label)}</span></li>`;
+  return `<li><span class="hint-anchor" data-hint-title="${escapeAttr(title)}" data-hint-body="${escapeAttr(body)}" tabindex="0">${escapeHtml(label)}</span></li>`;
 }
 
 function escapeHtml(value: string): string {

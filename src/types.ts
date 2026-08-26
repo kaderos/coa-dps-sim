@@ -91,6 +91,71 @@ export type Enchant = {
 export type GearSet = Partial<Record<Slot, Item | null>>;
 export type EnchantSet = Partial<Record<Slot, Enchant | null>>;
 
+export type TrinketSlot = "trinket1" | "trinket2";
+
+export type TrinketModifiers = {
+  spellPower?: number;
+  /** Additive damage fraction (0.1 = +10% damage done). */
+  damageDone?: number;
+  extraCrit?: number;
+};
+
+export type TrinketStackConfig = {
+  initial: number;
+  consumeOnDirectHit?: boolean;
+  spellPowerPerStack?: number;
+  damageDonePerStack?: number;
+  extraCritPerStack?: number;
+};
+
+export type OnUseTrinketDef = {
+  itemId: number;
+  name: string;
+  cooldownSec: number;
+  durationSec: number;
+  modifiers?: TrinketModifiers;
+  stacks?: TrinketStackConfig;
+};
+
+export type EquippedOnUseTrinket = {
+  slot: TrinketSlot;
+  def: OnUseTrinketDef;
+};
+
+export type ProcTrinketTrigger = "direct-spell" | "periodic-spell";
+
+/** `proc` = random roll + ICD (Arcane Artillery style). `stack-on-direct` = +1 stack per direct spell. */
+export type ProcTrinketBehavior = "proc" | "stack-on-direct";
+
+export type ProcTrinketModifiers = {
+  spellPower?: number;
+  critRating?: number;
+  hasteRating?: number;
+  spirit?: number;
+};
+
+export type ProcTrinketDef = {
+  itemId: number;
+  name: string;
+  behavior?: ProcTrinketBehavior;
+  procChance: number;
+  icdSec: number;
+  durationSec: number;
+  modifiers: ProcTrinketModifiers;
+  trigger: ProcTrinketTrigger;
+  /** When set, the proc only rolls if the spell matches one of these schools. */
+  schools?: SpellFit["school"][];
+  /** Stack-on-direct: +N spell power per stack. */
+  spellPowerPerStack?: number;
+  /** Stack-on-direct: maximum stacks from tooltip. */
+  maxStacks?: number;
+};
+
+export type EquippedProcTrinket = {
+  slot: TrinketSlot;
+  def: ProcTrinketDef;
+};
+
 export type CharacterStats = ItemStats & {
   energy: number;
   energyMax: number;
@@ -171,23 +236,26 @@ export type SimConfig = {
   potionMode: PotionMode;
   setDamageAbove75?: number;
   talentSelection?: TalentSelection;
-  /** Flat DPS from party/raid procs (Bloodthistle, etc.) — added each iteration. */
+  /** Flat DPS from party/raid procs — added each iteration. */
   procContributions?: Array<{ name: string; dps: number }>;
   /** Shaman party aura: AP×0.35 Froststorm on each direct damage hit while active. */
   neptulonsWrath?: boolean;
   /** Shaman Tailwind — +5% haste for 15s windows (~80% uptime). */
   tailwind?: boolean;
+  /** Shaman Tempest's Call — +30% haste for 20s at pull and every 5 min. */
+  tempestsCall?: boolean;
   /** Linear 100%→0% boss health — Fel Cannon / Doomsayer taper after ~75% fight time. */
   targetHealthDecays?: boolean;
   /** Demonfire Pact buff — Fel Infusion personal crit is 3% while active, 6% when off. */
   demonfirePact?: boolean;
-  /**
-   * Buffs checkbox for Felshock. When false, combat never applies Felshock hit/ID extend
-   * even if the talent is taken. Default (undefined) allows the talent effect.
-   */
-  felshock?: boolean;
   /** Arcane Artillery weapon enchant on a weapon slot. */
   arcaneArtillery?: boolean;
+  /** Primalist hit debuff — flat +3% hit; suppresses Felshock hit debuff in combat. */
+  primalistHitDebuff?: boolean;
+  /** Equipped on-use trinkets with modeled combat effects. */
+  onUseTrinkets?: EquippedOnUseTrinket[];
+  /** Equipped epic proc trinkets (on-hit / on-cast). */
+  procTrinkets?: EquippedProcTrinket[];
 };
 
 export type SetCatalog = {
@@ -222,12 +290,12 @@ export type BuffsConfig = {
   greaterGrimMandate: boolean;
   greaterWhispersOfNzoth: boolean;
   greaterPrimalInstinct: boolean;
-  bloodthistle: boolean;
   neptulonsWrath: boolean;
   tailwind: boolean;
-  frogBones: boolean;
+  tempestsCall: boolean;
   racialSpellHit: boolean;
-  spellHitDebuff: boolean;
+  raidSpellHit: boolean;
+  primalistHitDebuff: boolean;
   flask: "none" | "manifesting-power" | "kirin-tor";
   food: "none" | "well-fed" | "fused-wizard-wontons";
   scroll: "none" | "spirit-iv";
@@ -270,6 +338,8 @@ export type SimActiveAura = {
   remainSec?: number;
   /** Inner Demon — Felshock extension accumulated this activation. */
   felshockExtensionSec?: number;
+  /** Optional hover text override (on-use trinkets, etc.). */
+  hint?: string;
 };
 
 export type SimCastEvent = {
@@ -283,6 +353,11 @@ export type SimCastEvent = {
   felfury: number;
   /** Temporary buffs/procs active when this damage was calculated. */
   activeAuras?: SimActiveAura[];
+};
+
+export type AuraUptime = {
+  name: string;
+  uptime: number;
 };
 
 export type SimResult = {
@@ -299,7 +374,7 @@ export type SimResult = {
   dpsSamples: number[];
   p50Dps: number;
   p95Dps: number;
-  auraUptimes: Array<{ name: string; uptime: number }>;
+  auraUptimes: AuraUptime[];
   castEvents: SimCastEvent[];
   /** Salted fight length for iteration 0 (the cast log seed). */
   castLogFightSec: number;
@@ -307,8 +382,6 @@ export type SimResult = {
   logDps: number | null;
   logDeltaPct: number | null;
   logBaseline: LogBaseline | null;
-  /** Selected party buffs modeled in combat (Tailwind, Neptulon's Wrath, etc.). */
-  activeCombatBuffs?: string[];
   offensiveHit: OffensiveHitSummary;
 };
 

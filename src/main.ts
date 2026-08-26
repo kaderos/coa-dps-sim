@@ -16,9 +16,10 @@ import { buildChanceBreakdown, displayHitStat, hasteHintContent, hitHintContent 
 import type { ChanceBreakdown } from "./sim/chances";
 import { runSimAsync } from "./sim/engine";
 import { arcaneArtilleryEquipped } from "./sim/arcane-artillery";
+import { equippedOnUseTrinkets } from "./sim/on-use-trinkets";
+import { equippedProcTrinkets } from "./sim/proc-trinkets";
 import {
   applyStatScaleBuffs,
-  activeCombatBuffLabels,
   DEFAULT_BUFFS,
   percentBuffs,
   procContributionsFromBuffs,
@@ -37,7 +38,7 @@ import {
   statsEp,
   type StatWeights,
 } from "./ep";
-import { mergeTalentSelection, type TalentSelection, type TalentTrees } from "./talents/baseline";
+import { isTalentEnabled, mergeTalentSelection, type TalentSelection, type TalentTrees } from "./talents/baseline";
 import { setupTalents } from "./talents/ui";
 import type { FelswornTalentDoc, InfernalTalentDoc } from "./talents/types";
 import { applyTakenTalents } from "./talents/taken";
@@ -211,7 +212,8 @@ async function load() {
   if (hint) {
     if (items.itemCount) {
       hint.hidden = false;
-      hint.textContent = "Trinket and weapon proc effects are not included in simulations yet.";
+      hint.textContent =
+        "Epic quality proc trinkets (SP/crit/haste) and on-use trinkets with SP/crit/haste are simulated. Other procs are not included yet.";
     } else {
       hint.hidden = false;
       hint.textContent = "No items found in /data/items.json. Run `npm run ingest` to rebuild it from the Bisbeard dump.";
@@ -1108,7 +1110,11 @@ function renderStats() {
     talentSelection,
     buffsConfig,
   );
-  const hitDisplay = displayHitStat(chances.hit, buffsConfig.spellHitDebuff);
+  const hitDisplay = displayHitStat(
+    chances.hit,
+    isTalentEnabled(talentSelection, "infernal", "Felshock"),
+    buffsConfig.primalistHitDebuff,
+  );
   const sp = displaySpellPower(stats, stats.hiddenPower);
   const spellPen = stats.spellPenetration || 0;
   const root = document.getElementById("stats");
@@ -1176,7 +1182,7 @@ function bindStatBreakdownHovers(
 
   const spellHasteRow = [...root.querySelectorAll("div")].find((el) => el.querySelector("dt")?.textContent === "Spell Haste");
   if (spellHasteRow) {
-    applyStatHint(spellHasteRow, "Spell Haste", hasteHintContent(chances.haste, buffsConfig.tailwind));
+    applyStatHint(spellHasteRow, "Spell Haste", hasteHintContent(chances.haste, buffsConfig.tailwind, buffsConfig.tempestsCall));
   }
 
   for (const key of ["Intellect", "Spirit"] as const) {
@@ -1274,20 +1280,20 @@ async function runSimulation() {
         procContributions: procContributionsFromBuffs(buffsConfig),
         neptulonsWrath: buffsConfig.neptulonsWrath,
         tailwind: buffsConfig.tailwind,
+        tempestsCall: buffsConfig.tempestsCall,
         targetHealthDecays: buffsConfig.targetHealthDecays,
         demonfirePact: buffsConfig.demonfirePact,
-        felshock: buffsConfig.spellHitDebuff,
         arcaneArtillery: arcaneArtilleryEquipped(gear, enchants),
+        primalistHitDebuff: buffsConfig.primalistHitDebuff,
+        onUseTrinkets: equippedOnUseTrinkets(gear, (id) => itemsById.get(id)),
+        procTrinkets: equippedProcTrinkets(gear, (id) => itemsById.get(id)),
       },
       null,
       null,
       (completed, total) => setSimProgress(completed, total),
     );
     lastSim = toSnapshot(result);
-    renderResults(
-      { ...result, activeCombatBuffs: activeCombatBuffLabels(buffsConfig) },
-      { spells: spells.spells, stats: displayStats },
-    );
+    renderResults(result, { spells: spells.spells, stats: displayStats });
     refreshGearSim();
   } finally {
     setSimRunning(false);
