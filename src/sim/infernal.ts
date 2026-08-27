@@ -34,6 +34,7 @@ import {
   arcaneArtillerySpellPower,
   tryArcaneArtilleryProc,
 } from "./arcane-artillery";
+import { clampPvePower, PVE_POWER_MAX } from "../buffs";
 import {
   consumeTrinketStacksOnDirectHit,
   createOnUseTrinketState,
@@ -114,14 +115,35 @@ const INSTANT_LATENCY_MAX = 0.02;
 /** Reaction time after Sculptor / True Blessing Ruin proc before the cast fires. */
 const RUIN_PROC_REACTION = 0.02;
 
-/** Shaman party buff — 35% AP + 35% SP Froststorm on direct damage, 15s aura, 1 min CD. */
+/** CoA GCD cannot be reduced below 1s by haste (cast time may be shorter). */
+export const GCD_MIN_SEC = 1;
+
+/** PVE Power slider maximum — percent bonus damage to all damaging abilities. */
+export { PVE_POWER_MAX } from "../buffs";
+
+export function applyPvePowerDamage(amount: number, pvePowerPct: number): number {
+  if (amount <= 0 || pvePowerPct <= 0) return amount;
+  return amount * (1 + pvePowerPct / 100);
+}
+
+export function effectiveGcdSec(baseGcd: number, haste: number): number {
+  if (baseGcd <= 0) return 0;
+  return Math.max(baseGcd / haste, GCD_MIN_SEC);
+}
+
+/** Time until the next GCD spell may begin (max of GCD and cast bar + latency). */
+export function spellLockoutSec(gcdSec: number, castTimeSec: number, latencySec: number): number {
+  return Math.max(gcdSec, castTimeSec + latencySec);
+}
+
+/** Shaman party buff — 35% AP + 100% SP Froststorm on direct damage, 15s aura, 1 min CD. */
 const NEPTULONS_WRATH = {
   name: "Neptulon's Wrath",
   duration: 15,
   cooldown: 60,
   apCoeff: 0.35,
   /** Proc spell 537252 — Froststorm damage scales with spell power. */
-  spCoeff: 0.35,
+  spCoeff: 1.5,
   /** Kadd log observed crit multiplier for spell 537252. */
   critMultiplier: 2.454364267263334,
 } as const;
@@ -144,15 +166,16 @@ const TEMPESTS_CALL = {
   hastePct: 30,
 } as const;
 
-/** Venomancer debuff — +10% spell damage taken for 15s; modeled at ~95% uptime. */
+/** Venomancer debuff — +10% spell damage taken; 100% uptime when enabled. */
 const VULNERABLE = {
   name: "Vulnerable",
-  duration: 15,
-  targetUptime: 0.95,
-  damageTakenPct: 10,
 } as const;
-const VULNERABLE_DOWNTIME = (VULNERABLE.duration * (1 - VULNERABLE.targetUptime)) / VULNERABLE.targetUptime;
-const VULNERABLE_CYCLE = VULNERABLE.duration + VULNERABLE_DOWNTIME;
+
+/** Target debuff — +3% critical strike chance vs target; 100% uptime when enabled. */
+const SUNS_HOPE_POTENCY = {
+  name: "Sun's Hope/Potency",
+  critPct: 3,
+} as const;
 
 export type FightOptions = {
   potionSpellPower?: number;
@@ -169,8 +192,10 @@ export type FightOptions = {
   tailwind?: boolean;
   /** Shaman Tempest's Call — +30% haste for 20s at pull and every 5 min. */
   tempestsCall?: boolean;
-  /** Venomancer Vulnerable — +10% spell damage taken for 15s windows (~95% uptime). */
+  /** Venomancer Vulnerable — +10% spell damage taken; 100% uptime when enabled. */
   vulnerable?: boolean;
+  /** Sun's Hope/Potency — +3% crit vs target; 100% uptime when enabled. */
+  sunsHopePotency?: boolean;
   /** Demonfire Pact buff — Fel Infusion personal crit is 3% while active, 6% when off. */
   demonfirePact?: boolean;
   /** Arcane Artillery weapon enchant (+80 SP proc). */
@@ -181,6 +206,8 @@ export type FightOptions = {
   procTrinkets?: EquippedProcTrinket[];
   /** Primalist hit debuff — flat +3% hit; overrides Felshock hit debuff. */
   primalistHitDebuff?: boolean;
+  /** PVE Power — 0–24% bonus damage to all damaging abilities. */
+  pvePowerPct?: number;
 };
 
 export type Aura = {
@@ -248,10 +275,11 @@ export type FightState = {
   tempestsCallRemain: number;
   tempestsCallNextCastAt: number;
   vulnerable: boolean;
-  /** Random phase offset so uptime converges to ~95% across iterations. */
-  vulnerablePhaseOffset: number;
+  sunsHopePotency: boolean;
   /** Primalist hit debuff active — Felshock hit debuff does not apply. */
   primalistHitDebuff: boolean;
+  /** PVE Power bonus damage percent (0–24). */
+  pvePowerPct: number;
   /** Shared weapon-proc ICD pool (High Risk Weapons Enchant). */
   weaponProcIcdReadyAt: number;
   arcaneArtilleryEnabled: boolean;
@@ -410,8 +438,9 @@ export function runOnce(
     tempestsCallRemain: options.tempestsCall ? TEMPESTS_CALL.duration : 0,
     tempestsCallNextCastAt: options.tempestsCall ? TEMPESTS_CALL.cooldown : 0,
     vulnerable: options.vulnerable ?? false,
-    vulnerablePhaseOffset: options.vulnerable ? rng.range(0, VULNERABLE_CYCLE) : 0,
+    sunsHopePotency: options.sunsHopePotency ?? false,
     primalistHitDebuff: options.primalistHitDebuff ?? false,
+    pvePowerPct: clampPvePower(options.pvePowerPct ?? PVE_POWER_MAX),
     weaponProcIcdReadyAt: 0,
     arcaneArtilleryEnabled: options.arcaneArtillery ?? false,
     arcaneArtillery: null,
@@ -487,6 +516,7 @@ function tickAuras(
   tickTailwind(state, dt);
   tickTempestsCall(state, dt);
   tickVulnerable(state, dt);
+  tickSunsHopePotency(state, dt);
   tickCursedFlames(state, dt);
   if (state.ruinProc) {
     state.ruinProcRemain -= dt;
@@ -507,7 +537,21 @@ function tickAuras(
   if (state.felforged) {
     addAuraTime(state, "Felforged", dt);
     state.felforged.remain -= dt;
-    if (state.felforged.remain <= 0 || state.felforged.stacks <= 0) state.felforged = null;
+    if (state.felforged.remain <= 0) {
+      logAura(state, "Felforged", "removed", {
+        auraStacks: state.felforged.stacks,
+        auraRemainSec: 0,
+        triggerSpell: "duration expired",
+      });
+      state.felforged = null;
+    } else if (state.felforged.stacks <= 0) {
+      logAura(state, "Felforged", "removed", {
+        auraStacks: 0,
+        auraRemainSec: state.felforged.remain,
+        triggerSpell: "charges exhausted",
+      });
+      state.felforged = null;
+    }
   }
   if (state.chaotic) {
     const stacks = state.chaotic.stacks;
@@ -587,7 +631,7 @@ function tickAuras(
       const auras = snapshotTickAuras(state, spell, state.felstrike!.stacks);
       deal(state, "Felstrike (DoT)", amount, false, roll.isCrit, roll.isMiss, false, rng);
       logTick(state, "Felstrike (DoT)", amount, auras);
-      onPeriodic(state, rng);
+      onPeriodic(state, rng, "Felstrike (DoT)");
     });
   }
   if (state.ruinDot) {
@@ -600,7 +644,7 @@ function tickAuras(
       const auras = ruin ? snapshotDamageAuras(state, ruin) : [];
       deal(state, "Ruin (DoT)", tickDamage, false, false, false, false, rng);
       logTick(state, "Ruin (DoT)", tickDamage, auras);
-      onPeriodic(state, rng);
+      onPeriodic(state, rng, "Ruin (DoT)");
     });
   }
 }
@@ -710,6 +754,7 @@ function combatContext(spell: SpellFit, stats: CharacterStats, state: FightState
     primalistHitDebuff: state.primalistHitDebuff,
     cursedFlamesReady: isCursedFlamesActive(state),
     vulnerable: isVulnerableActive(state),
+    sunsHopePotency: state.sunsHopePotency,
   }, state.talentSelection);
 }
 
@@ -739,8 +784,16 @@ function snapshotDamageAuras(
   if (isTailwindActive(state)) push(TAILWIND.name);
   if (isTempestsCallActive(state)) push(TEMPESTS_CALL.name);
   if (isVulnerableActive(state)) push(VULNERABLE.name);
+  if (state.sunsHopePotency) push(SUNS_HOPE_POTENCY.name);
   if (state.chaotic?.stacks) push("Chaotic", state.chaotic.stacks);
   if (state.reckoningPower?.stacks) push("Reckoning", state.reckoningPower.stacks);
+  if (state.felforged?.stacks) {
+    push(
+      "Felforged",
+      state.felforged.stacks,
+      `${state.felforged.remain.toFixed(1)}s · −30% Fel Fireball cast time per charge`,
+    );
+  }
   if (state.annihilation?.stacks) push("Annihilation", state.annihilation.stacks);
   if (state.potion) push("Potion of Spell Power");
   if (state.arcaneArtillery) push(ARCANE_ARTILLERY.name);
@@ -800,12 +853,18 @@ function tickDotAura(state: FightState, aura: Aura, dt: number, onTick: () => vo
   return aura.remain > 0 ? aura : null;
 }
 
-function onPeriodic(state: FightState, rng: Rng) {
+function onPeriodic(state: FightState, rng: Rng, triggerSpell: string) {
   if (talentTaken(state, "infernal", "Illidari Magi") && rng.chance(INFERNAL.illidariMagiChance)) {
     addFelfury(state, 1);
   }
   if (talentTaken(state, "infernal", "Felforged") && rng.chance(INFERNAL.felforgedChance)) {
+    const refreshed = Boolean(state.felforged);
     state.felforged = { remain: INFERNAL.felforgedDuration, stacks: INFERNAL.felforgedCharges };
+    logAura(state, "Felforged", refreshed ? "refresh" : "applied", {
+      triggerSpell,
+      auraStacks: INFERNAL.felforgedCharges,
+      auraRemainSec: INFERNAL.felforgedDuration,
+    });
   }
 }
 
@@ -890,19 +949,25 @@ function cast(
   const logFelfury = state.felfury;
   const logResources = { energy: logEnergy, felfury: logFelfury };
   const usingFelforged = isFireball(spell) && Boolean(state.felforged);
+  const felforgedStacksAtCast = usingFelforged && state.felforged ? state.felforged.stacks : undefined;
   const reckoningFireball = isFireball(spell) && Boolean(state.reckoning);
   const prodigy = talentTaken(state, "infernal", "Gul'dan's Prodigy");
+  const baseCastTimeSec =
+    isFireball(spell) && !isProcRuin && !reckoningFireball
+      ? fireballCastTime(spell.castTime || 0, haste, false, prodigy)
+      : undefined;
   const castTime = isProcRuin || reckoningFireball
     ? 0
     : isFireball(spell)
       ? fireballCastTime(spell.castTime || 0, haste, usingFelforged, prodigy)
       : (spell.castTime || 0) / haste;
+  const castTimeSec = isFireball(spell) && castTime > 0 ? castTime : undefined;
   const baseGcd = spellGcd(spell);
-  const gcd = baseGcd > 0 ? Math.max(baseGcd / haste, 0.75) : 0;
+  const gcd = effectiveGcdSec(baseGcd, haste);
   const latency = castTime > 0 ? 0 : rng.range(INSTANT_LATENCY_MIN, INSTANT_LATENCY_MAX);
   state.castingUntil = state.time + castTime + latency;
   // Off-GCD weaves must not clear a GCD already started (Bane, Fireball, etc.).
-  state.gcdReady = Math.max(state.gcdReady, state.time + Math.max(gcd, castTime + latency));
+  state.gcdReady = Math.max(state.gcdReady, state.time + spellLockoutSec(gcd, castTime, latency));
 
   const energyCost = reckoningFireball
     ? 0
@@ -918,8 +983,23 @@ function cast(
   if (spell.felfuryGain) addFelfury(state, spell.felfuryGain);
   if (isFireball(spell)) noteFireball(state);
   if (usingFelforged && state.felforged) {
+    const remain = state.felforged.remain;
     state.felforged.stacks -= 1;
-    if (state.felforged.stacks <= 0) state.felforged = null;
+    const stacksAfter = state.felforged.stacks;
+    if (stacksAfter <= 0) {
+      logAura(state, "Felforged", "removed", {
+        triggerSpell: "Fel Fireball",
+        auraStacks: 0,
+        auraRemainSec: remain,
+      });
+      state.felforged = null;
+    } else {
+      logAura(state, "Felforged", "consume", {
+        triggerSpell: "Fel Fireball",
+        auraStacks: stacksAfter,
+        auraRemainSec: remain,
+      });
+    }
   }
   if (isProcRuin) {
     state.ruinProc = false;
@@ -1014,12 +1094,24 @@ function cast(
 
   const usingCursedFlames = isFireball(spell) && isCursedFlamesActive(state);
   const ctx = combatContext(spell, stats, state, logEnergy);
-  const activeAuras = snapshotDamageAuras(state, spell, { sculptorProc: isProcRuin, energyAtCast: logEnergy });
+  let activeAuras = snapshotDamageAuras(state, spell, { sculptorProc: isProcRuin, energyAtCast: logEnergy });
+  if (felforgedStacksAtCast != null) {
+    activeAuras = activeAuras.filter((aura) => aura.name !== "Felforged");
+    const castHint =
+      castTimeSec != null && baseCastTimeSec != null
+        ? `Cast ${castTimeSec.toFixed(2)}s (base ${baseCastTimeSec.toFixed(2)}s without Felforged) · ${felforgedStacksAtCast} charge${felforgedStacksAtCast === 1 ? "" : "s"} at cast start`
+        : `${felforgedStacksAtCast} charge${felforgedStacksAtCast === 1 ? "" : "s"} at cast start`;
+    activeAuras.push({ name: "Felforged", stacks: felforgedStacksAtCast, hint: castHint });
+  }
   const roll = rollSpellDamage(spell, stats, rng, true, ctx);
   if (usingCursedFlames) consumeCursedFlames(state);
   trackOffensiveCast(state, !roll.isMiss);
   deal(state, spell.name, roll.amount, true, roll.isCrit, roll.isMiss, true, rng, true);
-  logCast(state, spell.name, roll.isMiss ? "miss" : roll.isCrit ? "crit" : "hit", roll.amount, activeAuras, logResources);
+  logCast(state, spell.name, roll.isMiss ? "miss" : roll.isCrit ? "crit" : "hit", roll.amount, activeAuras, logResources, {
+    castTimeSec,
+    baseCastTimeSec,
+    felforgedStacksAtCast,
+  });
   if (!roll.isMiss && spell.energyGain) addEnergy(state, spell.energyGain);
   if (!roll.isMiss && state.annihilation) {
     state.annihilation.stacks -= 1;
@@ -1101,6 +1193,11 @@ function logProcTrinketActivations(
   }
 }
 
+type CastLogExtras = Pick<
+  SimCastEvent,
+  "castTimeSec" | "baseCastTimeSec" | "felforgedStacksAtCast"
+>;
+
 function logCast(
   state: FightState,
   spell: string,
@@ -1108,6 +1205,7 @@ function logCast(
   damage: number,
   activeAuras?: SimActiveAura[],
   resources?: { energy: number; felfury: number },
+  extras?: CastLogExtras,
 ) {
   if (state.castEvents.length >= EVENT_LOG_LIMIT) return;
   const event: SimCastEvent = {
@@ -1120,6 +1218,36 @@ function logCast(
     felfury: Number((resources?.felfury ?? state.felfury).toFixed(2)),
   };
   if (activeAuras?.length) event.activeAuras = activeAuras;
+  if (extras?.castTimeSec != null) event.castTimeSec = Number(extras.castTimeSec.toFixed(3));
+  if (extras?.baseCastTimeSec != null) event.baseCastTimeSec = Number(extras.baseCastTimeSec.toFixed(3));
+  if (extras?.felforgedStacksAtCast != null) event.felforgedStacksAtCast = extras.felforgedStacksAtCast;
+  state.castEvents.push(event);
+}
+
+function logAura(
+  state: FightState,
+  name: string,
+  action: NonNullable<SimCastEvent["auraAction"]>,
+  options: {
+    triggerSpell?: string;
+    auraStacks?: number;
+    auraRemainSec?: number;
+  } = {},
+) {
+  if (state.castEvents.length >= EVENT_LOG_LIMIT) return;
+  const event: SimCastEvent = {
+    timestamp: Number(state.time.toFixed(3)),
+    spell: name,
+    kind: "aura",
+    auraAction: action,
+    result: action,
+    damage: 0,
+    energy: Number(state.energy.toFixed(2)),
+    felfury: Number(state.felfury.toFixed(2)),
+  };
+  if (options.triggerSpell) event.triggerSpell = options.triggerSpell;
+  if (options.auraStacks != null) event.auraStacks = options.auraStacks;
+  if (options.auraRemainSec != null) event.auraRemainSec = Number(options.auraRemainSec.toFixed(3));
   state.castEvents.push(event);
 }
 
@@ -1145,6 +1273,9 @@ function logTick(
 
 /** Secondary/proc hits that do not roll Chaotic in Kadd logs (e.g. Neptulon's Wrath). */
 const CHAOTIC_INELIGIBLE = new Set<string>([NEPTULONS_WRATH.name]);
+
+/** Ruin direct hits and its DoT do not receive PVE Power bonus damage. */
+const PVE_POWER_EXEMPT_SPELLS = new Set(["Ruin", "Ruin (DoT)"]);
 
 function tryChaotic(state: FightState, rng: Rng) {
   if (!talentTaken(state, "felsworn", "Chaotic") || !rng.chance(FELSWORN.chaoticChance)) return;
@@ -1201,17 +1332,18 @@ function tickTempestsCall(state: FightState, dt: number) {
   }
 }
 
-function vulnerableCycleTime(state: FightState): number {
-  return (state.time + state.vulnerablePhaseOffset) % VULNERABLE_CYCLE;
-}
-
 function isVulnerableActive(state: FightState): boolean {
-  return state.vulnerable && vulnerableCycleTime(state) < VULNERABLE.duration;
+  return state.vulnerable;
 }
 
 function tickVulnerable(state: FightState, dt: number) {
   if (!state.vulnerable) return;
-  if (isVulnerableActive(state)) addAuraTime(state, VULNERABLE.name, dt);
+  addAuraTime(state, VULNERABLE.name, dt);
+}
+
+function tickSunsHopePotency(state: FightState, dt: number) {
+  if (!state.sunsHopePotency) return;
+  addAuraTime(state, SUNS_HOPE_POTENCY.name, dt);
 }
 
 function tickCursedFlames(state: FightState, dt: number) {
@@ -1249,6 +1381,9 @@ function deal(
   direct = false,
   chaoticEligible = true,
 ) {
+  if (!PVE_POWER_EXEMPT_SPELLS.has(name)) {
+    amount = applyPvePowerDamage(amount, state.pvePowerPct);
+  }
   state.damage += amount;
   const rec = state.bySpell.get(name) || { casts: 0, damage: 0, hits: 0, crits: 0, hitDamage: 0, critDamage: 0, misses: 0, events: 0 };
   if (isCast) rec.casts += 1;

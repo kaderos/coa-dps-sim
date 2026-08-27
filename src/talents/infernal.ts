@@ -47,6 +47,8 @@ export const INFERNAL = {
   cursedFlamesCrit: 0.2,
   cursedFlamesWindow: 10,
   vulnerableDamageTaken: 0.1,
+  /** Sun's Hope/Potency target debuff — +3% crit vs target (100% uptime when enabled). */
+  sunsHopePotencyCrit: 0.03,
   ruinDotFraction: 0.3,
   ruinDotDuration: 3,
   executeHealth: 0.75,
@@ -214,6 +216,7 @@ export type InfernalAuras = {
   primalistHitDebuff?: boolean;
   cursedFlamesReady?: boolean;
   vulnerable?: boolean;
+  sunsHopePotency?: boolean;
   /** Target health at pull (dummy = 1). */
   targetStartHealth: number;
   /** When true, health falls linearly to 0 over the fight (Fel Cannon tapers off). */
@@ -283,6 +286,7 @@ export function infernalContext(
   if (auras.trinketDamageDone) damageDone *= 1 + auras.trinketDamageDone;
   extraCrit += auras.trinketExtraCrit ?? 0;
   extraCrit += auras.procTrinketExtraCrit ?? 0;
+  if (auras.sunsHopePotency) extraCrit += INFERNAL.sunsHopePotencyCrit;
 
   let damageTakenFromCaster = 1;
   if (auras.baneOfFire) damageTakenFromCaster *= 1.2;

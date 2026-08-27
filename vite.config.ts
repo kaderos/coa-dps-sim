@@ -1,5 +1,20 @@
+import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 import LZString from "lz-string";
+
+const rootDir = dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(readFileSync(join(rootDir, "package.json"), "utf8")) as { version: string };
+
+function gitCommit(): string | null {
+  try {
+    return execSync("git rev-parse HEAD", { cwd: rootDir, encoding: "utf8" }).trim();
+  } catch {
+    return null;
+  }
+}
 
 const UPSTREAM = "https://gear-planner-api.bisbeard.workers.dev";
 
@@ -105,6 +120,12 @@ export default defineConfig(({ mode }) => ({
   root: ".",
   publicDir: "public",
   base: mode === "production" ? "/coa-dps-sim/" : "/",
+  define: {
+    __SIM_BUILD__: JSON.stringify({
+      version: pkg.version,
+      commit: gitCommit(),
+    }),
+  },
   plugins: [bisbeardImportDevPlugin()],
   server: {
     port: 5173,

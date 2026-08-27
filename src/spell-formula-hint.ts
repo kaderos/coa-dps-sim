@@ -5,7 +5,8 @@ import {
   shadowSpellPower,
 } from "./sim/stats";
 import { FELSWORN } from "./talents/felsworn";
-import { INFERNAL } from "./talents/infernal";
+import { archimondesWrathApplies, INFERNAL } from "./talents/infernal";
+import type { TalentSelection } from "./talents/types";
 
 export type SpellFormulaHint = {
   title: string;
@@ -151,7 +152,7 @@ function expectedAverage(p: FormulaParts): number {
   return (p.min + p.max) / 2 + p.levelTerm + p.coeff * p.power + p.apCoeff * p.ap;
 }
 
-function modifiersFor(name: string, spell: SpellFit): string[] {
+function modifiersFor(name: string, spell: SpellFit, selection?: TalentSelection): string[] {
   const notes: string[] = [];
   const isRuin = name === "Ruin" || spell.id === 501298;
   const isRuinDot = name === "Ruin (DoT)";
@@ -195,6 +196,11 @@ function modifiersFor(name: string, spell: SpellFit): string[] {
   if (isFelstrike) {
     notes.push("Felstrike ticks do not crit. Damage scales with stacks (max 3).");
   }
+  if (archimondesWrathApplies(spell, selection)) {
+    notes.push(
+      `Archimonde's Wrath: +${fmt(INFERNAL.archimondeCritPerTenEnergy * 100, 0)}% crit per 10 Energy at cast (Energy before the cast cost; Ruin and Sargeron Smite only).`,
+    );
+  }
   notes.push("Spell Power includes Hidden Power (15% of Intellect and Spirit).");
   return notes;
 }
@@ -204,6 +210,7 @@ export function spellFormulaHint(
   name: string,
   spells: Record<string, SpellFit>,
   stats: CharacterStats,
+  selection?: TalentSelection,
 ): SpellFormulaHint | null {
   const resolved = resolveSpell(name, spells);
   if (!resolved) return null;
@@ -219,7 +226,7 @@ export function spellFormulaHint(
       title: name,
       formula: `Ruin hit × ${fmt(INFERNAL.ruinDotFraction)} ÷ ${INFERNAL.ruinDotDuration}s per tick`,
       evaluatedHtml: `${base(fmt(avg, 0))} × ${base(fmt(INFERNAL.ruinDotFraction))} ÷ ${base(INFERNAL.ruinDotDuration)} ≈ ${base(fmt(tick, 0))} per tick`,
-      reminders: modifiersFor(name, spell),
+      reminders: modifiersFor(name, spell, selection),
     };
   }
 
@@ -230,7 +237,7 @@ export function spellFormulaHint(
       title: name,
       formula: "Copy of triggering Sargeron Smite hit (no second roll)",
       evaluatedHtml: `same as Smite ≈ ${base(fmt(expectedAverage(p), 0))} before combat modifiers`,
-      reminders: modifiersFor(name, spell),
+      reminders: modifiersFor(name, spell, selection),
     };
   }
 
@@ -241,7 +248,7 @@ export function spellFormulaHint(
     title: name,
     formula: symbolicDirect(p),
     evaluatedHtml: evaluatedDirect(p),
-    reminders: modifiersFor(name, spell),
+    reminders: modifiersFor(name, spell, selection),
   };
 }
 

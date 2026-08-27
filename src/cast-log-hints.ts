@@ -2,7 +2,7 @@ import type { SimActiveAura, SimCastEvent } from "./types";
 import { trinketAuraHint } from "./sim/on-use-trinkets";
 
 /** Short hover text for procs/buffs listed in expanded cast-log rows. */
-const CAST_LOG_AURA_HINTS: Record<string, string> = {
+export const CAST_LOG_AURA_HINTS: Record<string, string> = {
   "Inner Demon":
     "Spend Felfury to activate. +10% damage, Ruin leaves its DoT, and Felfury spenders extend the window.",
   "Bane of Fire": "Target takes 20% more damage from you; Fire spells gain +20% crit.",
@@ -11,7 +11,8 @@ const CAST_LOG_AURA_HINTS: Record<string, string> = {
   Tailwind: "Shaman party buff — +5% haste for 15s windows (~80% uptime in sim).",
   "Tempest's Call":
     "Heroism/Bloodlust — +30% spell haste for 20s. Used at pull and every 5 min while enabled.",
-  Vulnerable: "Venomancer debuff — +10% spell damage taken for 15s (~95% uptime in sim).",
+  Vulnerable: "Venomancer debuff — +10% spell damage taken (100% uptime when enabled).",
+  "Sun's Hope/Potency": "Target debuff — +3% critical strike chance vs the target (100% uptime when enabled).",
   Chaotic: "Chaotic talent — 8% on player spell damage: +3% damage per stack (max 3, 8s, refresh on proc).",
   Reckoning: "Reckoning window — free instant Fireballs for 10s. Fireballs during this add +4% damage stacks (max 4, 15s each).",
   Annihilation: "Annihilation — next direct hits are guaranteed crits (ability deals no damage).",
@@ -22,6 +23,8 @@ const CAST_LOG_AURA_HINTS: Record<string, string> = {
   "Sculptor of Doom": "Sculptor proc — next Ruin within 8s is instant (still costs 2 Felfury).",
   "Archimonde's Wrath": "Felfury spenders — +1% crit per 10 Energy at cast.",
   Felstrike: "Periodic Fire damage on the target; stacks from Fel Fireball during Inner Demon.",
+  Felforged:
+    "15% on periodic damage: 3 charges, 8s. Each Fel Fireball with Felforged active casts 30% faster and spends 1 charge.",
   "Cursed Flames": "+20% Fel Fireball crit on the next Fel Fireball within 10s after a Fel Fireball crit.",
 };
 
@@ -36,8 +39,52 @@ const STACK_NOTES: Partial<Record<string, (aura: SimActiveAura) => string>> = {
   Reckoning: (aura) => `${aura.stacks} stack${aura.stacks === 1 ? "" : "s"} → +${aura.stacks * 4}% damage.`,
   Annihilation: (aura) => `${aura.stacks} guaranteed crit${aura.stacks === 1 ? "" : "s"} remaining.`,
   Felstrike: (aura) => `${aura.stacks} stack${aura.stacks === 1 ? "" : "s"} ticking.`,
+  Felforged: (aura) =>
+    `${aura.stacks} charge${aura.stacks === 1 ? "" : "s"}${aura.remainSec != null ? ` · ${aura.remainSec.toFixed(1)}s remain` : ""}.`,
   "Archimonde's Wrath": (aura) => `+${aura.stacks}% crit (${aura.stacks * 10}+ Energy at cast).`,
 };
+
+/** Felforged lifecycle rows stay in castEvents/export but are omitted from the UI table. */
+export function isHiddenCastLogRow(event: SimCastEvent): boolean {
+  return event.kind === "aura" && event.spell === "Felforged";
+}
+
+/** Expand-row auras for on-screen cast log (Felforged stack/cast annotations hidden). */
+export function castLogDisplayExpandAuras(event: SimCastEvent): SimActiveAura[] {
+  return castLogExpandAuras(event).filter((aura) => aura.name !== "Felforged");
+}
+
+/** Expand-row detail lines for on-screen cast log (Felforged stack/cast annotations hidden). */
+export function castLogDisplayDetailLines(event: SimCastEvent): string[] {
+  const lines: string[] = [];
+  if (event.kind === "aura" && !isHiddenCastLogRow(event)) {
+    if (event.triggerSpell) lines.push(`Trigger: ${event.triggerSpell}`);
+    if (event.auraStacks != null) lines.push(`Stacks: ${event.auraStacks}`);
+    if (event.auraRemainSec != null) lines.push(`Duration remaining: ${event.auraRemainSec.toFixed(1)}s`);
+  }
+  if (event.castTimeSec != null && event.felforgedStacksAtCast == null) {
+    lines.push(`Effective cast time: ${event.castTimeSec.toFixed(2)}s`);
+  }
+  return lines;
+}
+
+export function castLogEventDetailLines(event: SimCastEvent): string[] {
+  const lines: string[] = [];
+  if (event.kind === "aura") {
+    if (event.triggerSpell) lines.push(`Trigger: ${event.triggerSpell}`);
+    if (event.auraStacks != null) lines.push(`Stacks: ${event.auraStacks}`);
+    if (event.auraRemainSec != null) lines.push(`Duration remaining: ${event.auraRemainSec.toFixed(1)}s`);
+  }
+  if (event.castTimeSec != null) {
+    const base =
+      event.baseCastTimeSec != null ? ` (base ${event.baseCastTimeSec.toFixed(2)}s without Felforged)` : "";
+    lines.push(`Effective cast time: ${event.castTimeSec.toFixed(2)}s${base}`);
+  }
+  if (event.felforgedStacksAtCast != null) {
+    lines.push(`Felforged charges at cast start: ${event.felforgedStacksAtCast}`);
+  }
+  return lines;
+}
 
 export function formatCastLogAuraLabel(aura: SimActiveAura): string {
   if (aura.stacks > 1) return `${aura.name} x${aura.stacks}`;
@@ -59,10 +106,15 @@ function castLogAuraHintBody(aura: SimActiveAura): string {
   const stackNote =
     aura.name === "Inner Demon" ||
     aura.stacks > 1 ||
-    aura.name === "Archimonde's Wrath"
+    aura.name === "Archimonde's Wrath" ||
+    aura.name === "Felforged"
       ? STACK_NOTES[aura.name]?.(aura)
       : undefined;
   return stackNote ? `${base} ${stackNote}` : base;
+}
+
+export function auraHintBody(name: string): string | undefined {
+  return CAST_LOG_AURA_HINTS[name] ?? trinketAuraHint(name, 1);
 }
 
 export function renderCastLogAuraItem(aura: SimActiveAura): string {

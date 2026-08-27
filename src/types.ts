@@ -244,8 +244,10 @@ export type SimConfig = {
   tailwind?: boolean;
   /** Shaman Tempest's Call — +30% haste for 20s at pull and every 5 min. */
   tempestsCall?: boolean;
-  /** Venomancer Vulnerable — +10% spell damage taken for 15s windows (~95% uptime). */
+  /** Venomancer Vulnerable — +10% spell damage taken; 100% uptime when enabled. */
   vulnerable?: boolean;
+  /** Sun's Hope/Potency — +3% crit vs target; 100% uptime when enabled. */
+  sunsHopePotency?: boolean;
   /** Linear 100%→0% boss health — Fel Cannon / Doomsayer taper after ~75% fight time. */
   targetHealthDecays?: boolean;
   /** Demonfire Pact buff — Fel Infusion personal crit is 3% while active, 6% when off. */
@@ -254,6 +256,8 @@ export type SimConfig = {
   arcaneArtillery?: boolean;
   /** Primalist hit debuff — flat +3% hit; suppresses Felshock hit debuff in combat. */
   primalistHitDebuff?: boolean;
+  /** PVE Power — 0–24% bonus damage to all damaging abilities. */
+  pvePower?: number;
   /** Equipped on-use trinkets with modeled combat effects. */
   onUseTrinkets?: EquippedOnUseTrinket[];
   /** Equipped epic proc trinkets (on-hit / on-cast). */
@@ -296,6 +300,7 @@ export type BuffsConfig = {
   tailwind: boolean;
   tempestsCall: boolean;
   vulnerable: boolean;
+  sunsHopePotency: boolean;
   racialSpellHit: boolean;
   raidSpellHit: boolean;
   primalistHitDebuff: boolean;
@@ -307,6 +312,8 @@ export type BuffsConfig = {
   potion: "none" | "in-fight" | "prepot-and-second";
   /** Boss fight: health falls linearly so Fel Cannon / Doomsayer taper. Off = training dummy at 100%. */
   targetHealthDecays: boolean;
+  /** PVE Power — 0–24% bonus damage to all damaging abilities (default 24%). */
+  pvePower: number;
 };
 
 export type SpellBreakdown = {
@@ -345,17 +352,41 @@ export type SimActiveAura = {
   hint?: string;
 };
 
+export type SimCastEventResult =
+  | "hit"
+  | "crit"
+  | "miss"
+  | "applied"
+  | "tick"
+  | "refresh"
+  | "removed"
+  | "consume";
+
 export type SimCastEvent = {
   timestamp: number;
   spell: string;
-  /** Casted ability vs periodic DoT tick (no GCD, no cast count). */
-  kind?: "cast" | "tick";
-  result: "hit" | "crit" | "miss" | "applied" | "tick";
+  /** Casted ability vs periodic DoT tick vs aura lifecycle row. */
+  kind?: "cast" | "tick" | "aura";
+  result: SimCastEventResult;
   damage: number;
   energy: number;
   felfury: number;
   /** Temporary buffs/procs active when this damage was calculated. */
   activeAuras?: SimActiveAura[];
+  /** Aura lifecycle action (Felforged applied/refresh/removed/consume). */
+  auraAction?: "applied" | "refresh" | "removed" | "consume";
+  /** DoT tick or spell that proc'd this aura change. */
+  triggerSpell?: string;
+  /** Stacks after this aura event. */
+  auraStacks?: number;
+  /** Seconds remaining on the aura after this event. */
+  auraRemainSec?: number;
+  /** Effective Fel Fireball cast time after haste, Prodigy, and Felforged. */
+  castTimeSec?: number;
+  /** Fel Fireball cast time before the Felforged −30% modifier. */
+  baseCastTimeSec?: number;
+  /** Felforged charges active when this Fel Fireball started casting. */
+  felforgedStacksAtCast?: number;
 };
 
 export type AuraUptime = {

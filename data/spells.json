@@ -201,6 +201,7 @@
       "id": 802676,
       "name": "Chaos",
       "role": "proc",
+      "school": "shadowflame",
       "gcd": 0,
       "defaultCast": 0,
       "source": "db.ascension.gg",
@@ -219,17 +220,17 @@
         "min": 220,
         "max": 221,
         "perLevel": 0,
-        "coeff": 0.067,
+        "coeff": 0.67,
         "energy": 0,
         "castTime": 0,
         "gcd": 1
       },
       "fit": {
-        "method": "uniform(220, 221) + 0.067 * SP",
+        "method": "uniform(220, 221) + 0.67 * SP",
         "spellPowerUsed": 0,
         "base": 220.5,
-        "coeff": 0.067,
-        "note": "Tooltip: 220-221 Chaos Damage, Spell Power ×0.067. Instant; tooltip GCD 1s but as a Ruin/Smite proc it does not take the player's GCD."
+        "coeff": 0.67,
+        "note": "Scaling #1: +67% of spell power to direct component (db.ascension.gg). Instant Ruin/Smite proc; no GCD."
       }
     },
     "802678": {

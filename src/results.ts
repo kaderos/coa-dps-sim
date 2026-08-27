@@ -1,8 +1,17 @@
 import type { CharacterStats, AuraUptime, SimCastEvent, SimResult, SpellFit } from "./types";
-import { castLogExpandAuras, renderCastLogAuraItem } from "./cast-log-hints";
+import type { TalentSelection } from "./talents/types";
+import {
+  castLogDisplayDetailLines,
+  castLogDisplayExpandAuras,
+  isHiddenCastLogRow,
+  renderCastLogAuraItem,
+} from "./cast-log-hints";
 import { bindHintTooltips } from "./hint-tooltip";
 import { CAST_EVENT_LOG_LIMIT } from "./sim/infernal";
 import { spellFormulaHint } from "./spell-formula-hint";
+import type { SimExportDocument } from "./sim-export";
+import { simExportFilename } from "./sim-export";
+import { auraUptimeHint, spellBreakdownDescription } from "./result-hints";
 
 export type SimSnapshot = {
   meanDps: number;
@@ -107,6 +116,8 @@ export function renderResults(
   options: {
     spells?: Record<string, SpellFit>;
     stats?: CharacterStats;
+    talentSelection?: TalentSelection;
+    exportDocument?: SimExportDocument;
   } = {},
 ) {
   const root = document.getElementById("results");
@@ -133,7 +144,7 @@ export function renderResults(
       <h3>Spell breakdown</h3>
       <div class="table-scroll"><table class="spell-breakdown">
         <thead><tr><th>Spell</th><th>DPS</th><th class="share-bar-col">% Share</th><th>Average Hit</th><th>Casts</th><th>Normal Hit</th><th>Crit Hit</th><th>Miss</th></tr></thead>
-        <tbody>${spellRows(result, options.spells, options.stats).join("")}</tbody>
+        <tbody>${spellRows(result, options.spells, options.stats, options.talentSelection).join("")}</tbody>
       </table></div>
     </section>
     ${result.auraUptimes.length ? `
@@ -154,7 +165,7 @@ export function renderResults(
           </label>
           <button class="text-button" id="cast-log-expand-all" type="button">Expand all</button>
           <button class="text-button" id="cast-log-collapse-all" type="button">Collapse all</button>
-          <button class="text-button" id="download-cast-log" type="button">Download JSON</button>
+          <button class="text-button" id="download-cast-log" type="button">Download export</button>
         </div>
       </div>
       <div class="table-scroll cast-log"><table>
@@ -164,11 +175,14 @@ export function renderResults(
     </section>
   `;
   document.getElementById("download-cast-log")?.addEventListener("click", () => {
-    const blob = new Blob([JSON.stringify(result.castEvents, null, 2)], { type: "application/json" });
+    const payload = options.exportDocument ?? result.castEvents;
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `coa-cast-log-seed-1-${result.durationSec}s.json`;
+    link.download = options.exportDocument
+      ? simExportFilename(result, options.exportDocument.encounter.seed)
+      : `coa-cast-log-seed-1-${result.durationSec}s.json`;
     link.click();
     URL.revokeObjectURL(url);
   });
@@ -177,6 +191,8 @@ export function renderResults(
   bindCastLogBulkExpand();
   const castLog = root.querySelector(".cast-log");
   if (castLog) bindHintTooltips(castLog);
+  const uptimeList = root.querySelector(".uptime-list");
+  if (uptimeList) bindHintTooltips(uptimeList);
   const spellBreakdown = root.querySelector(".spell-breakdown");
   if (spellBreakdown) {
     bindHintTooltips(spellBreakdown, ".spell-breakdown__avg-hit[data-hint-body], .spell-breakdown__name[data-hint-body]");
@@ -223,18 +239,22 @@ function castLogHint(result: SimResult): string {
     result.castLogTruncated && lastTs != null
       ? ` · log capped at ${CAST_EVENT_LOG_LIMIT} (stops at ${lastTs.toFixed(1)}s; DPS still uses full ${fight})`
       : " · ticks are periodic damage (no GCD) · click a row to expand buffs";
-  return `First seed only · ${fight} · ${events}${tail}`;
+  return `First seed only · ${fight} · ${events}${tail} · export includes full sim config`;
 }
 
 function castLogRows(events: SimCastEvent[]): string[] {
   return events.flatMap((event, index) => {
-    const auras = castLogExpandAuras(event);
-    const expandable = auras.length > 0;
+    if (isHiddenCastLogRow(event)) return [];
+    const auras = castLogDisplayExpandAuras(event);
+    const detailLines = castLogDisplayDetailLines(event);
+    const expandable = auras.length > 0 || detailLines.length > 0;
     const isTick = event.kind === "tick" || event.result === "tick";
+    const isAura = event.kind === "aura";
     const rowClass = [
       "cast-log-row",
       expandable ? "cast-log-row--expandable" : "",
       isTick ? "cast-log-row--tick" : "",
+      isAura ? "cast-log-row--aura" : "",
     ]
       .filter(Boolean)
       .join(" ");
@@ -249,12 +269,18 @@ function castLogRows(events: SimCastEvent[]): string[] {
       <td class="cast-log-expand" aria-hidden="true">${expandable ? "▸" : ""}</td>
     </tr>`;
     if (!expandable) return [main];
+    const detailParts = [
+      detailLines.length
+        ? `<ul class="cast-log-meta">${detailLines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>`
+        : "",
+      auras.length
+        ? `<ul class="cast-log-buffs">${auras.map((aura) => renderCastLogAuraItem(aura)).join("")}</ul>`
+        : "",
+    ].filter(Boolean);
     return [
       main,
       `<tr class="cast-log-detail" data-cast-log-detail="${index}"${isTick ? ' data-log-kind="tick"' : ""} hidden>
-        <td colspan="7">
-          <ul class="cast-log-buffs">${auras.map((aura) => renderCastLogAuraItem(aura)).join("")}</ul>
-        </td>
+        <td colspan="7">${detailParts.join("")}</td>
       </tr>`,
     ];
   });
@@ -281,9 +307,11 @@ function spellRows(
   result: SimResult,
   spells?: Record<string, SpellFit>,
   stats?: CharacterStats,
+  talentSelection?: TalentSelection,
 ): string[] {
-  const maxShare = result.breakdown.reduce((peak, row) => Math.max(peak, row.share), 0);
-  return result.breakdown.map((row) =>
+  const damagingBreakdown = result.breakdown.filter((row) => row.damage > 0);
+  const maxShare = damagingBreakdown.reduce((peak, row) => Math.max(peak, row.share), 0);
+  return damagingBreakdown.map((row) =>
     spellRow(
       row.name,
       {
@@ -296,7 +324,8 @@ function spellRows(
         critHit: combatPercent(row.crits, row.casts),
         miss: combatPercent(row.misses, row.casts),
       },
-      spells && stats ? spellFormulaHint(row.name, spells, stats) : null,
+      spells && stats ? spellFormulaHint(row.name, spells, stats, talentSelection) : null,
+      spells,
     ),
   );
 }
@@ -330,10 +359,14 @@ function spellRow(
     miss: string;
   },
   formulaHint: ReturnType<typeof spellFormulaHint>,
+  spells?: Record<string, SpellFit>,
 ): string {
+  const descriptionHint = formulaHint ? null : spellBreakdownDescription(name, spells);
   const nameCell = formulaHint
     ? `<span class="stats__hover spell-breakdown__name" data-hint-title="${escapeAttr(formulaHint.title)}" data-hint-body="${escapeAttr(formulaHint.formula)}" data-hint-eval="${escapeAttr(formulaHint.evaluatedHtml)}" data-hint-reminders="${escapeAttr(formulaHint.reminders.join("\n\n"))}" tabindex="0">${escapeHtml(name)}</span>`
-    : escapeHtml(name);
+    : descriptionHint
+      ? `<span class="stats__hover spell-breakdown__name" data-hint-title="${escapeAttr(descriptionHint.title)}" data-hint-body="${escapeAttr(descriptionHint.body)}" tabindex="0">${escapeHtml(name)}</span>`
+      : escapeHtml(name);
   return `<tr>
     <td>${nameCell}</td>
     <td>${row.dps.toFixed(0)}</td>
@@ -490,11 +523,17 @@ function renderAuraUptimes(auras: AuraUptime[]): string {
       const group = EXPANDABLE_AURA_GROUPS.find((entry) => entry.name === aura.name);
       if (!group) return renderAuraUptimeRow(aura.name, aura.uptime);
 
-      const stackRows: { label: string; uptime: number }[] = [];
+      const stackRows: { label: string; uptime: number; stackIndex: number }[] = [];
       for (let index = 0; index < group.stackCount; index++) {
         const key = stackUptimeKeys(group.name, group.stackCount)[index];
         const stackAura = byName.get(key);
-        if (stackAura) stackRows.push({ label: stackUptimeLabels(group.stackCount)[index], uptime: stackAura.uptime });
+        if (stackAura) {
+          stackRows.push({
+            label: stackUptimeLabels(group.stackCount)[index],
+            uptime: stackAura.uptime,
+            stackIndex: index,
+          });
+        }
       }
       if (!stackRows.length) return renderAuraUptimeRow(aura.name, aura.uptime);
       return renderExpandableUptimeGroup(aura.name, aura.uptime, stackRows);
@@ -505,30 +544,42 @@ function renderAuraUptimes(auras: AuraUptime[]): string {
 function renderExpandableUptimeGroup(
   name: string,
   uptime: number,
-  stacks: { label: string; uptime: number }[],
+  stacks: { label: string; uptime: number; stackIndex: number }[],
 ): string {
   return `<details class="uptime-group">
     <summary class="uptime-row uptime-row--expandable">
       <span class="uptime-row__lead">
         <span class="uptime-row__chevron" aria-hidden="true">▸</span>
-        <span class="uptime-row__label">${escapeHtml(name)}</span>
+        ${renderAuraUptimeLabel(name, false)}
       </span>
       ${renderAuraUptimeBar(uptime)}
     </summary>
     <div class="uptime-sublist">
-      ${stacks.map((row) => renderAuraUptimeRow(row.label, row.uptime, true)).join("")}
+      ${stacks.map((row) => renderAuraUptimeRow(row.label, row.uptime, true, name, row.stackIndex)).join("")}
     </div>
   </details>`;
 }
 
-function renderAuraUptimeRow(name: string, uptime: number, nested = false): string {
+function renderAuraUptimeRow(name: string, uptime: number, nested = false, parent?: string, stackIndex?: number): string {
   const className = nested ? "uptime-row uptime-row--sub" : "uptime-row";
-  return `<div class="${className}">${renderAuraUptimeCells(name, uptime, nested)}</div>`;
+  return `<div class="${className}">${renderAuraUptimeCells(name, uptime, nested, parent, stackIndex)}</div>`;
 }
 
-function renderAuraUptimeCells(name: string, uptime: number, nested = false): string {
+function renderAuraUptimeCells(
+  name: string,
+  uptime: number,
+  nested = false,
+  parent?: string,
+  stackIndex?: number,
+): string {
+  return `${renderAuraUptimeLabel(name, nested, parent, stackIndex)}${renderAuraUptimeBar(uptime)}`;
+}
+
+function renderAuraUptimeLabel(name: string, nested: boolean, parent?: string, stackIndex?: number): string {
   const labelClass = nested ? "uptime-row__label uptime-row__label--sub" : "uptime-row__label";
-  return `<span class="${labelClass}">${escapeHtml(name)}</span>${renderAuraUptimeBar(uptime)}`;
+  const hint = auraUptimeHint(name, parent != null && stackIndex != null ? { parent, stackIndex } : undefined);
+  if (!hint) return `<span class="${labelClass}">${escapeHtml(name)}</span>`;
+  return `<span class="${labelClass} stats__hover hint-anchor" data-hint-title="${escapeAttr(name)}" data-hint-body="${escapeAttr(hint)}" tabindex="0">${escapeHtml(name)}</span>`;
 }
 
 function renderAuraUptimeBar(uptime: number): string {

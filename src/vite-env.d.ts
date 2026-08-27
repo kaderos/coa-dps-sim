@@ -8,3 +8,8 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+declare const __SIM_BUILD__: {
+  version: string;
+  commit: string | null;
+};
