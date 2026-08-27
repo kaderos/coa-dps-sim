@@ -119,14 +119,16 @@ function runIterationBatch(
       tailwind: config.tailwind,
       tempestsCall: config.tempestsCall,
       vulnerable: config.vulnerable,
+      sunsHopePotency: config.sunsHopePotency,
       targetHealthDecays: config.targetHealthDecays,
       demonfirePact: config.demonfirePact,
       arcaneArtillery: config.arcaneArtillery,
       primalistHitDebuff: config.primalistHitDebuff,
+      pvePowerPct: config.pvePower,
       procTrinkets: config.procTrinkets,
       onUseTrinkets: config.onUseTrinkets,
     });
-    applyProcContributions(once, fightSec, config.procContributions);
+    applyProcContributions(once, fightSec, config.procContributions, config.pvePower ?? 0);
     if (i === 0) {
       partial.castEvents = once.castEvents;
       partial.castLogFightSec = fightSec;
@@ -239,10 +241,12 @@ function applyProcContributions(
   once: ReturnType<typeof runOnce>,
   fightSec: number,
   procs: SimConfig["procContributions"],
+  pvePowerPct = 0,
 ) {
   for (const proc of procs ?? []) {
     if (proc.dps <= 0) continue;
-    const damage = proc.dps * fightSec;
+    let damage = proc.dps * fightSec;
+    if (pvePowerPct > 0) damage *= 1 + pvePowerPct / 100;
     once.damage += damage;
     const rec = once.bySpell.get(proc.name) ?? {
       casts: 0,

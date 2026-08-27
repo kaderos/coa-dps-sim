@@ -88,7 +88,7 @@ const OFFICIAL_FORMULAS = {
     min: 220,
     max: 221,
     perLevel: 0,
-    coeff: 0.3,
+    coeff: 0.67,
     energy: 0,
     castTime: 0,
     gcd: 1,

@@ -10,6 +10,13 @@ import { scaleIntuitionStats, scalePactStats } from "./talents/felsworn";
 import type { TalentSelection } from "./talents/types";
 import { bindHintTooltips } from "./hint-tooltip";
 
+export const PVE_POWER_MAX = 24;
+
+export function clampPvePower(value: number): number {
+  if (!Number.isFinite(value)) return PVE_POWER_MAX;
+  return Math.max(0, Math.min(PVE_POWER_MAX, Math.round(value)));
+}
+
 type BooleanBuffKey = {
   [K in keyof BuffsConfig]: BuffsConfig[K] extends boolean ? K : never;
 }[keyof BuffsConfig];
@@ -129,7 +136,7 @@ const PARTY_BUFFS: ToggleDef[] = [
     label: "Neptulon's Wrath — Froststorm on direct damage",
     hintTitle: "Neptulon's Wrath",
     hintBody:
-      "15s raid aura, 1 min cooldown. Each direct damage hit during the window also deals Froststorm damage equal to 35% attack power plus 35% spell power (includes Hidden Power).\n\nCrits use your sheet spell crit chance at ~2.45× (log-derived for spell 537252).",
+      "15s raid aura, 1 min cooldown. Each direct damage hit during the window also deals Froststorm damage equal to 35% attack power plus 150% spell power (includes Hidden Power).\n\nCrits use your sheet spell crit chance at ~2.45× (log-derived for spell 537252).",
     defaultOn: false,
     stats: {},
   },
@@ -156,11 +163,25 @@ const PARTY_BUFFS: ToggleDef[] = [
     label: "Vulnerable — +10% spell damage taken",
     hintTitle: "Vulnerable",
     hintBody:
-      "Venomancer debuff (Spell 572056). Increases spell damage taken by 10% for 15 seconds.\n\nModeled at ~95% uptime in combat.",
+      "Venomancer debuff (Spell 572056). Increases spell damage taken by 10%.\n\nModeled at 100% uptime when enabled.",
+    defaultOn: false,
+    stats: {},
+  },
+  {
+    key: "sunsHopePotency",
+    label: "Sun's Hope/Potency — +3% critical strike chance",
+    hintTitle: "Sun's Hope/Potency",
+    hintBody:
+      "Target debuff. Your spells gain +3% critical strike chance against the target while this is active.\n\nModeled at 100% uptime when enabled.",
     defaultOn: false,
     stats: {},
   },
 ];
+
+export function partyBuffHintBody(key: (typeof PARTY_BUFFS)[number]["key"]): string | undefined {
+  const def = PARTY_BUFFS.find((entry) => entry.key === key);
+  return def?.hintBody ?? def?.note;
+}
 
 const HIT_BUFFS: ToggleDef[] = [
   {
@@ -275,6 +296,7 @@ export const DEFAULT_BUFFS: BuffsConfig = {
   weaponOil: "none",
   offhandWeaponOil: "none",
   potion: "none",
+  pvePower: PVE_POWER_MAX,
 };
 
 export function setupBuffs(onChange: () => void, saved?: Partial<BuffsConfig>): BuffsConfig {
@@ -297,6 +319,13 @@ export function setupBuffs(onChange: () => void, saved?: Partial<BuffsConfig>): 
       (config as unknown as Record<string, string>)[key] = select.value;
       onChange();
     });
+  });
+  const pvePowerInput = root.querySelector<HTMLInputElement>("input[type=range][data-buff=pvePower]");
+  const pvePowerValue = root.querySelector<HTMLOutputElement>("#pve-power-value");
+  pvePowerInput?.addEventListener("input", () => {
+    config.pvePower = clampPvePower(Number(pvePowerInput.value));
+    if (pvePowerValue) pvePowerValue.textContent = String(config.pvePower);
+    onChange();
   });
   bindHintTooltips(root);
   return config;
@@ -385,6 +414,7 @@ function mergeBuffs(base: BuffsConfig, saved?: Partial<BuffsConfig>): BuffsConfi
   if (hasOption(WEAPON_OILS, saved.offhandWeaponOil)) config.offhandWeaponOil = saved.offhandWeaponOil;
   if (hasOption(POTIONS, saved.potion)) config.potion = saved.potion;
   else config.potion = migratePotion(saved);
+  if (typeof saved.pvePower === "number") config.pvePower = clampPvePower(saved.pvePower);
   return config;
 }
 
@@ -421,7 +451,8 @@ function optionStats<T extends string>(options: Array<SelectOption<T>>, value: T
 function renderControls(config: BuffsConfig): string {
   return [
     fieldset("Raid buffs", "buff-raid", RAID_BUFFS.map((def) => checkbox(def, config)).join("")),
-    fieldset("Other Buffs", "buff-party", PARTY_BUFFS.map((def) => checkbox(def, config)).join("")),
+    fieldset("Other Buffs & De-Buffs", "buff-party", PARTY_BUFFS.map((def) => checkbox(def, config)).join("")),
+    fieldset("Global", "buff-debuffs", pvePowerSlider(config)),
     fieldset(
       "Spell hit",
       "buff-hit",
@@ -445,6 +476,14 @@ function renderControls(config: BuffsConfig): string {
 
 function fieldset(legend: string, className: string, body: string): string {
   return `<fieldset class="${className}"><legend>${escapeHtml(legend)}</legend>${body}</fieldset>`;
+}
+
+function pvePowerSlider(config: BuffsConfig): string {
+  const value = clampPvePower(config.pvePower);
+  return `<label class="range-field hint-anchor" data-hint-title="PVE Power" data-hint-body="Percent bonus damage applied to all damaging abilities in the sim (0–${PVE_POWER_MAX}%). Does not appear in cast-log expand rows or aura uptime." tabindex="0">
+    <span class="range-field__label">PVE Power — <output id="pve-power-value">${value}</output>%</span>
+    <input type="range" data-buff="pvePower" min="0" max="${PVE_POWER_MAX}" step="1" value="${value}" />
+  </label>`;
 }
 
 function checkbox(def: ToggleDef, config: BuffsConfig): string {

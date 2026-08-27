@@ -767,6 +767,15 @@ legend { padding: 0 6px; font-weight: 700; }
 .consume-field.is-disabled { opacity: 0.55; }
 .consume-field.is-disabled select { cursor: not-allowed; }
 .consume-grid .consume-field:last-child { grid-column: 1 / -1; }
+.range-field {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  background: var(--panel-raised);
+}
+.range-field__label { color: var(--text); font-size: 0.92rem; }
+.range-field input[type="range"] { width: 100%; }
 .weights-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -1030,7 +1039,7 @@ legend { padding: 0 6px; font-weight: 700; }
 .delta-neg { color: #f87171; }
 tr.unmodeled td { color: var(--muted); }
 .cast-log {
-  max-height: 420px;
+  max-height: 570px;
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 7px;
@@ -1046,7 +1055,18 @@ tr.unmodeled td { color: var(--muted); }
 .cast-result--crit { color: #fbbf24; }
 .cast-result--miss { color: #f87171; }
 .cast-result--applied { color: #a78bfa; }
+.cast-result--refresh { color: #67e8f9; }
+.cast-result--removed { color: #fb923c; }
+.cast-result--consume { color: #fcd34d; }
 .cast-result--tick { color: #94a3b8; font-style: italic; }
+.cast-log-row--aura td:nth-child(2) { color: #fcd34d; }
+.cast-log-meta {
+  margin: 0 0 0.5rem;
+  padding-left: 1.1rem;
+  color: #cbd5e1;
+  font-size: 0.92rem;
+}
+.cast-log-meta li::marker { content: "· "; }
 .cast-log-row--tick td { color: #cbd5e1; }
 .cast-log-expand-col { width: 28px; padding: 0; }
 .cast-log-row--expandable { cursor: pointer; }
@@ -1077,6 +1097,17 @@ tr.unmodeled td { color: var(--muted); }
   text-underline-offset: 2px;
 }
 .cast-log-buffs .hint-anchor:hover { color: var(--text); }
+
+.uptime-list .hint-anchor {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+.uptime-list .hint-anchor:hover,
+.uptime-list .hint-anchor:focus-visible {
+  color: var(--text);
+}
 .uptime-list { display: grid; gap: 9px; }
 .uptime-list > .uptime-row,
 .uptime-group > summary.uptime-row {

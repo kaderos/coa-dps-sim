@@ -1,4 +1,4 @@
-import type { BuffsConfig, CharacterStats, Enchant, EnchantSet, GearSet, Item, SetCatalog, Slot, SpellFit } from "./types";
+import type { BuffsConfig, CharacterStats, Enchant, EnchantSet, GearSet, Item, SetCatalog, SimConfig, Slot, SpellFit } from "./types";
 import { absorbItemSetBonuses, equippedSets, loadSetCatalog, setBonusCombat, setProgressForItem } from "./sets";
 import { PAPER_DOLL_LEFT, PAPER_DOLL_RIGHT, PAPER_DOLL_WEAPONS, SLOTS } from "./types";
 import {
@@ -29,6 +29,7 @@ import {
   syncOffhandOilField,
 } from "./buffs";
 import { renderGearSimCard, renderResults, renderResultsEmpty, toSnapshot, type SimSnapshot } from "./results";
+import { buildSimExportDocument } from "./sim-export";
 import {
   defaultStatWeights,
   formatEp,
@@ -1257,44 +1258,67 @@ async function runSimulation() {
     buffsConfig,
   );
   const displayStats = applyTakenTalents(stats, talentSelection, buffsConfig);
+  const pullFelfury = readPullFelfury();
+  const simConfig: SimConfig = {
+    durationSec: duration,
+    iterations,
+    seed: 1,
+    fightStyle: "stationary",
+    playerLevel: PLAYER_LEVEL,
+    bossLevel: BOSS_LEVEL,
+    allowCleave: false,
+    movement: false,
+    potionSpellPower: buffsConfig.potion === "none" ? 0 : 75,
+    potionDuration: 20,
+    potionMode: buffsConfig.potion === "none" ? "none" : buffsConfig.potion,
+    setDamageAbove75: setBonusCombat(gear).damageAbove75,
+    talentSelection,
+    procContributions: procContributionsFromBuffs(buffsConfig),
+    neptulonsWrath: buffsConfig.neptulonsWrath,
+    tailwind: buffsConfig.tailwind,
+    tempestsCall: buffsConfig.tempestsCall,
+    vulnerable: buffsConfig.vulnerable,
+    sunsHopePotency: buffsConfig.sunsHopePotency,
+    targetHealthDecays: buffsConfig.targetHealthDecays,
+    demonfirePact: buffsConfig.demonfirePact,
+    arcaneArtillery: arcaneArtilleryEquipped(gear, enchants),
+    primalistHitDebuff: buffsConfig.primalistHitDebuff,
+    pvePower: buffsConfig.pvePower,
+    onUseTrinkets: equippedOnUseTrinkets(gear, (id) => itemsById.get(id)),
+    procTrinkets: equippedProcTrinkets(gear, (id) => itemsById.get(id)),
+  };
 
   setSimRunning(true, 0, iterations);
   try {
     const result = await runSimAsync(
       spells.spells,
       stats,
-      {
-        durationSec: duration,
-        iterations,
-        seed: 1,
-        fightStyle: "stationary",
-        playerLevel: PLAYER_LEVEL,
-        bossLevel: BOSS_LEVEL,
-        allowCleave: false,
-        movement: false,
-        potionSpellPower: buffsConfig.potion === "none" ? 0 : 75,
-        potionDuration: 20,
-        potionMode: buffsConfig.potion === "none" ? "none" : buffsConfig.potion,
-        setDamageAbove75: setBonusCombat(gear).damageAbove75,
-        talentSelection,
-        procContributions: procContributionsFromBuffs(buffsConfig),
-        neptulonsWrath: buffsConfig.neptulonsWrath,
-        tailwind: buffsConfig.tailwind,
-        tempestsCall: buffsConfig.tempestsCall,
-        vulnerable: buffsConfig.vulnerable,
-        targetHealthDecays: buffsConfig.targetHealthDecays,
-        demonfirePact: buffsConfig.demonfirePact,
-        arcaneArtillery: arcaneArtilleryEquipped(gear, enchants),
-        primalistHitDebuff: buffsConfig.primalistHitDebuff,
-        onUseTrinkets: equippedOnUseTrinkets(gear, (id) => itemsById.get(id)),
-        procTrinkets: equippedProcTrinkets(gear, (id) => itemsById.get(id)),
-      },
+      simConfig,
       null,
       null,
       (completed, total) => setSimProgress(completed, total),
     );
     lastSim = toSnapshot(result);
-    renderResults(result, { spells: spells.spells, stats: displayStats });
+    const exportDocument = talentTrees
+      ? buildSimExportDocument({
+          result,
+          simConfig,
+          combatStats: stats,
+          displayStats,
+          gear,
+          enchants,
+          buffs: buffsConfig,
+          talentSelection,
+          talentTrees,
+          pullFelfury,
+        })
+      : undefined;
+    renderResults(result, {
+      spells: spells.spells,
+      stats: displayStats,
+      talentSelection,
+      exportDocument,
+    });
     refreshGearSim();
   } finally {
     setSimRunning(false);
