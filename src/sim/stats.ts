@@ -88,18 +88,18 @@ export function addStats(a: ItemStats, b: ItemStats): ItemStats {
   return {
     strength: (a.strength || 0) + (b.strength || 0),
     agility: (a.agility || 0) + (b.agility || 0),
-    intellect: a.intellect + b.intellect,
-    spirit: a.spirit + b.spirit,
-    stamina: a.stamina + b.stamina,
-    spellPower: a.spellPower + b.spellPower,
-    firePower: a.firePower + b.firePower,
-    shadowPower: a.shadowPower + b.shadowPower,
+    intellect: (a.intellect || 0) + (b.intellect || 0),
+    spirit: (a.spirit || 0) + (b.spirit || 0),
+    stamina: (a.stamina || 0) + (b.stamina || 0),
+    spellPower: (a.spellPower || 0) + (b.spellPower || 0),
+    firePower: (a.firePower || 0) + (b.firePower || 0),
+    shadowPower: (a.shadowPower || 0) + (b.shadowPower || 0),
     attackPower: (a.attackPower || 0) + (b.attackPower || 0),
-    spellCrit: a.spellCrit + b.spellCrit,
-    spellHit: a.spellHit + b.spellHit,
-    spellHaste: a.spellHaste + b.spellHaste,
+    spellCrit: (a.spellCrit || 0) + (b.spellCrit || 0),
+    spellHit: (a.spellHit || 0) + (b.spellHit || 0),
+    spellHaste: (a.spellHaste || 0) + (b.spellHaste || 0),
     spellPenetration: (a.spellPenetration || 0) + (b.spellPenetration || 0),
-    mp5: a.mp5 + b.mp5,
+    mp5: (a.mp5 || 0) + (b.mp5 || 0),
   };
 }
 
